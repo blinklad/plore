@@ -23,10 +23,12 @@ constant v3 RED_V3 =   { 1, 0, 0 };
 constant v3 GREEN_V3 = { 0, 1, 0 };
 constant v3 BLUE_V3 =  { 0, 0, 1 };
 
-constant v4 RED_V4   = { 1, 0, 0, 1};
-constant v4 GREEN_V4 = { 0, 1, 0, 1};
-constant v4 BLUE_V4  = { 0, 0, 1, 1};
-constant v4 WHITE_V4 = { 1, 1, 1, 1};
+constant v4 RED_V4      = { 1, 0, 0, 1};
+constant v4 GREEN_V4    = { 0, 1, 0, 1};
+constant v4 BLUE_V4     = { 0, 0, 1, 1};
+constant v4 YELLOW_V4   = { 1, 1, 0, 1};
+constant v4 MAGENTA_V4  = { 1, 0, 1, 1};
+constant v4 WHITE_V4    = { 1, 1, 1, 1};
 
 #define Sin(x) sinf(x)
 #define Cos(x) cosf(x)

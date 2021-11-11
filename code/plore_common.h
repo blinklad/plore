@@ -112,8 +112,9 @@ MemoryCopy(void *Source, void *Destination, u64 Size) {
 	u8 *S = (u8 *)Source;
 	u8 *D = (u8 *)Destination;
 	
-	while(Size-- > 0) {
-		*S++ = *D++;
+	u64 Count = 0;
+	while(Count++ < Size) {
+		*D++ = *S++;
 	}
 }
 

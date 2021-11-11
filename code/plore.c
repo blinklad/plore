@@ -1,8 +1,7 @@
 #include "plore.h"
-global platform_api *Platform;
-
 #include "plore_memory.c"
 
+global platform_api *Platform;
 global platform_debug_print_line *PrintLine;
 global platform_debug_print *Print;
 
@@ -12,7 +11,7 @@ typedef struct plore_state {
 } plore_state;
 
 internal void 
-PloreSetFunctionPointers(platform_api *PlatformAPI) {
+SetupPlatformCode(platform_api *PlatformAPI) {
 	Platform = PlatformAPI;
 	PrintLine = PlatformAPI->DebugPrintLine;
 	Print = PlatformAPI->DebugPrint;
@@ -26,11 +25,11 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		State->Initialized = true;
 		
 		State->FileContext = PushStruct(&PloreMemory->PermanentStorage, plore_file_context);
-		PloreSetFunctionPointers(PlatformAPI);
+		SetupPlatformCode(PlatformAPI);
 	}
 	
 	if (PloreInput->DLLWasReloaded) {
-		PloreSetFunctionPointers(PlatformAPI);
+		SetupPlatformCode(PlatformAPI);
 	}
 	plore_file_context *FileContext = State->FileContext;
 	
@@ -57,7 +56,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	}
 	Platform->DebugPrintLine("");
 	
-	plore_file *CursorEntry = FileContext->CurrentDirectory.Entries + FileContext->Cursor;
+	plore_file *CursorEntry = FileContext->CurrentDirectory.Entries + FileContext->CurrentDirectory.Cursor;
 		
 	if (CursorEntry->Type == PloreFileNode_Directory) {
 		char *CursorDirectoryName = CursorEntry->AbsolutePath;
@@ -89,12 +88,31 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	}
 	Platform->DebugPrintLine("");
 	
-	RenderList.Quads[RenderList.QuadCount++] = (render_quad) {
-		.Span   = V2(400, 400),
-		.P      = V2(100, 100),
-		.Colour = V4(1, 1, 0, 1),
-		.Z = 0.00f,
+	u64 Cols = 5;
+	const v4 Colours[] = {
+		RED_V4,
+		GREEN_V4,
+		BLUE_V4,
+		YELLOW_V4,
+		MAGENTA_V4,
 	};
+	
+	f32 PadX = 10.0f;
+	f32 PadY = 10.0f;
+	f32 W = PlatformAPI->WindowWidth  / (f32) Cols;
+	f32 H = PlatformAPI->WindowHeight / 1.0f;
+	
+	f32 X = PadX;
+	f32 Y = PadY;
+	for (u64 Col = 0; Col < Cols; Col++) {
+		RenderList.Quads[RenderList.QuadCount++] = (render_quad) {
+			.Span   = V2(W-PadX, H - PadY),
+			.P      = V2(X, PadY),
+			.Colour = Colours[Col],
+		};
+		
+		X += W + PadX;
+	}
 	
 	return(RenderList);
 }

@@ -66,13 +66,13 @@ typedef struct plore_directory_listing {
 	char Name[PLORE_MAX_PATH];
 	plore_file Entries[256];
 	u64 Count;
+	u64 Cursor;
 } plore_directory_listing;
 
 typedef struct plore_file_context {
 	plore_directory_listing ParentDirectory;
 	plore_directory_listing CurrentDirectory;
 	plore_directory_listing CursorDirectory;
-	u64 Cursor;
 } plore_file_context;
 
 typedef struct plore_render_list {

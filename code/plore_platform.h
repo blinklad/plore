@@ -21,16 +21,18 @@ typedef struct platform_readable_file {
 } platform_readable_file;
 
 
-#define PLATFORM_DEBUG_OPEN_FILE(name) platform_readable_file name(plore_file *File)
+#define PLATFORM_DEBUG_OPEN_FILE(name) platform_readable_file name(char *Path)
 typedef PLATFORM_DEBUG_OPEN_FILE(platform_debug_open_file);
 
+#define PLATFORM_DEBUG_CLOSE_FILE(name) void name(platform_readable_file File)
+typedef PLATFORM_DEBUG_CLOSE_FILE(platform_debug_close_file);
 
 typedef struct platform_read_file_result {
     void *Buffer;
     uint64 BytesRead;
     bool32 ReadSuccessfully;
 } platform_read_file_result;
-#define PLATFORM_DEBUG_READ_ENTIRE_FILE(name) platform_read_file_result name(platform_readable_file *File, void *Buffer, uint64 BufferSize)
+#define PLATFORM_DEBUG_READ_ENTIRE_FILE(name) platform_read_file_result name(platform_readable_file File, void *Buffer, uint64 BufferSize)
 typedef PLATFORM_DEBUG_READ_ENTIRE_FILE(platform_debug_read_entire_file);
 
 #define PLATFORM_DEBUG_PRINT_LINE(name) void name(const char *Format, ...)
@@ -41,7 +43,7 @@ typedef PLATFORM_DEBUG_PRINT(platform_debug_print);
 
 
 typedef struct platform_texture_handle {
-	u32 Handle;
+	u64 Opaque;
 	f32 Width;
 	f32 Height;
 } platform_texture_handle;

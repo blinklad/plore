@@ -1,8 +1,108 @@
 #include "plore_gl.h"
 
+typedef struct plore_font {
+	stbtt_bakedchar Data[96]; // ASCII 32..126 is 95 glyphs
+	platform_texture_handle Handle;
+} plore_font;
+
+global plore_font GLFont;
+global u64 GLWindowWidth;
+global u64 GLWindowHeight;
+
+internal void 
+WriteText(float X, float Y, char *Text, v4 Colour)
+{
+	Assert(GLFont.Handle.Opaque);
+	Y = GLWindowHeight - Y;
+	
+	// assume orthographic projection with units = screen pixels, origin at top left
+	glMatrixMode(GL_PROJECTION);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glEnable(GL_TEXTURE_2D);
+	glBindTexture(GL_TEXTURE_2D, GLFont.Handle.Opaque);
+	glBegin(GL_QUADS);
+	
+	f32 StartX = X;
+	f32 StartY = Y;
+	char *StartText = Text; 
+	
+	glColor3f(0, 0, 0);
+	{
+		while (*Text) {
+			if (*Text >= 32 && *Text < 128) {
+				stbtt_aligned_quad Q;
+				stbtt_GetBakedQuad(GLFont.Data, GLFont.Handle.Width, GLFont.Handle.Height, *Text-32, &X, &Y, &Q, 1);//1=opengl & d3d10+,0=d3d9
+				glTexCoord2f(Q.s0, Q.t0); glVertex2f(Q.x0, Q.y0);
+				glTexCoord2f(Q.s1, Q.t0); glVertex2f(Q.x1, Q.y0);
+				glTexCoord2f(Q.s1, Q.t1); glVertex2f(Q.x1, Q.y1);
+				glTexCoord2f(Q.s0, Q.t1); glVertex2f(Q.x0, Q.y1);
+			}
+			++Text;
+		}
+	}
+	Text = StartText;
+	X = StartX + 1.5f;
+	Y = StartY - 1.5f;
+	
+	glColor3f(1, 1, 1);
+	{
+		while (*Text) {
+			if (*Text >= 32 && *Text < 128) {
+				stbtt_aligned_quad Q;
+				stbtt_GetBakedQuad(GLFont.Data, GLFont.Handle.Width, GLFont.Handle.Height, *Text-32, &X, &Y, &Q, 1);//1=opengl & d3d10+,0=d3d9
+				glTexCoord2f(Q.s0, Q.t0); glVertex2f(Q.x0, Q.y0);
+				glTexCoord2f(Q.s1, Q.t0); glVertex2f(Q.x1, Q.y0);
+				glTexCoord2f(Q.s1, Q.t1); glVertex2f(Q.x1, Q.y1);
+				glTexCoord2f(Q.s0, Q.t1); glVertex2f(Q.x0, Q.y1);
+			}
+			++Text;
+		}
+	}
+	glEnd();
+}
+
+internal void
+ImmediateBegin(u64 WindowWidth, u64 WindowHeight, plore_font Font) {
+	GLFont = Font;
+	GLWindowWidth = WindowWidth;
+	GLWindowHeight = WindowHeight;
+	
+	
+	// NOTE(Evan): Reset the rendering state every frame.
+	//             We shouldn't rely on OpenGL's cached state!
+	{ 
+		glMatrixMode(GL_MODELVIEW);
+		glLoadIdentity();
+		
+		glMatrixMode(GL_PROJECTION);
+		glLoadIdentity();
+		
+		glBindTexture(GL_TEXTURE_2D, 0);
+		
+		glDisable(GL_DEPTH_TEST);
+		glClear(GL_DEPTH_BUFFER_BIT);
+		glDepthFunc(GL_LESS);
+		
+		glEnable(GL_ALPHA_TEST);
+//		glAlphaFunc(GL_NOTEQUAL, 0);
+		
+		glClearColor(0.2f, 0.2f, 0.2f, 1);
+		glClear(GL_COLOR_BUFFER_BIT);
+		
+		glViewport(0, 0, GLWindowWidth, GLWindowHeight);
+		glOrtho(0,
+				GLWindowWidth,
+				GLWindowHeight,
+				0,
+				0.00f,
+				-10.0f);
+	}
+}
+
 internal void
 DrawSquare(render_quad Quad) {
-	v4 Colour = V4(1, 0, 0, 1);//Quad.Colour;
+	v4 Colour = Quad.Colour;
 	
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
@@ -13,10 +113,10 @@ DrawSquare(render_quad Quad) {
 	f32 Y = Quad.P.Y;
 	f32 Z = Quad.Z;
 	
-    f32 LeftX   = X - W/2.0f;
-    f32 RightX  = X + W/2.0f;
-    f32 BottomY = Y - H/2.0f;
-    f32 TopY    = Y + H/2.0f;
+    f32 LeftX   = X;
+    f32 RightX  = X + W;
+    f32 BottomY = Y;
+    f32 TopY    = Y + H;
 	
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);

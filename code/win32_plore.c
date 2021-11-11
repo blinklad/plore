@@ -3,6 +3,9 @@
 #include "plore_memory.h"
 #include "plore_platform.h"
 
+#define STB_TRUETYPE_IMPLEMENTATION  // force following include to generate implementation
+#include "stb_truetype.h"
+
 #include "win32_plore.h"
 #include "win32_gl_loader.c"
 #include "plore_gl.c"
@@ -33,7 +36,7 @@ WindowsDebugPrintLine(const char *Format, ...) {
     va_end(Args);
 }
 
-OPENGL_DEBUG_CALLBACK(WindowsOpenGLDebugMessageCallback)
+OPENGL_DEBUG_CALLBACK(WindowsGLDebugMessageCallback)
 {
     if (severity == GL_DEBUG_SEVERITY_HIGH || severity == GL_DEBUG_SEVERITY_MEDIUM)
     {
@@ -43,9 +46,8 @@ OPENGL_DEBUG_CALLBACK(WindowsOpenGLDebugMessageCallback)
 }
 
 
-
 PLATFORM_DEBUG_OPEN_FILE(WindowsDebugOpenFile) {
-    HANDLE TheFile = CreateFileA(File->AbsolutePath, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    HANDLE TheFile = CreateFileA(Path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     DWORD FileSize = GetFileSize(TheFile, NULL);
 
     platform_readable_file Result = {
@@ -58,23 +60,44 @@ PLATFORM_DEBUG_OPEN_FILE(WindowsDebugOpenFile) {
 
 }
 
+PLATFORM_DEBUG_CLOSE_FILE(WindowsDebugCloseFile) {
+	CloseHandle((HANDLE) File.Opaque);
+}
+
 // NOTE(Evan): This does not work for files > 4gb!
 PLATFORM_DEBUG_READ_ENTIRE_FILE(WindowsDebugReadEntireFile) {
     platform_read_file_result Result = {0};
     
-    HANDLE FileHandle = File->Opaque;
+    HANDLE FileHandle = File.Opaque;
     DWORD BytesRead;
-    Assert(File->FileSize <= BufferSize);
+    Assert(File.FileSize <= BufferSize);
     Assert(BufferSize < UINT32_MAX);
     
     DWORD BufferSize32 = (DWORD) BufferSize;
 
     Result.ReadSuccessfully = ReadFile(FileHandle, Buffer, BufferSize32, &BytesRead, NULL);
-    Assert(BytesRead == File->FileSize);
+    Assert(BytesRead == File.FileSize);
     Result.BytesRead = BytesRead;
     Result.Buffer = Buffer;
     
     return(Result);
+}
+
+PLATFORM_CREATE_TEXTURE_HANDLE(WindowsGLCreateTextureHandle) {
+	platform_texture_handle Result = {
+		.Width = Width,
+		.Height = Height,
+	};
+	
+	GLuint Handle;
+	glGenTextures(1, &Handle);
+	Result.Opaque = Handle;
+	glBindTexture(GL_TEXTURE_2D, Result.Opaque);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, Result.Width, Result.Height, 0, GL_ALPHA, GL_UNSIGNED_BYTE, Pixels);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	
+	// NOTE(Evan): Can free 'pixels' at this point.
+	return(Result);
 }
 
 // NOTE(Evan): Windows decrements a signed counter whenever FALSE is provided, so there will be some weirdness to this.
@@ -303,7 +326,7 @@ WindowsCreateAndShowOpenGLWindow(HINSTANCE Instance) {
 
         #if PLORE_INTERNAL
             // enable debug callback
-            glDebugMessageCallback(&WindowsOpenGLDebugMessageCallback, NULL);
+            glDebugMessageCallback(&WindowsGLDebugMessageCallback, NULL);
 			glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
 		#endif
     }
@@ -575,6 +598,29 @@ WindowsGetEntriesForDirectory(char *DirectoryName, plore_file *Buffer, u64 Size)
 	return(Result);
 }
 
+u8 FontBuffer[1<<21];
+u8 TempBitmap[512*512];
+
+internal plore_font 
+FontInit(void)
+{
+	plore_font Result = {0};
+	platform_readable_file FontFile = WindowsDebugOpenFile("data/fonts/Inconsolata-Light.ttf");
+	platform_read_file_result TheFont = WindowsDebugReadEntireFile(FontFile, FontBuffer, ArrayCount(FontBuffer));
+	Assert(TheFont.ReadSuccessfully);
+	
+	stbtt_BakeFontBitmap(FontBuffer, 0, 64.0, TempBitmap, 512, 512, 32, 96, Result.Data); // no guarantee this fits!
+	// can free ttf_buffer at this point
+	Result.Handle = WindowsGLCreateTextureHandle(TempBitmap, 512, 512);
+	
+	
+	WindowsDebugCloseFile(FontFile);
+	
+	return(Result);
+}
+
+plore_font GlobalFontHandle;
+
 internal void
 WindowsUnloadPloreCode(plore_code PloreCode) {
 	if (PloreCode.DLL) {
@@ -640,6 +686,8 @@ int WinMain (
 	windows_timer PreviousTimer = WindowsGetTime();
 	f64 TimePreviousInSeconds = 0;
 	
+	plore_font MyFont = FontInit();
+	
     while (!ReceivedQuitMessage) {
         /* Grab any new keyboard / mouse / window events from message queue. */
         MSG WindowMessage = {0};
@@ -685,39 +733,13 @@ int WinMain (
 			f64 FileCopyTimeInSeconds = ((f64) ((f64)FileCopyEndTimer.TicksNow - (f64)FileCopyBeginTimer.TicksNow) / (f64)FileCopyBeginTimer.Frequency);
 			WindowsDebugPrintLine("File timing :: %f seconds", FileCopyTimeInSeconds);
 			
-			// NOTE(Evan): Reset the rendering state every frame.
-			//             We shouldn't rely on OpenGL's cached state!
-			{ 
-				glMatrixMode(GL_MODELVIEW);
-				glLoadIdentity();
-				
-				glMatrixMode(GL_PROJECTION);
-				glLoadIdentity();
-				
-				glBindTexture(GL_TEXTURE_2D, 0);
-				
-				glEnable(GL_DEPTH_TEST);
-				glClear(GL_DEPTH_BUFFER_BIT);
-				glDepthFunc(GL_LESS);
-				
-				glEnable(GL_ALPHA_TEST);
-				glAlphaFunc(GL_NOTEQUAL, 0);
-			}
-			glViewport(0, 0, WindowsContext.Width, WindowsContext.Height);
-			
-			glClearColor(0.2f, 0.2f, 0.2f, 1);
-			glClear(GL_COLOR_BUFFER_BIT);
-			glOrtho(0,
-					WindowsPlatformAPI.WindowWidth,
-					0,
-					WindowsPlatformAPI.WindowHeight,
-					0.00f,
-					-10.0f);
-			
+			ImmediateBegin(WindowsContext.Width, WindowsContext.Height, MyFont);
 			for (u64 I = 0; I < RenderList.QuadCount; I++) {
 				DrawSquare(RenderList.Quads[I]);
 			}
 			
+			f32 CursorY = WindowsContext.Height - GlobalPloreInput.ThisFrame.MouseY;
+			WriteText(GlobalPloreInput.ThisFrame.MouseX, CursorY, "Hello.", RED_V4);
 			SwapBuffers(WindowsContext.DeviceContext);
 		}
 		
