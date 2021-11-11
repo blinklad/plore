@@ -22,8 +22,8 @@ typedef struct plore_vimgui_context {
 	
 	vimgui_window Windows[8];
 	u64 WindowCount;
-	vimgui_window *ActiveWindow;
-	vimgui_window *HotWindow;
+	u64 ActiveWindow;
+	u64 HotWindow;
 } plore_vimgui_context;
 
 typedef struct plore_state plore_state;
@@ -41,4 +41,18 @@ internal void
 PushRenderQuad(plore_render_list *RenderList, rectangle Rect, v4 Colour);
 
 
+typedef struct vimgui_window_search_result {
+	u64 ID;
+	vimgui_window *Window;
+} vimgui_window_search_result;
+
+internal vimgui_window_search_result
+GetRightMovementWindow(plore_vimgui_context *Context);
+	
+internal vimgui_window_search_result
+GetLeftMovementWindow(plore_vimgui_context *Context);
+	
+internal vimgui_window *
+GetActiveWindow(plore_vimgui_context *Context);
+	
 #endif //PLORE_VIMGUI_H

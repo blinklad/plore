@@ -40,11 +40,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	plore_file_context *FileContext = State->FileContext;
 	
 	keyboard_and_mouse Input = PloreInput->ThisFrame;
-	if (Input.LIsPressed) {
-	} else if (Input.HIsPressed) {
-	} else if (Input.JIsPressed) {
-	} else if (Input.KIsPressed) {
-	}
 	
 	Platform->GetCurrentDirectory(FileContext->CurrentDirectory.Name, ArrayCount(FileContext->CurrentDirectory.Name));
 	
