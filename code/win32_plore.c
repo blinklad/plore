@@ -364,14 +364,51 @@ WindowsCreateAndShowOpenGLWindow(HINSTANCE Instance) {
     return WindowsContext;
 }
 
+global WINDOWPLACEMENT GlobalWindowPlacement = { .length = sizeof(GlobalWindowPlacement) };
+internal void
+ToggleFullscreen(HWND Window)
+{
+	DWORD WindowStyle = GetWindowLong(Window, GWL_STYLE);
+	
+	if (WindowStyle & WS_OVERLAPPEDWINDOW) {
+		MONITORINFO MonitorInfo = { .cbSize = sizeof(MonitorInfo) };
+		
+		if(GetWindowPlacement(Window, &GlobalWindowPlacement)
+		   && GetMonitorInfo(MonitorFromWindow(Window, MONITOR_DEFAULTTOPRIMARY),
+							 &MonitorInfo)) {
+			SetWindowLong(Window, GWL_STYLE, WindowStyle & ~WS_OVERLAPPEDWINDOW);
+			SetWindowPos(Window,
+						 HWND_TOP,
+						 MonitorInfo.rcMonitor.left,
+						 MonitorInfo.rcMonitor.top,
+						 MonitorInfo.rcMonitor.right  - MonitorInfo.rcMonitor.left,
+						 MonitorInfo.rcMonitor.bottom - MonitorInfo.rcMonitor.top,
+						 SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+		}
+	} else {
+		SetWindowLong(Window, GWL_STYLE, WindowStyle | WS_OVERLAPPEDWINDOW);
+		SetWindowPlacement(Window, &GlobalWindowPlacement);
+		SetWindowPos(Window,
+					 NULL,
+					 0,
+					 0,
+					 0,
+					 0,
+					 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER
+					 | SWP_FRAMECHANGED);
+	}
+}
+
 
 LRESULT CALLBACK WindowsMessagePumpCallback(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 #define PROCESS_KEY(Name) ThisFrame->##Name##IsDown = IsDown; \
 						  ThisFrame->##Name##WasDown = LastFrame->##Name##IsDown; \
-						  ThisFrame->##Name##IsPressed = ThisFrame->##Name##IsDown && !ThisFrame->##Name##WasDown; \
-						  WindowsDebugPrint("" #Name " is %s!", ThisFrame->##Name##IsDown ? "down" : "not down"); \
-						  if (ThisFrame->##Name##IsPressed) WindowsDebugPrint("" #Name " is pressed!");
+						  ThisFrame->##Name##IsPressed = (ThisFrame->##Name##IsDown) && !(ThisFrame->##Name##WasDown); \
+						  WindowsDebugPrint("" #Name " is %s", ThisFrame->##Name##IsDown ? "down, " : "not down, "); \
+						  WindowsDebugPrint("" #Name " was %s", ThisFrame->##Name##WasDown ? "down, " : "not down, "); \
+						  if (ThisFrame->##Name##IsPressed) WindowsDebugPrint("" #Name " is pressed!"); \
+						  if (LastFrame->##Name##IsPressed) WindowsDebugPrint("" #Name " was pressed last frame, so it shouldn't be pressed now!");
 	
 	
 	keyboard_and_mouse *ThisFrame = &GlobalPloreInput.ThisFrame;
@@ -386,8 +423,9 @@ LRESULT CALLBACK WindowsMessagePumpCallback(HWND hwnd, UINT uMsg, WPARAM wParam,
             if (wParam == VK_ESCAPE) {
                 WindowsDebugPrintLine("Escape pressed");
                 PostQuitMessage(0);
-            }
-            else {
+            } else if (IsDown && (u32) wParam == VK_F1) {
+				ToggleFullscreen(hwnd);
+			} else {
                 switch (wParam) {
                     case 'A': {
                         PROCESS_KEY(A);
@@ -449,6 +487,23 @@ LRESULT CALLBACK WindowsMessagePumpCallback(HWND hwnd, UINT uMsg, WPARAM wParam,
             
         } break;
         
+		case WM_LBUTTONDOWN: 
+		case WM_LBUTTONUP: 
+		{
+			b32 IsDown = uMsg == WM_LBUTTONDOWN;
+			PROCESS_KEY(MouseLeft);
+            WindowsDebugPrintLine("");
+		} break;
+		
+		case WM_RBUTTONDOWN:
+		case WM_RBUTTONUP: 
+		{
+			b32 IsDown = uMsg == WM_RBUTTONDOWN;
+			PROCESS_KEY(MouseRight);
+            WindowsDebugPrintLine("");
+		} break;
+		
+		
         case WM_QUIT:
         case WM_CLOSE: 
         { 
@@ -458,19 +513,11 @@ LRESULT CALLBACK WindowsMessagePumpCallback(HWND hwnd, UINT uMsg, WPARAM wParam,
         
         // TODO(Evan): Mouse wheel!
         case WM_MOUSEMOVE: {
-			b32 IsDown = uMsg == WM_KEYDOWN;
-            ThisFrame->MouseX = GET_X_LPARAM(lParam);
-            ThisFrame->MouseY = GET_Y_LPARAM(lParam);
+            ThisFrame->MouseP = (v2) {
+				.X = GET_X_LPARAM(lParam),
+				.Y = GET_Y_LPARAM(lParam),
+			};
             
-            switch (uMsg) {
-                case MK_LBUTTON: {
-                    PROCESS_KEY(MouseLeft);
-                } break;
-
-                case MK_RBUTTON: {
-                    PROCESS_KEY(MouseRight);
-                } break;
-            }
         } break;
 
 		
@@ -739,7 +786,20 @@ int WinMain (
                 break;
             }
         }
-
+		
+		// Mouse input!
+		// TODO(Evan): A more systematic way of handling our window messages vs input?
+		{
+			POINT P;
+			GetCursorPos(&P);
+			ScreenToClient(GlobalWindowsContext->Window, &P);
+			GlobalPloreInput.ThisFrame.MouseP = (v2) {
+				.X = P.x,
+				.Y = P.y,
+			};
+			GlobalPloreInput.ThisFrame.MouseLeftIsDown    = GetKeyState(VK_LBUTTON) & (1 << 15);
+			GlobalPloreInput.ThisFrame.MouseLeftIsPressed = GlobalPloreInput.ThisFrame.MouseLeftIsDown && !(GlobalPloreInput.LastFrame.MouseLeftIsDown);
+		}		
         if (ReceivedQuitMessage) break;
 
 		windows_timer CurrentTimer = WindowsGetTime();
@@ -769,7 +829,8 @@ int WinMain (
 			
 			windows_timer FileCopyEndTimer = WindowsGetTime();
 			f64 FileCopyTimeInSeconds = ((f64) ((f64)FileCopyEndTimer.TicksNow - (f64)FileCopyBeginTimer.TicksNow) / (f64)FileCopyBeginTimer.Frequency);
-			WindowsDebugPrintLine("File timing :: %f seconds", FileCopyTimeInSeconds);
+			
+//			WindowsDebugPrintLine("File timing :: %f seconds", FileCopyTimeInSeconds);
 			
 			ImmediateBegin(WindowsContext.Width, WindowsContext.Height, MyFont);
 			for (u64 I = 0; I < RenderList.QuadCount; I++) {
@@ -784,6 +845,8 @@ int WinMain (
 			SwapBuffers(WindowsContext.DeviceContext);
 		}
 		
+		GlobalPloreInput.LastFrame = GlobalPloreInput.ThisFrame;
+		GlobalPloreInput.ThisFrame = (keyboard_and_mouse) {0};
 		fflush(stdout);
 		fflush(stderr);
     }
