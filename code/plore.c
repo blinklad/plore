@@ -88,27 +88,21 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	}
 	Platform->DebugPrintLine("");
 	
-	u64 Cols = 5;
-	const v4 Colours[] = {
-		RED_V4,
-		GREEN_V4,
-		BLUE_V4,
-		YELLOW_V4,
-		MAGENTA_V4,
-	};
+	u64 Cols = 3;
 	
+	f32 fCols = (f32) Cols;
 	f32 PadX = 10.0f;
 	f32 PadY = 10.0f;
-	f32 W = PlatformAPI->WindowWidth  / (f32) Cols;
-	f32 H = PlatformAPI->WindowHeight / 1.0f;
+	f32 W = (PlatformAPI->WindowWidth  - (fCols + 1) * PadX) / fCols;
+	f32 H = (PlatformAPI->WindowHeight - (1     + 1) * PadY) / 1;
 	
-	f32 X = PadX;
-	f32 Y = PadY;
+	f32 X = 0;
+	f32 Y = 0;
 	for (u64 Col = 0; Col < Cols; Col++) {
 		RenderList.Quads[RenderList.QuadCount++] = (render_quad) {
-			.Span   = V2(W-PadX, H - PadY),
-			.P      = V2(X, PadY),
-			.Colour = Colours[Col],
+			.Span   = V2(W, H),
+			.P      = V2(X + PadX, PadY),
+			.Colour = V4(0.3f, 0.3f, 0.3f, 1.0f),
 		};
 		
 		X += W + PadX;
