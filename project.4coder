@@ -1,0 +1,44 @@
+version(1);
+
+project_name = "plore";
+
+patterns = {
+"*.cpp",
+"*.c",
+"*.h",
+"*.bat",
+"*.sh",
+"*.4coder",
+};
+
+load_paths = {
+ { { {".", .relative = true, .recursive = true, } }, .os = "win" },
+ { { {".", .relative = true, .recursive = true, } }, .os = "linux" },
+};
+
+command_list = {
+ { .name = "build",
+   .out = "*compile*", .footer_panel = false, .save_dirty_files = true, .cursor_at_end = false,
+   .cmd = {
+          {"build.bat", .os = "win"},
+          {"build.sh", .os = "linux"},
+   },
+ },
+ { .name = "run",
+   .out = "*run*", .footer_panel = false, .save_dirty_files = false, .cursor_at_end = true,
+   .cmd = {
+          {".\build\win32_plore.exe", .os = "win"},
+          {"./build/linux_plore.out", .os = "linux"},
+   },
+ },
+ { .name = "debug",
+   .out = "*debug*", .footer_panel = false, .save_dirty_files = false, .cursor_at_end = true,
+   .cmd = {
+          {"c:/tools/remedybg.exe", .os = "win"},
+   },
+ },
+};
+
+fkey_command[5] = "build";
+fkey_command[6] = "run";
+fkey_command[7] = "debug";
