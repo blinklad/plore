@@ -1,6 +1,7 @@
 #include "plore.h"
 #include "plore_memory.c"
 #include "plore_string.h"
+#include "plore_vimgui.h"
 
 global platform_api *Platform;
 global platform_debug_print_line *PrintLine;
@@ -8,8 +9,12 @@ global platform_debug_print *Print;
 
 typedef struct plore_state {
 	b32 Initialized;
+	plore_memory *Memory;
 	plore_file_context *FileContext;
+	plore_vimgui_context *VimguiContext;
 } plore_state;
+
+#include "plore_vimgui.c"
 
 internal void 
 SetupPlatformCode(platform_api *PlatformAPI) {
@@ -19,13 +24,13 @@ SetupPlatformCode(platform_api *PlatformAPI) {
 }
 
 PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
-	plore_render_list RenderList = {0};
-	
 	plore_state *State = (plore_state *)PloreMemory->PermanentStorage.Memory;
 	if (!State->Initialized) {
 		State->Initialized = true;
-		
+		State->Memory = PloreMemory;
 		State->FileContext = PushStruct(&PloreMemory->PermanentStorage, plore_file_context);
+		
+		State->VimguiContext = PushStruct(&PloreMemory->PermanentStorage, plore_vimgui_context);
 		SetupPlatformCode(PlatformAPI);
 	}
 	
@@ -89,14 +94,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	}
 	Platform->DebugPrintLine("");
 	
-	render_text *T = RenderList.Text + RenderList.TextCount++;
-	*T = (render_text ) {
-		.X = 500,
-		.Y = 500,
-		.Colour = WHITE_V4,
-	};
-	StringPrintSized(T->Text, ArrayCount(T->Text), "Frametime: %f", PloreInput->DT);
-
 	u64 Cols = 3;
 	
 	f32 fCols = (f32) Cols;
@@ -107,15 +104,24 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	
 	f32 X = 0;
 	f32 Y = 0;
+	local char *Titles[] = {
+		"Previous",
+		"Current",
+		"Cursor",
+	};
+	
+	VimguiBegin(State->VimguiContext, Input);
+	
 	for (u64 Col = 0; Col < Cols; Col++) {
-		RenderList.Quads[RenderList.QuadCount++] = (render_quad) {
-			.Span   = V2(W, H),
-			.P      = V2(X + PadX, PadY),
-			.Colour = V4(0.3f, 0.3f, 0.3f, 1.0f),
-		};
+		v2 P      = V2(X + PadX, PadY);
+		v2 Span   = V2(W, H);
+		v4 Colour = V4(0.3f, 0.3f, 0.3f, 1.0f);
 		
+		if (WindowTitled(State->VimguiContext, Titles[Col], P, Span, Colour)) {
+		}
 		X += W + PadX;
 	}
 	
-	return(RenderList);
+	VimguiEnd(State->VimguiContext);
+	return(State->VimguiContext->RenderList);
 }

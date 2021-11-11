@@ -25,10 +25,10 @@ typedef struct render_quad {
 } render_quad;
 
 typedef struct render_text {
-	f32 X;
-	f32 Y;
+	v2 P;
 	char Text[64];
 	v4 Colour;
+	b64 Centered;
 } render_text;
 
 internal void

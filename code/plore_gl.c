@@ -1,8 +1,10 @@
 #include "plore_gl.h"
+#include "plore_string.h"
 
 typedef struct plore_font {
 	stbtt_bakedchar Data[96]; // ASCII 32..126 is 95 glyphs
 	platform_texture_handle Handle;
+	f32 Height;
 } plore_font;
 
 global plore_font GLFont;
@@ -12,8 +14,11 @@ global u64 GLWindowHeight;
 internal void 
 WriteText(render_text T)
 {
-	f32 X = T.X;
-	f32 Y = T.Y;
+	if (T.Centered) {
+		T.P.X -= StringLength(T.Text)/2.0f * GLFont.Data[0].xadvance;
+	}
+	f32 X = T.P.X;
+	f32 Y = T.P.Y - GLFont.Height;
 	char *Text = T.Text;
 	
 	Assert(GLFont.Handle.Opaque);
@@ -32,6 +37,9 @@ WriteText(render_text T)
 	char *StartText = Text; 
 	
 	glColor3f(0, 0, 0);
+	Text = StartText;
+	X = StartX;
+	Y = StartY;
 	{
 		while (*Text) {
 			if (*Text >= 32 && *Text < 128) {
@@ -46,23 +54,9 @@ WriteText(render_text T)
 		}
 	}
 	Text = StartText;
-	X = StartX + 1.5f;
-	Y = StartY - 1.5f;
+	X = StartX;
+	Y = StartY;
 	
-	glColor3f(1, 1, 1);
-	{
-		while (*Text) {
-			if (*Text >= 32 && *Text < 128) {
-				stbtt_aligned_quad Q;
-				stbtt_GetBakedQuad(GLFont.Data, GLFont.Handle.Width, GLFont.Handle.Height, *Text-32, &X, &Y, &Q, 1);//1=opengl & d3d10+,0=d3d9
-				glTexCoord2f(Q.s0, Q.t0); glVertex2f(Q.x0, Q.y0);
-				glTexCoord2f(Q.s1, Q.t0); glVertex2f(Q.x1, Q.y0);
-				glTexCoord2f(Q.s1, Q.t1); glVertex2f(Q.x1, Q.y1);
-				glTexCoord2f(Q.s0, Q.t1); glVertex2f(Q.x0, Q.y1);
-			}
-			++Text;
-		}
-	}
 	glEnd();
 }
 

@@ -637,12 +637,14 @@ u8 TempBitmap[512*512];
 internal plore_font 
 FontInit(void)
 {
-	plore_font Result = {0};
+	plore_font Result = {
+		.Height = 32.0f,
+	};
 	platform_readable_file FontFile = WindowsDebugOpenFile("data/fonts/Inconsolata-Light.ttf");
 	platform_read_file_result TheFont = WindowsDebugReadEntireFile(FontFile, FontBuffer, ArrayCount(FontBuffer));
 	Assert(TheFont.ReadSuccessfully);
 	
-	stbtt_BakeFontBitmap(FontBuffer, 0, 64.0, TempBitmap, 512, 512, 32, 96, Result.Data); // no guarantee this fits!
+	stbtt_BakeFontBitmap(FontBuffer, 0, Result.Height, TempBitmap, 512, 512, 32, 96, Result.Data); // no guarantee this fits!
 	// can free ttf_buffer at this point
 	Result.Handle = WindowsGLCreateTextureHandle(TempBitmap, 512, 512);
 	
