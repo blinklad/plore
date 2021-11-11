@@ -13,31 +13,25 @@ VimguiEnd(plore_vimgui_context *Context) {
 	Context->GUIPassActive = false;
 }
 
-internal void
-PushRenderText(plore_render_list *RenderList, v2 P, v4 Colour, char *Text, b64 Centered) {
-	Assert(RenderList && RenderList->TextCount < ArrayCount(RenderList->Text));
-	render_text *T = RenderList->Text + RenderList->TextCount++;
-	*T = (render_text ) {
-		.P = P,
-		.Colour = WHITE_V4,
-		.Centered = Centered,
-	};
-	StringPrintSized(T->Text, ArrayCount(T->Text), Text);
-}
+typedef struct vimgui_button_desc {
+	char *Title;
+	rectangle Rect;
+	b64 FillWidth;
+} vimgui_button_desc;
 
-internal void
-PushRenderQuad(plore_render_list *RenderList, v2 P, v2 Span, v4 Colour) {
-	Assert(RenderList && RenderList->QuadCount < ArrayCount(RenderList->Quads));
+internal b64
+Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
+	// NOTE(Evan): We require an ID from the title right now, __LINE__ shenanigans may be required.
+	Assert(Desc.Title); 
+	Assert(Context->ActiveWindow);
 	
-	RenderList->Quads[RenderList->QuadCount++] = (render_quad) {
-		.Span   = Span,
-		.P      = P,
-		.Colour = Colour,
-	};
+	u64 MyID = (u64) Desc.Title;
+	if (IsWithinRectangleInclusive(Context->InputThisFrame.MouseP, Context->ActiveWindow->Rect)) {
+	}
 }
 
 internal b64
-WindowTitled(plore_vimgui_context *Context, char *Title, v2 P, v2 Span, v4 Colour) {
+WindowTitled(plore_vimgui_context *Context, char *Title, rectangle Rect, v4 Colour) {
 	u64 MyID = (u64) Title;
 	vimgui_window *MaybeWindow = 0;
 	
@@ -57,17 +51,22 @@ WindowTitled(plore_vimgui_context *Context, char *Title, v2 P, v2 Span, v4 Colou
 	}
 	
 	if (MaybeWindow) {
-		MaybeWindow->P = P;
-		MaybeWindow->Span = Span;
+		if (IsWithinRectangleInclusive(Context->InputThisFrame.MouseP, MaybeWindow->Rect)) {
+			if (Context->InputThisFrame.MouseLeftIsPressed) {
+				PrintLine("PRESSED. ACTIVE.");
+				Context->ActiveWindow = MaybeWindow;
+				Colour.RGB = MultiplyVec3f(Colour.RGB, 1.20f);
+			} else {
+				PrintLine("NOT PRESSED. NOT ACTIVE.");
+			}
+		}
+		MaybeWindow->Rect = Rect;
 		MaybeWindow->Colour = Colour;
 		
-		PushRenderQuad(&Context->RenderList, P, Span, Colour);
+		PushRenderQuad(&Context->RenderList, Rect, Colour);
 		
 		PushRenderText(&Context->RenderList, 
-					   (v2) { 
-						   .X = MaybeWindow->P.X + MaybeWindow->Span.W/2.0f,
-						   .Y = MaybeWindow->P.Y + MaybeWindow->Span.H,
-					   },
+					   RectangleTopCentre(Rect),
 					   WHITE_V4,
 					   Title, 
 					   true);
@@ -77,3 +76,29 @@ WindowTitled(plore_vimgui_context *Context, char *Title, v2 P, v2 Span, v4 Colou
 	return(!!MaybeWindow);
 	
 }
+
+
+
+
+internal void
+PushRenderText(plore_render_list *RenderList, v2 P, v4 Colour, char *Text, b64 Centered) {
+	Assert(RenderList && RenderList->TextCount < ArrayCount(RenderList->Text));
+	render_text *T = RenderList->Text + RenderList->TextCount++;
+	*T = (render_text ) {
+		.P = P,
+		.Colour = WHITE_V4,
+		.Centered = Centered,
+	};
+	StringPrintSized(T->Text, ArrayCount(T->Text), Text);
+}
+
+internal void
+PushRenderQuad(plore_render_list *RenderList, rectangle Rect, v4 Colour) {
+	Assert(RenderList && RenderList->QuadCount < ArrayCount(RenderList->Quads));
+	
+	RenderList->Quads[RenderList->QuadCount++] = (render_quad) {
+		.Rect = Rect,
+		.Colour = Colour,
+	};
+}
+

@@ -42,8 +42,7 @@ PLORE_X(T) \
 typedef struct keyboard_and_mouse {
 	PLORE_KEYBOARD_AND_MOUSE
 		
-    uint32 MouseX;
-    uint32 MouseY;
+	v2 MouseP;
     uint32 MouseWheel;
 	
 	b32 CursorIsShowing;

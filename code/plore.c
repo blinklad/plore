@@ -55,6 +55,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 																			ArrayCount(FileContext->CurrentDirectory.Entries));
 	FileContext->CurrentDirectory.Count = CurrentDirectory.Count;
 	
+	#if 0
 	Platform->DebugPrintLine("%s:", FileContext->CurrentDirectory.Name);
 	for (u64 File = 0; File < CurrentDirectory.Count; File++) {
 		plore_file *FileNode = CurrentDirectory.Buffer + File;
@@ -93,6 +94,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		Platform->DebugPrintLine("\t%s", FileNode->FileNameInPath);
 	}
 	Platform->DebugPrintLine("");
+	#endif
 	
 	u64 Cols = 3;
 	
@@ -117,7 +119,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		v2 Span   = V2(W, H);
 		v4 Colour = V4(0.3f, 0.3f, 0.3f, 1.0f);
 		
-		if (WindowTitled(State->VimguiContext, Titles[Col], P, Span, Colour)) {
+		if (WindowTitled(State->VimguiContext, Titles[Col], RectangleBottomLeftSpan(P, Span), Colour)) {
 		}
 		X += W + PadX;
 	}

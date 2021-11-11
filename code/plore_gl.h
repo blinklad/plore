@@ -17,8 +17,7 @@ typedef struct render_triangle {
 
 
 typedef struct render_quad {
-	v2 Span;
-	v2 P;
+	rectangle Rect;
 	f32 Z;
 	v4 Colour;
 	b32 DrawOutline;

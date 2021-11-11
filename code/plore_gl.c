@@ -105,10 +105,10 @@ DrawSquare(render_quad Quad) {
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 	
-	f32 W = Quad.Span.W;
-	f32 H = Quad.Span.H;
-	f32 X = Quad.P.X;
-	f32 Y = Quad.P.Y;
+	f32 W = Quad.Rect.HalfSpan.W * 2;
+	f32 H = Quad.Rect.HalfSpan.H * 2;
+	f32 X = Quad.Rect.Centre.X - W/2.0f;
+	f32 Y = Quad.Rect.Centre.Y - H/2.0f;
 	f32 Z = Quad.Z;
 	
     f32 LeftX   = X;

@@ -169,7 +169,7 @@ TestAABBAABB(aabb A, aabb B, v2 rV, v2 *nOut, f32 *tStartOut, f32 *tEndOut) {
 
 
 plore_inline rectangle
-RectangleFromCentreHalfSpan(v2 Centre, v2 HalfSpan) {
+RectangleHalfSpan(v2 Centre, v2 HalfSpan) {
 
     rectangle Result = {
 		.Centre = Centre, .HalfSpan = HalfSpan,
@@ -180,9 +180,23 @@ RectangleFromCentreHalfSpan(v2 Centre, v2 HalfSpan) {
 
 
 plore_inline rectangle
-RectangleFromCentreSpan(v2 Centre, v2 Span) {
+RectangleBottomLeftSpan(v2 P, v2 Span) {
+	P.X += Span.W/2.0f;
+	P.Y += Span.H/2.0f;
+	Span.W /= 2.0f;
+	Span.H /= 2.0f;
 	
-    rectangle Result = RectangleFromCentreHalfSpan(Centre, Span);
+	rectangle Result = {
+		.Centre = P,
+		.HalfSpan = Span,
+	};
+	
+	return(Result);
+}
+
+plore_inline rectangle
+RectangleSpan(v2 Centre, v2 Span) {
+    rectangle Result = RectangleHalfSpan(Centre, Span);
     
     return(Result);
 }
@@ -190,6 +204,26 @@ RectangleFromCentreSpan(v2 Centre, v2 Span) {
 plore_inline v2
 RectangleToHalfSpan(rectangle Rect){
 	v2 Result = Rect.HalfSpan;
+	
+	return(Result);
+}
+
+plore_inline v2
+RectangleTopLeft(rectangle Rect) {
+	v2 Result = {0};
+	
+	Result.X = Rect.Centre.X - Rect.HalfSpan.W;
+	Result.Y = Rect.Centre.Y - Rect.HalfSpan.H;
+	
+	return(Result);
+}
+
+plore_inline v2
+RectangleTopCentre(rectangle Rect) {
+	v2 Result = {0};
+	
+	Result.X = Rect.Centre.X;
+	Result.Y = Rect.Centre.Y + Rect.HalfSpan.H;
 	
 	return(Result);
 }
