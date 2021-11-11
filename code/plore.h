@@ -78,8 +78,12 @@ typedef struct plore_file_context {
 typedef struct plore_render_list {
 	render_quad Quads[512];
 	u64 QuadCount;
+	
 	render_circle Circles[512];
 	u64 CircleCount;
+	
+	render_text Text[512];
+	u64 TextCount;
 } plore_render_list;
 
 #define PLORE_DO_ONE_FRAME(name) PLORE_EXPORT plore_render_list name(plore_memory *PloreMemory, plore_input *PloreInput, platform_api *PlatformAPI)

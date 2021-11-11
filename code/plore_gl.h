@@ -24,6 +24,13 @@ typedef struct render_quad {
 	b32 DrawOutline;
 } render_quad;
 
+typedef struct render_text {
+	f32 X;
+	f32 Y;
+	char Text[64];
+	v4 Colour;
+} render_text;
+
 internal void
 DrawSquare(render_quad Quad);
 

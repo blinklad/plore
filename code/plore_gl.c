@@ -10,8 +10,12 @@ global u64 GLWindowWidth;
 global u64 GLWindowHeight;
 
 internal void 
-WriteText(float X, float Y, char *Text, v4 Colour)
+WriteText(render_text T)
 {
+	f32 X = T.X;
+	f32 Y = T.Y;
+	char *Text = T.Text;
+	
 	Assert(GLFont.Handle.Opaque);
 	Y = GLWindowHeight - Y;
 	

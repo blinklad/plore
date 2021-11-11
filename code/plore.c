@@ -1,5 +1,6 @@
 #include "plore.h"
 #include "plore_memory.c"
+#include "plore_string.h"
 
 global platform_api *Platform;
 global platform_debug_print_line *PrintLine;
@@ -88,6 +89,14 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	}
 	Platform->DebugPrintLine("");
 	
+	render_text *T = RenderList.Text + RenderList.TextCount++;
+	*T = (render_text ) {
+		.X = 500,
+		.Y = 500,
+		.Colour = WHITE_V4,
+	};
+	StringPrintSized(T->Text, ArrayCount(T->Text), "Frametime: %f", PloreInput->DT);
+
 	u64 Cols = 3;
 	
 	f32 fCols = (f32) Cols;

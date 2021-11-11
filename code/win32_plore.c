@@ -3,11 +3,13 @@
 #include "plore_memory.h"
 #include "plore_platform.h"
 
-#define STB_TRUETYPE_IMPLEMENTATION  // force following include to generate implementation
-#include "stb_truetype.h"
-
 #include "win32_plore.h"
 #include "win32_gl_loader.c"
+
+#include "plore_string.h"
+
+#define STB_TRUETYPE_IMPLEMENTATION  // force following include to generate implementation
+#include "stb_truetype.h"
 #include "plore_gl.c"
 
 global plore_input GlobalPloreInput;
@@ -18,8 +20,8 @@ internal void
 WindowsDebugPrint(const char *Format, ...) {
     va_list Args;
     va_start(Args, Format);
-    static char Buffer[256];
-    vsnprintf(Buffer, 256, Format, Args);
+    local char Buffer[256];
+    stbsp_vsnprintf(Buffer, 256, Format, Args);
     fprintf(stdout, Buffer);
     va_end(Args);
     OutputDebugStringA(Buffer);
@@ -29,8 +31,8 @@ internal void
 WindowsDebugPrintLine(const char *Format, ...) {
     va_list Args;
     va_start(Args, Format);
-    static char Buffer[256];
-    vsnprintf(Buffer, 256, Format, Args);
+    local char Buffer[256];
+    stbsp_vsnprintf(Buffer, 256, Format, Args);
     fprintf(stdout, Buffer);
     fprintf(stdout, "\n");
     va_end(Args);
@@ -342,6 +344,17 @@ WindowsCreateAndShowOpenGLWindow(HINSTANCE Instance) {
         WindowsContext.Height,
         0
     );
+	
+	// NOTE(Evan): "Window Size" throughout the codebase really means "client rectangle", as in, the drawable area.
+	DWORD Style = GetWindowLongPtr(WindowsContext.Window, GWL_STYLE );
+	DWORD ExStyle = GetWindowLongPtr(WindowsContext.Window, GWL_EXSTYLE);
+	HMENU Menu = GetMenu(WindowsContext.Window);
+	
+	RECT Rect = { 0, 0, WindowsContext.Width, WindowsContext.Height };
+	
+	AdjustWindowRectEx(&Rect, Style, Menu ? TRUE : FALSE, ExStyle);
+	
+	SetWindowPos(WindowsContext.Window, NULL, 0, 0, Rect.right - Rect.left, Rect.bottom - Rect.top, SWP_NOZORDER | SWP_NOMOVE );
     
 	ShowCursor(TRUE);
 	
@@ -460,6 +473,26 @@ LRESULT CALLBACK WindowsMessagePumpCallback(HWND hwnd, UINT uMsg, WPARAM wParam,
             }
         } break;
 
+		
+		case WM_SIZE: {
+			// NOTE(Evan): "Window Size" throughout the codebase really means "client rectangle", as in, the drawable area.
+			DWORD Style = GetWindowLongPtr(hwnd, GWL_STYLE );
+			DWORD ExStyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+			HMENU Menu = GetMenu(hwnd);
+			
+			DWORD NewWidth = LOWORD(lParam);
+			DWORD NewHeight = HIWORD(lParam);
+			RECT Rect = { 0, 0, NewWidth, NewHeight };
+			
+			AdjustWindowRectEx(&Rect, Style, Menu ? TRUE : FALSE, ExStyle);
+			
+			SetWindowPos(hwnd, NULL, 0, 0, Rect.right - Rect.left, Rect.bottom - Rect.top, SWP_NOZORDER | SWP_NOMOVE );
+			
+			if (GlobalWindowsContext) {
+				GlobalWindowsContext->Width = NewWidth;
+				GlobalWindowsContext->Height = NewHeight;
+			}
+		}
         default:  
         {
             return DefWindowProc(hwnd, uMsg, wParam, lParam);
@@ -689,6 +722,9 @@ int WinMain (
 	plore_font MyFont = FontInit();
 	
     while (!ReceivedQuitMessage) {
+		WindowsPlatformAPI.WindowWidth = GlobalWindowsContext->Width;
+		WindowsPlatformAPI.WindowHeight = GlobalWindowsContext->Height;
+		
         /* Grab any new keyboard / mouse / window events from message queue. */
         MSG WindowMessage = {0};
         while (PeekMessage(&WindowMessage, NULL, 0, 0, PM_REMOVE)) {
@@ -738,8 +774,11 @@ int WinMain (
 				DrawSquare(RenderList.Quads[I]);
 			}
 			
-			f32 CursorY = WindowsContext.Height - GlobalPloreInput.ThisFrame.MouseY;
-			WriteText(GlobalPloreInput.ThisFrame.MouseX, CursorY, "Hello.", RED_V4);
+			for (u64 I = 0; I < RenderList.TextCount; I++) {
+				WriteText(RenderList.Text[I]);
+			}
+			
+			
 			SwapBuffers(WindowsContext.DeviceContext);
 		}
 		
