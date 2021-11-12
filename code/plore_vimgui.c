@@ -133,18 +133,18 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	u64 MyID = (u64) Desc.Title;
 	vimgui_window *Window = GetTheWindowWeAreLayingOut(Context);
 	rectangle MyRect = {0};
-	v4 MyColour = V4(1, 1, 1, 0.3);
+	v4 MyColour = V4(1, 1, 1, 0.1);
 	
 	if (Desc.FillWidth) {
 		f32 ButtonStartY = Window->Rect.Centre.Y - Window->Rect.HalfSpan.H + 20.0f;
 		MyRect.HalfSpan = (v2) {
 			.W = Window->Rect.HalfSpan.X,
-			.H = 16.0f,
+			.H = 13.0f,
 		};
 		
 		MyRect.Centre = (v2) {
 			.X = Window->Rect.Centre.X,
-			.Y = ButtonStartY + Window->RowCount*32.0f,
+			.Y = ButtonStartY + Window->RowCount*32.0f+1,
 		};
 		
 		Assert(Window->Rect.Centre.Y - Window->Rect.HalfSpan.H > 0.0f);
