@@ -68,10 +68,13 @@ typedef struct plore_directory_listing {
 	u64 Cursor;
 } plore_directory_listing;
 
-typedef struct plore_file_context {
-	plore_directory_listing ParentDirectory;
-	plore_directory_listing CurrentDirectory;
-	plore_directory_listing CursorDirectory;
+typedef union plore_file_context {
+	struct {
+		plore_directory_listing ParentDirectory;
+		plore_directory_listing CurrentDirectory;
+		plore_directory_listing CursorDirectory;
+	};
+	plore_directory_listing Directories[3];
 } plore_file_context;
 
 typedef struct plore_render_list {

@@ -218,6 +218,17 @@ RectangleTopLeft(rectangle Rect) {
 	return(Result);
 }
 
+
+plore_inline v2
+RectangleBottomCentre(rectangle Rect) {
+	v2 Result = {0};
+	
+	Result.X = Rect.Centre.X;
+	Result.Y = Rect.Centre.Y - Rect.HalfSpan.H;
+	
+	return(Result);
+}
+
 plore_inline v2
 RectangleTopCentre(rectangle Rect) {
 	v2 Result = {0};

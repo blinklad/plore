@@ -8,12 +8,13 @@ typedef struct vimgui_window {
 	rectangle Rect;
 	v4 Colour;
 	char *Title;
+	u64 RowMax;
+	u64 RowCount;
 } vimgui_window;
 
 typedef struct plore_vimgui_context {
 	b64 GUIPassActive;
 	b64 LayoutPassActive;
-	b64 WindowPassActive; // NOTE(Evan): This means, "Are we laying out a window right now?"
 	
 	keyboard_and_mouse InputThisFrame;
 	u64 HotWidgetID;
@@ -24,6 +25,7 @@ typedef struct plore_vimgui_context {
 	u64 WindowCount;
 	u64 ActiveWindow;
 	u64 HotWindow;
+	u64 WindowWeAreLayingOut;
 } plore_vimgui_context;
 
 typedef struct plore_state plore_state;

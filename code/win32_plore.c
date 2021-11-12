@@ -846,7 +846,11 @@ int WinMain (
 		}
 		
 		GlobalPloreInput.LastFrame = GlobalPloreInput.ThisFrame;
+#define PLORE_X(Name) GlobalPloreInput.ThisFrame.##Name##IsDown = GlobalPloreInput.LastFrame.##Name##IsDown || GlobalPloreInput.ThisFrame.##Name##IsPressed;
 		GlobalPloreInput.ThisFrame = (keyboard_and_mouse) {0};
+		PLORE_KEYBOARD_AND_MOUSE;
+#undef PLORE_X
+		
 		fflush(stdout);
 		fflush(stderr);
     }

@@ -50,7 +50,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 																			ArrayCount(FileContext->CurrentDirectory.Entries));
 	FileContext->CurrentDirectory.Count = CurrentDirectory.Count;
 	
-	#if 0
+	#if 1
 	Platform->DebugPrintLine("%s:", FileContext->CurrentDirectory.Name);
 	for (u64 File = 0; File < CurrentDirectory.Count; File++) {
 		plore_file *FileNode = CurrentDirectory.Buffer + File;
@@ -66,6 +66,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 																			   FileContext->CursorDirectory.Entries, 
 																			   ArrayCount(FileContext->CursorDirectory.Entries));
 		
+		FileContext->CursorDirectory.Count = CursorDirectory.Count;
 		Platform->DebugPrintLine("%s", CursorDirectoryName);
 		for (u64 File = 0; File < CursorDirectory.Count; File++) {
 			plore_file *FileNode = CursorDirectory.Buffer + File;
@@ -83,12 +84,14 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 																		   FileContext->ParentDirectory.Entries, 
 																		   ArrayCount(FileContext->ParentDirectory.Entries));
 	
+	FileContext->ParentDirectory.Count = ParentDirectory.Count;
 	Platform->DebugPrintLine("%s", FileContext->ParentDirectory.Name);
 	for (u64 File = 0; File < ParentDirectory.Count; File++) {
 		plore_file *FileNode = ParentDirectory.Buffer + File;
 		Platform->DebugPrintLine("\t%s", FileNode->FileNameInPath);
 	}
 	Platform->DebugPrintLine("");
+	
 	#endif
 	
 	u64 Cols = 3;
@@ -115,6 +118,15 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		v4 Colour = V4(0.3f, 0.3f, 0.3f, 1.0f);
 		
 		if (WindowTitled(State->VimguiContext, Titles[Col], RectangleBottomLeftSpan(P, Span), Colour)) {
+			plore_directory_listing *Directory = State->FileContext->Directories + Col;
+			for (u64 Row = 0; Row < Directory->Count; Row++) {
+				if (Button(State->VimguiContext, (vimgui_button_desc) {  
+								   .Title = Directory->Entries[Row].AbsolutePath,
+								   .FillWidth = true,
+								   .Centre = true,
+						   })) {
+				}
+			}
 		}
 		X += W + PadX;
 	}
