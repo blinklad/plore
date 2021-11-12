@@ -105,7 +105,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	f32 X = 0;
 	f32 Y = 0;
 	local char *Titles[] = {
-		"Previous",
+		"Parent",
 		"Current",
 		"Cursor",
 	};
@@ -120,7 +120,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		if (WindowTitled(State->VimguiContext, Titles[Col], RectangleBottomLeftSpan(P, Span), Colour)) {
 			plore_directory_listing *Directory = State->FileContext->Directories + Col;
 			for (u64 Row = 0; Row < Directory->Count; Row++) {
-				if (Button(State->VimguiContext, (vimgui_button_desc) {  
+				if (Button(State->VimguiContext, (vimgui_button_desc) {
 								   .Title = Directory->Entries[Row].AbsolutePath,
 								   .FillWidth = true,
 								   .Centre = true,
@@ -128,6 +128,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 				}
 			}
 		}
+		
 		X += W + PadX;
 	}
 	

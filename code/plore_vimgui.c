@@ -71,11 +71,27 @@ GetLeftMovementWindow(plore_vimgui_context *Context) {
 }
 
 internal vimgui_window *
+GetTheWindowWeAreLayingOut(plore_vimgui_context *Context) {
+	vimgui_window *Window = 0;
+	for (u64 W = 0; W < Context->WindowCount; W++) {
+		vimgui_window *MaybeWindow = Context->Windows + W;
+		if (MaybeWindow->ID == Context->WindowWeAreLayingOut) {
+			PrintLine("Window we are laying out index :: %d", W);
+			Window = MaybeWindow;
+			break;
+		}
+	}
+	
+	return(Window);
+}
+
+internal vimgui_window *
 GetHotWindow(plore_vimgui_context *Context) {
 	vimgui_window *Window = 0;
 	for (u64 W = 0; W < Context->WindowCount; W++) {
 		vimgui_window *MaybeWindow = Context->Windows + W;
 		if (MaybeWindow->ID == Context->HotWindow) {
+			PrintLine("Hot window index :: %d", W);
 			Window = MaybeWindow;
 			break;
 		}
@@ -90,6 +106,7 @@ GetActiveWindow(plore_vimgui_context *Context) {
 	for (u64 W = 0; W < Context->WindowCount; W++) {
 		vimgui_window *MaybeWindow = Context->Windows + W;
 		if (MaybeWindow->ID == Context->ActiveWindow) {
+			PrintLine("Active window index :: %d", W);
 			Window = MaybeWindow;
 			break;
 		}
@@ -114,7 +131,7 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	
 	b64 Result = false;
 	u64 MyID = (u64) Desc.Title;
-	vimgui_window *Window = GetActiveWindow(Context);
+	vimgui_window *Window = GetTheWindowWeAreLayingOut(Context);
 	rectangle MyRect = {0};
 	v4 MyColour = V4(1, 1, 1, 0.3);
 	
