@@ -12,6 +12,7 @@ typedef struct vimgui_window {
 	u64 RowCountThisFrame;
 	u64 RowCountLastFrame;
 	u64 Cursor;
+	b64 CursorMovementThisFrame;
 } vimgui_window;
 
 typedef struct plore_vimgui_context {

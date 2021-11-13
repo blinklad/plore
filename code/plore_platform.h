@@ -57,8 +57,14 @@ typedef PLATFORM_DESTROY_TEXTURE_HANDLE(platform_destroy_texture_handle);
 #define PLATFORM_SHOW_CURSOR(name) void name(b64 Show)
 typedef PLATFORM_SHOW_CURSOR(platform_show_cursor);
 
+#define PLATFORM_TOGGLE_FULLSCREEN(name) void name()
+typedef PLATFORM_TOGGLE_FULLSCREEN(platform_toggle_fullscreen);
+
 #define PLATFORM_GET_CURRENT_DIRECTORY(name) void name(char *Buffer, u64 BufferSize)
 typedef PLATFORM_GET_CURRENT_DIRECTORY(platform_get_current_directory);
+
+#define PLATFORM_SET_CURRENT_DIRECTORY(name) b64 name(char *Name)
+typedef PLATFORM_SET_CURRENT_DIRECTORY(platform_set_current_directory);
 
 #define PLATFORM_POP_PATH_NODE(name) void name(char *Buffer, u64 BufferSize)
 typedef PLATFORM_POP_PATH_NODE(platform_pop_path_node);
@@ -84,6 +90,7 @@ typedef struct platform_api {
 	platform_destroy_texture_handle *DestroyTextureHandle;
 	
 	platform_show_cursor            *ShowCursor;
+	platform_toggle_fullscreen      *ToggleFullscreen;
 	
     platform_debug_open_file        *DebugOpenFile;
     platform_debug_read_entire_file *DebugReadEntireFile;
@@ -92,6 +99,7 @@ typedef struct platform_api {
 	
 	platform_get_directory_entries  *GetDirectoryEntries;
 	platform_get_current_directory  *GetCurrentDirectory;
+	platform_set_current_directory  *SetCurrentDirectory;
 	platform_pop_path_node          *PopPathNode;
 } platform_api;
 

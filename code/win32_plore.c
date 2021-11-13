@@ -16,8 +16,9 @@ global plore_input GlobalPloreInput;
 global windows_timer GlobalWindowsTimer;      // TODO(Evan): Timing!
 global windows_context *GlobalWindowsContext;
 
-internal void
-WindowsDebugPrint(const char *Format, ...) {
+
+// NOTE(Evan): Platform layer implementation.
+PLATFORM_DEBUG_PRINT(WindowsDebugPrint) {
     va_list Args;
     va_start(Args, Format);
     local char Buffer[256];
@@ -27,8 +28,7 @@ WindowsDebugPrint(const char *Format, ...) {
     OutputDebugStringA(Buffer);
 }
 
-internal void
-WindowsDebugPrintLine(const char *Format, ...) {
+PLATFORM_DEBUG_PRINT_LINE(WindowsDebugPrintLine) {
     va_list Args;
     va_start(Args, Format);
     local char Buffer[256];
@@ -37,16 +37,6 @@ WindowsDebugPrintLine(const char *Format, ...) {
     fprintf(stdout, "\n");
     va_end(Args);
 }
-
-OPENGL_DEBUG_CALLBACK(WindowsGLDebugMessageCallback)
-{
-    if (severity == GL_DEBUG_SEVERITY_HIGH || severity == GL_DEBUG_SEVERITY_MEDIUM)
-    {
-        WindowsDebugPrintLine("OpenGL error!... Not sure what, just an error!");
-        // oh no
-    }
-}
-
 
 PLATFORM_DEBUG_OPEN_FILE(WindowsDebugOpenFile) {
     HANDLE TheFile = CreateFileA(Path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -102,11 +92,27 @@ PLATFORM_CREATE_TEXTURE_HANDLE(WindowsGLCreateTextureHandle) {
 	return(Result);
 }
 
+PLATFORM_DESTROY_TEXTURE_HANDLE(WindowsGLDestroyTextureHandle) {
+	GLuint Opaque = (GLuint) Texture.Opaque;
+	glDeleteTextures(1, &Opaque);
+}
+	
 // NOTE(Evan): Windows decrements a signed counter whenever FALSE is provided, so there will be some weirdness to this.
 PLATFORM_SHOW_CURSOR(WindowsShowCursor) {
 	GlobalPloreInput.ThisFrame.CursorIsShowing = Show;
 	DWORD CursorCount = ShowCursor(Show);
 	WindowsDebugPrintLine("CursorCount :: %d", CursorCount);
+}
+
+
+// NOTE(Evan): Not part of the platform API.
+OPENGL_DEBUG_CALLBACK(WindowsGLDebugMessageCallback)
+{
+    if (severity == GL_DEBUG_SEVERITY_HIGH || severity == GL_DEBUG_SEVERITY_MEDIUM)
+    {
+        WindowsDebugPrintLine("OpenGL error!... Not sure what, just an error!");
+        // oh no
+    }
 }
 
 
@@ -365,9 +371,9 @@ WindowsCreateAndShowOpenGLWindow(HINSTANCE Instance) {
 }
 
 global WINDOWPLACEMENT GlobalWindowPlacement = { .length = sizeof(GlobalWindowPlacement) };
-internal void
-ToggleFullscreen(HWND Window)
-{
+
+PLATFORM_TOGGLE_FULLSCREEN(WindowsToggleFullscreen) {
+	HWND Window = GlobalWindowsContext->Window;
 	DWORD WindowStyle = GetWindowLong(Window, GWL_STYLE);
 	
 	if (WindowStyle & WS_OVERLAPPEDWINDOW) {
@@ -424,7 +430,7 @@ LRESULT CALLBACK WindowsMessagePumpCallback(HWND hwnd, UINT uMsg, WPARAM wParam,
                 WindowsDebugPrintLine("Escape pressed");
                 PostQuitMessage(0);
             } else if (IsDown && (u32) wParam == VK_F1) {
-				ToggleFullscreen(hwnd);
+				WindowsToggleFullscreen();
 			} else {
                 switch (wParam) {
                     case 'A': {
@@ -608,6 +614,12 @@ PLATFORM_GET_CURRENT_DIRECTORY(WindowsGetCurrentDirectory) {
 	GetCurrentDirectory(BufferSize, Buffer);
 }
 
+PLATFORM_SET_CURRENT_DIRECTORY(WindowsSetCurrentDirectory) {
+	b64 Result = SetCurrentDirectory(Name);
+	
+	return(Result);
+}
+
 PLATFORM_POP_PATH_NODE(WindowsPopPathNode) {
 	PathRemoveFileSpecA(Buffer);
 }
@@ -757,12 +769,18 @@ int WinMain (
         .DebugPrintLine = WindowsDebugPrintLine,
         .DebugPrint = WindowsDebugPrint,
 		#endif
-		.ShowCursor = WindowsShowCursor,
 		
+		.CreateTextureHandle = WindowsGLCreateTextureHandle,
+		.DestroyTextureHandle = WindowsGLDestroyTextureHandle,
+		.ShowCursor = WindowsShowCursor,
+		.ToggleFullscreen = WindowsToggleFullscreen,
+		
+		
+#undef GetCurrentDirectory // @Hack
+#undef SetCurrentDirectory // @Hack
 		.GetDirectoryEntries = WindowsGetDirectoryEntries,
-		// @Hack
-		#undef GetCurrentDirectory
 		.GetCurrentDirectory = WindowsGetCurrentDirectory,
+		.SetCurrentDirectory = WindowsSetCurrentDirectory,
 		.PopPathNode = WindowsPopPathNode,
     };
     

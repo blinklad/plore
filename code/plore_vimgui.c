@@ -9,6 +9,7 @@ VimguiBegin(plore_vimgui_context *Context, keyboard_and_mouse Input) {
 	for (u64 W = 0; W < Context->WindowCount; W++) {
 		vimgui_window *Window = Context->Windows + W;
 		Window->RowCountThisFrame = 0;
+		Window->CursorMovementThisFrame = false;
 	}
 	
 	if (Input.LIsPressed) {
@@ -43,8 +44,15 @@ DoCursorMovement(plore_vimgui_context *Context, i64 Sign) {
 	vimgui_window *Window = GetActiveWindow(Context);
 	if (!Window->RowCountLastFrame) return;
 	
-	Window->Cursor = (Window->Cursor + Sign) % Window->RowCountLastFrame;
-	PrintLine("Window->Cursor %d", Window->Cursor);
+	u64 WindowCursorStart = Window->Cursor;
+	Window->Cursor += Sign;
+	if (WindowCursorStart == 0 && Sign == -1) {
+		Window->Cursor = Window->RowCountLastFrame - 1;
+	} else if (Window->Cursor >= Window->RowCountLastFrame) {
+		Window->Cursor = 0;
+	}
+	Window->CursorMovementThisFrame = true;
+	PrintLine("Window->Cursor %d + Sign %d == %d, Window->RowCountLastFrame %d", WindowCursorStart, Sign, Window->Cursor, Window->RowCountLastFrame);
 }
 	
 internal void
@@ -187,7 +195,13 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	u64 MyRow = Window->RowCountThisFrame++;
 	if (MyRow == Window->Cursor) {
 		MyColour.A += 0.2f;
+		
+		if (Window->CursorMovementThisFrame) {
+			Context->ActiveWidgetID = MyID;
+			Result = true;
+		}
 	}
+	
 	
 	PushRenderQuad(&Context->RenderList, MyRect, MyColour);
 	
