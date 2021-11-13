@@ -117,7 +117,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		v2 Span   = V2(W, H);
 		v4 Colour = V4(0.3f, 0.3f, 0.3f, 1.0f);
 		
-		if (WindowTitled(State->VimguiContext, Titles[Col], RectangleBottomLeftSpan(P, Span), Colour)) {
+		if (WindowTitled(State->VimguiContext, Titles[Col], (rectangle){P, Span}, Colour)) {
 			plore_directory_listing *Directory = State->FileContext->Directories + Col;
 			for (u64 Row = 0; Row < Directory->Count; Row++) {
 				if (Button(State->VimguiContext, (vimgui_button_desc) {

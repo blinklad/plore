@@ -18,7 +18,7 @@ WriteText(render_text T)
 		T.P.X -= StringLength(T.Text)/2.0f * GLFont.Data[0].xadvance;
 	}
 	f32 X = T.P.X;
-	f32 Y = T.P.Y - GLFont.Height;
+	f32 Y = T.P.Y;// - GLFont.Height;
 	char *Text = T.Text;
 	
 	Assert(GLFont.Handle.Opaque);
@@ -105,10 +105,10 @@ DrawSquare(render_quad Quad) {
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 	
-	f32 W = Quad.Rect.HalfSpan.W * 2;
-	f32 H = Quad.Rect.HalfSpan.H * 2;
-	f32 X = Quad.Rect.Centre.X - W/2.0f;
-	f32 Y = Quad.Rect.Centre.Y - H/2.0f;
+	f32 W = Quad.Rect.Span.W;
+	f32 H = Quad.Rect.Span.H;
+	f32 X = Quad.Rect.P.X;
+	f32 Y = Quad.Rect.P.Y;
 	f32 Z = Quad.Z;
 	
     f32 LeftX   = X;

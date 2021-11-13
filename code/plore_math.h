@@ -33,12 +33,17 @@ constant v4 WHITE_V4    = { 1, 1, 1, 1};
 #define Sin(x) sinf(x)
 #define Cos(x) cosf(x)
 
-typedef struct rectangle {
-	v2 Centre;
-	v2 HalfSpan;
-} rectangle;
+plore_inline u32
+CeilingToU32(u32 A, u32 B) {
+	u32 Result = 0;
+	Result = (u32)Ceiling((f32)A / (f32)B);
+	return(Result);
+}
 
-typedef rectangle rect;
+typedef struct rectangle {
+	v2 P; // NOTE(Evan): Bottom left.
+	v2 Span;
+} rectangle;
 
 typedef struct aabb {
 	v2 P;
@@ -167,103 +172,24 @@ TestAABBAABB(aabb A, aabb B, v2 rV, v2 *nOut, f32 *tStartOut, f32 *tEndOut) {
 	return(true);
 }
 
-
-plore_inline rectangle
-RectangleHalfSpan(v2 Centre, v2 HalfSpan) {
-
-    rectangle Result = {
-		.Centre = Centre, .HalfSpan = HalfSpan,
-    };
-    
-    return(Result);
-}
-
-
-plore_inline rectangle
-RectangleBottomLeftSpan(v2 P, v2 Span) {
-	P.X += Span.W/2.0f;
-	P.Y += Span.H/2.0f;
-	Span.W /= 2.0f;
-	Span.H /= 2.0f;
-	
-	rectangle Result = {
-		.Centre = P,
-		.HalfSpan = Span,
-	};
-	
-	return(Result);
-}
-
-plore_inline rectangle
-RectangleSpan(v2 Centre, v2 Span) {
-    rectangle Result = RectangleHalfSpan(Centre, Span);
-    
-    return(Result);
-}
-
 plore_inline v2
-RectangleToHalfSpan(rectangle Rect){
-	v2 Result = Rect.HalfSpan;
+RectangleBottomLeft(rectangle Rect) {
+	v2 Result = Rect.P;
 	
 	return(Result);
 }
 
 plore_inline v2
-RectangleTopLeft(rectangle Rect) {
-	v2 Result = {0};
-	
-	Result.X = Rect.Centre.X - Rect.HalfSpan.W;
-	Result.Y = Rect.Centre.Y - Rect.HalfSpan.H;
-	
-	return(Result);
-}
-
-
-plore_inline v2
-RectangleBottomCentre(rectangle Rect) {
-	v2 Result = {0};
-	
-	Result.X = Rect.Centre.X;
-	Result.Y = Rect.Centre.Y - Rect.HalfSpan.H;
-	
-	return(Result);
-}
-
-plore_inline v2
-RectangleTopCentre(rectangle Rect) {
-	v2 Result = {0};
-	
-	Result.X = Rect.Centre.X;
-	Result.Y = Rect.Centre.Y + Rect.HalfSpan.H;
-	
-	return(Result);
-}
-
-plore_inline u32
-CeilingToU32(u32 A, u32 B) {
-	u32 Result = 0;
-	Result = (u32)Ceiling((f32)A / (f32)B);
-	return(Result);
-}
-
-plore_inline v2
-RectangleGetBottomLeft(rectangle Rect) {
-	v2 Result = SubtractVec2(Rect.Centre, Rect.HalfSpan);
-	
-	return(Result);
-}
-
-plore_inline v2
-RectangleGetUpperRight(rectangle Rect) {
-	v2 Result = AddVec2(Rect.Centre, Rect.HalfSpan);
+RectangleUpperRight(rectangle Rect) {
+	v2 Result = AddVec2(Rect.P, Rect.Span);
 	
 	return(Result);
 }
 
 b32
 IsWithinRectangleInclusive(v2 P, rectangle Rect) {
-	v2 BottomLeft = RectangleGetBottomLeft(Rect);
-	v2 UpperRight = RectangleGetUpperRight(Rect);
+	v2 BottomLeft = RectangleBottomLeft(Rect);
+	v2 UpperRight = RectangleUpperRight(Rect);
 	b32 Result = (P.X >= BottomLeft.X &&
 				  P.X <= UpperRight.X &&
 				  P.Y >= BottomLeft.Y &&

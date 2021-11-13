@@ -135,21 +135,24 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	rectangle MyRect = {0};
 	v4 MyColour = V4(1, 1, 1, 0.1);
 	
+	f32 TitlePad = 20.0f;
+	f32 ButtonStartY = Window->Rect.P.Y + TitlePad;
+	f32 RowPad = 4.0f;
+	f32 RowHeight = 36.0f;
+	
 	if (Desc.FillWidth) {
-		f32 ButtonStartY = Window->Rect.Centre.Y - Window->Rect.HalfSpan.H + 20.0f;
-		MyRect.HalfSpan = (v2) {
-			.W = Window->Rect.HalfSpan.X,
-			.H = 13.0f,
+		MyRect.Span = (v2) {
+			.W = Window->Rect.Span.X,
+			.H = RowHeight - RowPad,
 		};
 		
-		MyRect.Centre = (v2) {
-			.X = Window->Rect.Centre.X,
-			.Y = ButtonStartY + Window->RowCount*32.0f+1,
+		MyRect.P = (v2) {
+			.X = Window->Rect.P.X,
+			.Y = ButtonStartY + Window->RowCount*RowHeight+1,
 		};
 		
-		Assert(Window->Rect.Centre.Y - Window->Rect.HalfSpan.H > 0.0f);
 	} else {
-		MyRect = Desc.Rect;
+		Assert(!"We don't support absolute button positions right now.");
 	}
 	
 	if (Context->WindowWeAreLayingOut == Context->ActiveWindow) {
@@ -164,17 +167,15 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	PushRenderQuad(&Context->RenderList, MyRect, MyColour);
 	
 	rectangle UpsideDownRect = MyRect;
-	UpsideDownRect.Centre.Y = Window->Rect.HalfSpan.Y*2-(Window->RowCount++)*32.0f-80.0f;
-	if (Desc.Centre) {
-		UpsideDownRect.Centre.X -= Window->Rect.HalfSpan.X;
-	}
 	
+	UpsideDownRect.P.Y = Window->Rect.Span.Y - (ButtonStartY + Window->RowCount*RowHeight+(RowPad*2));//Window->Rect.Span.Y-(Window->RowCount++)*(RowHeight+1)-TitlePad*2;
 	PushRenderText(&Context->RenderList, 
-				   RectangleTopCentre(UpsideDownRect),
+				   UpsideDownRect.P,//RectangleTopCentre(UpsideDownRect),
 				   MyColour,
 				   Desc.Title, 
 				   false);
 	
+	Window->RowCount++;
 	return(Result);
 }
 
@@ -214,14 +215,14 @@ WindowTitled(plore_vimgui_context *Context, char *Title, rectangle Rect, v4 Colo
 		}
 		
 		MaybeWindow->Rect = Rect;
-		MaybeWindow->Rect.Centre.Y += 80.0f;
-		MaybeWindow->RowMax = (Rect.HalfSpan.Y * 2.0f) / 32.0f; // @Hardcode
+		MaybeWindow->Rect.P.Y += 80.0f;
+		MaybeWindow->RowMax = (Rect.Span.Y * 2.0f) / 32.0f; // @Hardcode
 		MaybeWindow->Colour = Colour;
 		
 		PushRenderQuad(&Context->RenderList, Rect, Colour);
 		
 		PushRenderText(&Context->RenderList, 
-					   RectangleTopCentre(Rect),
+					   Rect.P,//RectangleTopCentre(Rect),
 					   WHITE_V4,
 					   Title, 
 					   true);
