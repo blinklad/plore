@@ -22,7 +22,7 @@ WriteText(render_text T)
 	char *Text = T.Text;
 	
 	Assert(GLFont.Handle.Opaque);
-	Y = GLWindowHeight - Y;
+	//Y = GLWindowHeight - Y;
 	
 	// assume orthographic projection with units = screen pixels, origin at top left
 	glMatrixMode(GL_PROJECTION);

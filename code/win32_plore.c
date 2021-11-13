@@ -604,36 +604,44 @@ WindowsLoadPloreCode(char *DLLPath, char *TempDLLPath, char *LockPath) {
 	return(Result);
 }
 
-internal void
-WindowsGetCurrentDirectory(char *Buffer, u64 BufferSize) {
+PLATFORM_GET_CURRENT_DIRECTORY(WindowsGetCurrentDirectory) {
 	GetCurrentDirectory(BufferSize, Buffer);
 }
 
-internal void
-WindowsPopPathNode(char *Buffer, u64 BufferSize) {
+PLATFORM_POP_PATH_NODE(WindowsPopPathNode) {
 	PathRemoveFileSpecA(Buffer);
 }
 
+//PLATFORM_STRIP_PATH(WindowsStripPath) {
+//}
+
+
 // NOTE(Evan): Directory name should not include trailing '\' nor any '*' or '?' wildcards.
-internal directory_entry_result
-WindowsGetEntriesForDirectory(char *DirectoryName, plore_file *Buffer, u64 Size)
-{
+PLATFORM_GET_DIRECTORY_ENTRIES(WindowsGetDirectoryEntries) {
 	directory_entry_result Result = {
-		.DirectoryName = DirectoryName,
+		.Name = DirectoryName,
 		.Buffer = Buffer,
 		.Size = Size,
 	};
 	
 	char SearchableDirectoryName[PLORE_MAX_PATH] = {0};
 	u64 BytesWritten = CStringCopy(DirectoryName, SearchableDirectoryName, ArrayCount(SearchableDirectoryName));
+	u64 SearchBytesWritten = 0;
 	char SearchChars[] = {'\\', '*'};
 	b64 SearchCanFit = BytesWritten < PLORE_MAX_PATH + sizeof(SearchChars);
 	if (!SearchCanFit) {
 		return(Result);
 	}
-	SearchableDirectoryName[BytesWritten+0] = '\\';
-	SearchableDirectoryName[BytesWritten+1] = '*';
-	SearchableDirectoryName[BytesWritten+2] = '\0';
+	
+	b64 IsDirectoryRoot = PathIsRoot(DirectoryName);
+	if (!IsDirectoryRoot) {
+		SearchableDirectoryName[BytesWritten + SearchBytesWritten++] = '\\';
+	} else {
+		int BreakHere = 5;
+	}
+	
+	SearchableDirectoryName[BytesWritten + SearchBytesWritten++] = '*';
+	SearchableDirectoryName[BytesWritten + SearchBytesWritten++] = '\0';
 	
 	WIN32_FIND_DATA FindData = {0};
 	HANDLE FindHandle = FindFirstFile(SearchableDirectoryName, &FindData);
@@ -643,7 +651,7 @@ WindowsGetEntriesForDirectory(char *DirectoryName, plore_file *Buffer, u64 Size)
 			Assert(Result.Count < Result.Size);
 			
 			char *FileName = FindData.cFileName;
-			if (FileName[0] == '.') continue;
+			if (FileName[0] == '.' || FileName[0] == '$') continue;
 			
 			plore_file *File = Buffer + Result.Count;
 			
@@ -663,12 +671,14 @@ WindowsGetEntriesForDirectory(char *DirectoryName, plore_file *Buffer, u64 Size)
 				continue;
 			}
 			
-			DWORD BytesWritten = GetFullPathNameA(FindData.cFileName,
-							                      ArrayCount(File->AbsolutePath),
-							                      File->AbsolutePath,
-							                      &File->FileNameInPath);
+			u64 BytesWritten = CStringCopy(DirectoryName, File->AbsolutePath, ArrayCount(File->AbsolutePath));
+			Assert(BytesWritten < ArrayCount(File->AbsolutePath) - 2); // NOTE(Evan): For trailing '\';
+			if (!IsDirectoryRoot) {
+				File->AbsolutePath[BytesWritten++] = '\\';
+			}
+			CStringCopy(FindData.cFileName, File->AbsolutePath + BytesWritten, ArrayCount(File->AbsolutePath) - BytesWritten);
+			CStringCopy(FindData.cFileName, File->Name, ArrayCount(File->Name));
 			
-			Assert(BytesWritten);
 			Result.Count++;
 			
 		} while (FindNextFile(FindHandle, &FindData));
@@ -749,7 +759,7 @@ int WinMain (
 		#endif
 		.ShowCursor = WindowsShowCursor,
 		
-		.GetDirectoryEntries = WindowsGetEntriesForDirectory,
+		.GetDirectoryEntries = WindowsGetDirectoryEntries,
 		// @Hack
 		#undef GetCurrentDirectory
 		.GetCurrentDirectory = WindowsGetCurrentDirectory,
@@ -815,9 +825,9 @@ int WinMain (
 		GlobalPloreInput.DLLWasReloaded = false;
 		FILETIME DLLCurrentWriteTime = WindowsGetFileLastWriteTime(PloreDLLPath);
 		if (CompareFileTime(&DLLCurrentWriteTime, &PloreCode.DLLLastWriteTime) != 0) {
-			WindowsDebugPrintLine("Unloading game code.");
+			WindowsDebugPrintLine("Unloading plore DLL.");
 			WindowsUnloadPloreCode(PloreCode);
-			WindowsDebugPrintLine("Re-loading game code.");
+			WindowsDebugPrintLine("Re-loading plore DLL.");
 			GlobalPloreInput.DLLWasReloaded = true;
 		    PloreCode = WindowsLoadPloreCode(PloreDLLPath, TempDLLPath, LockPath);
 		}

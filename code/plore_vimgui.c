@@ -1,4 +1,3 @@
-
 internal void
 VimguiBegin(plore_vimgui_context *Context, keyboard_and_mouse Input) {
 	Assert(!Context->GUIPassActive);
@@ -12,24 +11,12 @@ VimguiBegin(plore_vimgui_context *Context, keyboard_and_mouse Input) {
 		Window->RowCount = 0;
 	}
 	
-	if (Input.CtrlIsDown) {
-		if (Input.LIsPressed) {
-			vimgui_window_search_result MaybeActiveWindow = GetRightMovementWindow(Context);
-			if (MaybeActiveWindow.ID) {
-				Context->ActiveWindow = MaybeActiveWindow.ID;
-				Context->HotWindow = MaybeActiveWindow.ID;
-			}
-		} else if (Input.HIsPressed) {
-			vimgui_window_search_result MaybeActiveWindow = GetLeftMovementWindow(Context);
-			if (MaybeActiveWindow.ID) {
-				Context->ActiveWindow = MaybeActiveWindow.ID;
-				Context->HotWindow = MaybeActiveWindow.ID;
-			}
-		} else if (Input.JIsPressed) {
-		} else if (Input.KIsPressed) {
-		}
+	if (Input.LIsPressed) {
+		DoWindowMovement(Context, +1);
+	} else if (Input.HIsPressed) {
+		DoWindowMovement(Context, -1);
 	}
-	
+	// NOTE(Evan): We need a well-defined way to have per-window cursors, and easily reflect this at the callsite.
 }
 
 internal void
@@ -39,8 +26,19 @@ VimguiEnd(plore_vimgui_context *Context) {
 	Context->WindowWeAreLayingOut = 0;
 }
 
+internal void
+DoWindowMovement(plore_vimgui_context *Context, i64 Sign) {
+	Assert(Sign);
+	
+	vimgui_window_search_result MaybeActiveWindow = GetWindowForMovement(Context, Sign);
+	if (MaybeActiveWindow.ID) {
+		Context->ActiveWindow = MaybeActiveWindow.ID;
+		Context->HotWindow = MaybeActiveWindow.ID;
+	}
+}
+
 internal vimgui_window_search_result
-GetMovementWindow(plore_vimgui_context *Context, i64 Sign) {
+GetWindowForMovement(plore_vimgui_context *Context, i64 Sign) {
 	vimgui_window_search_result Result = {0};
 	for (u64 W = 0; W < Context->WindowCount; W++) {
 		vimgui_window *MaybeWindow = Context->Windows + W;
@@ -58,25 +56,12 @@ GetMovementWindow(plore_vimgui_context *Context, i64 Sign) {
 	return(Result);
 }
 
-internal vimgui_window_search_result
-GetRightMovementWindow(plore_vimgui_context *Context) {
-	vimgui_window_search_result Result = GetMovementWindow(Context, +1);
-	return(Result);
-}
-	
-internal vimgui_window_search_result
-GetLeftMovementWindow(plore_vimgui_context *Context) {
-	vimgui_window_search_result Result = GetMovementWindow(Context, -1);
-	return(Result);
-}
-
 internal vimgui_window *
-GetTheWindowWeAreLayingOut(plore_vimgui_context *Context) {
+GetLayoutWindow(plore_vimgui_context *Context) {
 	vimgui_window *Window = 0;
 	for (u64 W = 0; W < Context->WindowCount; W++) {
 		vimgui_window *MaybeWindow = Context->Windows + W;
 		if (MaybeWindow->ID == Context->WindowWeAreLayingOut) {
-			PrintLine("Window we are laying out index :: %d", W);
 			Window = MaybeWindow;
 			break;
 		}
@@ -91,7 +76,6 @@ GetHotWindow(plore_vimgui_context *Context) {
 	for (u64 W = 0; W < Context->WindowCount; W++) {
 		vimgui_window *MaybeWindow = Context->Windows + W;
 		if (MaybeWindow->ID == Context->HotWindow) {
-			PrintLine("Hot window index :: %d", W);
 			Window = MaybeWindow;
 			break;
 		}
@@ -106,13 +90,22 @@ GetActiveWindow(plore_vimgui_context *Context) {
 	for (u64 W = 0; W < Context->WindowCount; W++) {
 		vimgui_window *MaybeWindow = Context->Windows + W;
 		if (MaybeWindow->ID == Context->ActiveWindow) {
-			PrintLine("Active window index :: %d", W);
 			Window = MaybeWindow;
 			break;
 		}
 	}
 	
 	return(Window);
+}
+
+internal void
+SetActiveWindow(plore_vimgui_context *Context, vimgui_window *Window) {
+	Context->ActiveWindow = Window->ID;
+}
+
+internal void
+SetHotWindow(plore_vimgui_context *Context, vimgui_window *Window) {
+	Context->HotWindow = Window->ID;
 }
 
 typedef struct vimgui_button_desc {
@@ -131,7 +124,7 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	
 	b64 Result = false;
 	u64 MyID = (u64) Desc.Title;
-	vimgui_window *Window = GetTheWindowWeAreLayingOut(Context);
+	vimgui_window *Window = GetLayoutWindow(Context);
 	rectangle MyRect = {0};
 	v4 MyColour = V4(1, 1, 1, 0.1);
 	
@@ -140,37 +133,39 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	f32 RowPad = 4.0f;
 	f32 RowHeight = 36.0f;
 	
-	if (Desc.FillWidth) {
-		MyRect.Span = (v2) {
-			.W = Window->Rect.Span.X,
-			.H = RowHeight - RowPad,
-		};
-		
-		MyRect.P = (v2) {
-			.X = Window->Rect.P.X,
-			.Y = ButtonStartY + Window->RowCount*RowHeight+1,
-		};
-		
-	} else {
+	if (!Desc.FillWidth) {
 		Assert(!"We don't support absolute button positions right now.");
+		return false;
 	}
 	
-	if (Context->WindowWeAreLayingOut == Context->ActiveWindow) {
-		if (IsWithinRectangleInclusive(Context->InputThisFrame.MouseP, MyRect)) {
-			Context->HotWidgetID = MyID;
-			if (Context->InputThisFrame.MouseLeftIsPressed) {
-				Context->ActiveWidgetID = MyID;
-				Result = true;
-			}
+	if (Window->RowCount > Window->RowMax) {
+		PrintLine("Maximum number of rows reached for Window %s", Window->Title);
+		return false;
+	}
+
+	MyRect.Span = (v2) {
+		.W = Window->Rect.Span.X,
+		.H = RowHeight - RowPad,
+	};
+	
+	MyRect.P = (v2) {
+		.X = Window->Rect.P.X,
+		.Y = ButtonStartY + Window->RowCount*RowHeight+1,
+	};
+	
+	if (IsWithinRectangleInclusive(Context->InputThisFrame.MouseP, MyRect)) {
+		SetHotWindow(Context, Window);
+		Context->HotWidgetID = MyID;
+		if (Context->InputThisFrame.MouseLeftIsPressed) {
+			SetActiveWindow(Context, Window);
+			Context->ActiveWidgetID = MyID;
+			Result = true;
 		}
 	}
 	PushRenderQuad(&Context->RenderList, MyRect, MyColour);
 	
-	rectangle UpsideDownRect = MyRect;
-	
-	UpsideDownRect.P.Y = Window->Rect.Span.Y - (ButtonStartY + Window->RowCount*RowHeight+(RowPad*2));//Window->Rect.Span.Y-(Window->RowCount++)*(RowHeight+1)-TitlePad*2;
 	PushRenderText(&Context->RenderList, 
-				   UpsideDownRect.P,//RectangleTopCentre(UpsideDownRect),
+				   MyRect,
 				   MyColour,
 				   Desc.Title, 
 				   false);
@@ -179,9 +174,28 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	return(Result);
 }
 
+
+typedef struct vimgui_window_desc {
+	u64 ID;
+	char *Title;
+	rectangle Rect;
+	v4 Colour;
+} vimgui_window_desc;
+
 internal b64
-WindowTitled(plore_vimgui_context *Context, char *Title, rectangle Rect, v4 Colour) {
-	u64 MyID = (u64) Title;
+Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
+	rectangle Rect = Desc.Rect;
+	v4 Colour = Desc.Colour;
+	char *Title = Desc.Title;
+	
+	u64 MyID; 
+	if (!Title) {
+		Assert(Desc.ID);
+		MyID = Desc.ID;
+	} else {
+		MyID = (u64) Title;
+	}
+	
 	vimgui_window *MaybeWindow = 0;
 	
 	for (u64 W = 0; W < Context->WindowCount; W++) {
@@ -210,19 +224,19 @@ WindowTitled(plore_vimgui_context *Context, char *Title, rectangle Rect, v4 Colo
 		} else {
 		}
 		
-		if (Context->HotWindow == MyID) {
+		if (Context->ActiveWindow == MyID) {
 			Colour.RGB = MultiplyVec3f(Colour.RGB, 1.20f);
 		}
 		
 		MaybeWindow->Rect = Rect;
 		MaybeWindow->Rect.P.Y += 80.0f;
-		MaybeWindow->RowMax = (Rect.Span.Y * 2.0f) / 32.0f; // @Hardcode
+		MaybeWindow->RowMax = (Rect.Span.Y) / 32.0f; // @Hardcode
 		MaybeWindow->Colour = Colour;
 		
 		PushRenderQuad(&Context->RenderList, Rect, Colour);
 		
 		PushRenderText(&Context->RenderList, 
-					   Rect.P,//RectangleTopCentre(Rect),
+					   Rect,
 					   WHITE_V4,
 					   Title, 
 					   true);
@@ -238,11 +252,18 @@ WindowTitled(plore_vimgui_context *Context, char *Title, rectangle Rect, v4 Colo
 
 
 internal void
-PushRenderText(plore_render_list *RenderList, v2 P, v4 Colour, char *Text, b64 Centered) {
+PushRenderText(plore_render_list *RenderList, rectangle Rect, v4 Colour, char *Text, b64 Centered) {
 	Assert(RenderList && RenderList->TextCount < ArrayCount(RenderList->Text));
 	render_text *T = RenderList->Text + RenderList->TextCount++;
+	
+	
+	v2 TextP = {
+		.X = Rect.P.X + (Centered ? Rect.Span.W/2.0f : 0),
+		.Y = Rect.P.Y + 26.0f,                            // TODO(Evan): Move font metric handling to Vimgui.
+	};
+	
 	*T = (render_text ) {
-		.P = P,
+		.P = TextP,
 		.Colour = WHITE_V4,
 		.Centered = Centered,
 	};

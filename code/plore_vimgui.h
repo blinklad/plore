@@ -10,6 +10,7 @@ typedef struct vimgui_window {
 	char *Title;
 	u64 RowMax;
 	u64 RowCount;
+	u64 Cursor;
 } vimgui_window;
 
 typedef struct plore_vimgui_context {
@@ -37,7 +38,7 @@ internal void
 VimguiEnd(plore_vimgui_context *Context);
 
 internal void
-PushRenderText(plore_render_list *RenderList, v2 P, v4 Colour, char *Text, b64 Centered);
+PushRenderText(plore_render_list *RenderList, rectangle Rect, v4 Colour, char *Text, b64 Centered);
 
 internal void
 PushRenderQuad(plore_render_list *RenderList, rectangle Rect, v4 Colour);
@@ -48,11 +49,14 @@ typedef struct vimgui_window_search_result {
 	vimgui_window *Window;
 } vimgui_window_search_result;
 
-internal vimgui_window_search_result
-GetRightMovementWindow(plore_vimgui_context *Context);
+internal void
+DoWindowMovement(plore_vimgui_context *Context, i64 Sign);
 	
+internal void
+DoCursorMovement(plore_vimgui_context *Context, i64 Sign);
+
 internal vimgui_window_search_result
-GetLeftMovementWindow(plore_vimgui_context *Context);
+GetWindowForMovement(plore_vimgui_context *Context, i64 Sign);
 	
 internal vimgui_window *
 GetActiveWindow(plore_vimgui_context *Context);
