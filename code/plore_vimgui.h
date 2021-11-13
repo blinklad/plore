@@ -9,7 +9,8 @@ typedef struct vimgui_window {
 	v4 Colour;
 	char *Title;
 	u64 RowMax;
-	u64 RowCount;
+	u64 RowCountThisFrame;
+	u64 RowCountLastFrame;
 	u64 Cursor;
 } vimgui_window;
 

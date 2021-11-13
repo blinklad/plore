@@ -8,13 +8,17 @@ VimguiBegin(plore_vimgui_context *Context, keyboard_and_mouse Input) {
 	
 	for (u64 W = 0; W < Context->WindowCount; W++) {
 		vimgui_window *Window = Context->Windows + W;
-		Window->RowCount = 0;
+		Window->RowCountThisFrame = 0;
 	}
 	
 	if (Input.LIsPressed) {
 		DoWindowMovement(Context, +1);
 	} else if (Input.HIsPressed) {
 		DoWindowMovement(Context, -1);
+	} else if (Input.JIsPressed) {
+		DoCursorMovement(Context, +1);
+	} else if (Input.KIsPressed) {
+		DoCursorMovement(Context, -1);
 	}
 	// NOTE(Evan): We need a well-defined way to have per-window cursors, and easily reflect this at the callsite.
 }
@@ -24,8 +28,25 @@ VimguiEnd(plore_vimgui_context *Context) {
 	Assert(Context->GUIPassActive);
 	Context->GUIPassActive = false;
 	Context->WindowWeAreLayingOut = 0;
+	
+	for (u64 W = 0; W < Context->WindowCount; W++) {
+		vimgui_window *Window = Context->Windows + W;
+		Window->RowCountLastFrame = Window->RowCountThisFrame;
+		if (!Window->RowCountThisFrame) {
+			// TODO(Evan): Cleanup.
+		}
+	}
 }
 
+internal void
+DoCursorMovement(plore_vimgui_context *Context, i64 Sign) {
+	vimgui_window *Window = GetActiveWindow(Context);
+	if (!Window->RowCountLastFrame) return;
+	
+	Window->Cursor = (Window->Cursor + Sign) % Window->RowCountLastFrame;
+	PrintLine("Window->Cursor %d", Window->Cursor);
+}
+	
 internal void
 DoWindowMovement(plore_vimgui_context *Context, i64 Sign) {
 	Assert(Sign);
@@ -138,7 +159,7 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 		return false;
 	}
 	
-	if (Window->RowCount > Window->RowMax) {
+	if (Window->RowCountThisFrame > Window->RowMax) {
 		PrintLine("Maximum number of rows reached for Window %s", Window->Title);
 		return false;
 	}
@@ -150,7 +171,7 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	
 	MyRect.P = (v2) {
 		.X = Window->Rect.P.X,
-		.Y = ButtonStartY + Window->RowCount*RowHeight+1,
+		.Y = ButtonStartY + Window->RowCountThisFrame*RowHeight+1,
 	};
 	
 	if (IsWithinRectangleInclusive(Context->InputThisFrame.MouseP, MyRect)) {
@@ -162,6 +183,12 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 			Result = true;
 		}
 	}
+	
+	u64 MyRow = Window->RowCountThisFrame++;
+	if (MyRow == Window->Cursor) {
+		MyColour.A += 0.2f;
+	}
+	
 	PushRenderQuad(&Context->RenderList, MyRect, MyColour);
 	
 	PushRenderText(&Context->RenderList, 
@@ -170,7 +197,6 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 				   Desc.Title, 
 				   false);
 	
-	Window->RowCount++;
 	return(Result);
 }
 
