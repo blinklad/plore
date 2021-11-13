@@ -66,7 +66,7 @@ typedef PLATFORM_GET_CURRENT_DIRECTORY(platform_get_current_directory);
 #define PLATFORM_SET_CURRENT_DIRECTORY(name) b64 name(char *Name)
 typedef PLATFORM_SET_CURRENT_DIRECTORY(platform_set_current_directory);
 
-#define PLATFORM_POP_PATH_NODE(name) void name(char *Buffer, u64 BufferSize)
+#define PLATFORM_POP_PATH_NODE(name) void name(char *Buffer, u64 BufferSize, b64 AddTrailingSlash)
 typedef PLATFORM_POP_PATH_NODE(platform_pop_path_node);
 
 typedef struct directory_entry_result {

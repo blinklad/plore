@@ -5,7 +5,7 @@
 #define _CRT_NONSTDC_NO_DEPRECATE
 #include <Windows.h> // the kitchen sink
 #include <windowsx.h> // GET_X_LPARAM, GET_Y_LPARAM
-#include <shlwapi.h> // PathRemoveFileSpecA
+#include <shlwapi.h> // PathRemoveFileSpecA, PathRemoveBackslash
 #include <fcntl.h> // stdin, stdout, _O_TEXT
 
 #if defined(PLORE_INTERNAL)

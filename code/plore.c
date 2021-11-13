@@ -48,6 +48,9 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 																			FileContext->CurrentDirectory.Entries, 
 																			ArrayCount(FileContext->CurrentDirectory.Entries));
 	FileContext->CurrentDirectory.Count = CurrentDirectory.Count;
+	if (!CurrentDirectory.Succeeded) {
+		PrintLine("Could not get current directory.");
+	}
 	
 	plore_file *CursorEntry = FileContext->CurrentDirectory.Entries + FileContext->CurrentDirectory.Cursor;
 		
@@ -57,6 +60,9 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 																			   FileContext->CursorDirectory.Entries, 
 																			   ArrayCount(FileContext->CursorDirectory.Entries));
 		
+		if (!CursorDirectory.Succeeded) {
+			PrintLine("Could not get cursor directory.");
+		}
 		CStringCopy(CursorDirectory.Name, FileContext->CursorDirectory.Name, ArrayCount(FileContext->CursorDirectory.Name));
 		FileContext->CursorDirectory.Count = CursorDirectory.Count;
 	} else {
@@ -65,11 +71,14 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	
 	CStringCopy(FileContext->CurrentDirectory.Name, FileContext->ParentDirectory.Name, ArrayCount(FileContext->ParentDirectory.Name));
 	
-	Platform->PopPathNode(FileContext->ParentDirectory.Name, ArrayCount(FileContext->ParentDirectory.Name));
+	Platform->PopPathNode(FileContext->ParentDirectory.Name, ArrayCount(FileContext->ParentDirectory.Name), false);
 	directory_entry_result ParentDirectory = Platform->GetDirectoryEntries(FileContext->ParentDirectory.Name, 
 																		   FileContext->ParentDirectory.Entries, 
 																		   ArrayCount(FileContext->ParentDirectory.Entries));
 	FileContext->ParentDirectory.Count = ParentDirectory.Count;
+	if (!ParentDirectory.Succeeded) {
+		PrintLine("Could not get parent directory.");
+	}
 	
 	// NOTE(Evan): GUI stuff.
 	u64 Cols = 3;
@@ -102,6 +111,10 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								   .FillWidth = true,
 								   .Centre = true })) {
 					PrintLine("Button %s was clicked!", Directory->Entries[Row].Name);
+					if (Directory->Entries[Row].Type == PloreFileNode_Directory) {
+						PrintLine("Changing directory to %s", Directory->Entries[Row].AbsolutePath);
+						Platform->SetCurrentDirectory(Directory->Entries[Row].AbsolutePath);
+					}
 				}
 			}
 		}

@@ -621,7 +621,13 @@ PLATFORM_SET_CURRENT_DIRECTORY(WindowsSetCurrentDirectory) {
 }
 
 PLATFORM_POP_PATH_NODE(WindowsPopPathNode) {
+	PathRemoveBackslash(Buffer);
 	PathRemoveFileSpecA(Buffer);
+	if (AddTrailingSlash) {
+		u64 Length = StringLength(Buffer);
+		Buffer[Length++] = '\\';
+		Buffer[Length++] = '\0';
+	}
 }
 
 //PLATFORM_STRIP_PATH(WindowsStripPath) {
@@ -672,28 +678,32 @@ PLATFORM_GET_DIRECTORY_ENTRIES(WindowsGetDirectoryEntries) {
 				                  FILE_ATTRIBUTE_HIDDEN    |
 				                  FILE_ATTRIBUTE_OFFLINE   |
 				                  FILE_ATTRIBUTE_SYSTEM    |
+								  FILE_ATTRIBUTE_SYSTEM    |
+								  FILE_ATTRIBUTE_READONLY  |
 				                  FILE_ATTRIBUTE_TEMPORARY;
 			
-			if (FindData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-				File->Type = PloreFileNode_Directory;
-			} else if (!(FindData.dwFileAttributes & FlagsToIgnore)) {
-				File->Type = PloreFileNode_File;
-			} else {
+			if (FindData.dwFileAttributes & FlagsToIgnore) {
 				Result.IgnoredCount++;
 				continue;
 			}
 			
+			if (FindData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+				File->Type = PloreFileNode_Directory;
+			} else { // NOTE(Evan): Assume a 'normal' file.
+				File->Type = PloreFileNode_File;
+			} 
+			
 			u64 BytesWritten = CStringCopy(DirectoryName, File->AbsolutePath, ArrayCount(File->AbsolutePath));
 			Assert(BytesWritten < ArrayCount(File->AbsolutePath) - 2); // NOTE(Evan): For trailing '\';
-			if (!IsDirectoryRoot) {
-				File->AbsolutePath[BytesWritten++] = '\\';
-			}
+			File->AbsolutePath[BytesWritten++] = '\\';
 			CStringCopy(FindData.cFileName, File->AbsolutePath + BytesWritten, ArrayCount(File->AbsolutePath) - BytesWritten);
 			CStringCopy(FindData.cFileName, File->Name, ArrayCount(File->Name));
 			
 			Result.Count++;
 			
 		} while (FindNextFile(FindHandle, &FindData));
+	} else {
+		WindowsDebugPrintLine("Could not open directory %s", SearchableDirectoryName);
 	}
 	
 	Result.Succeeded = true;
@@ -735,6 +745,19 @@ WindowsUnloadPloreCode(plore_code PloreCode) {
 	PloreCode.DoOneFrame = NULL;
 }
 
+internal b64
+WindowsPushPath(char *Buffer, u64 BufferSize, char *Piece, u64 PieceSize, b64 TrailingSlash) {
+	u64 TrailingParts = TrailingSlash ? 1 : 0;
+	if (PieceSize + TrailingParts > BufferSize) {
+		return(false);
+	}
+	
+	u64 EndOfBuffer = StringLength(Buffer);
+	u64 BytesWritten = CStringCopy(Piece, Buffer + EndOfBuffer, BufferSize);
+	
+	return(true);
+}
+
 int WinMain (
     HINSTANCE Instance,
     HINSTANCE PrevInstance,
@@ -745,10 +768,34 @@ int WinMain (
 	DebugConsoleSetup();
 #endif
     
+	DWORD BytesRequired = PLORE_MAX_PATH - 30;
 	// TODO(Evan): GetModuleDirectory(?)
-	char *PloreDLLPath = "build/plore.dll";
-	char *TempDLLPath = "data/plore_temp.dll";
-	char *LockPath = "build/lock.tmp";
+	char ExePath[PLORE_MAX_PATH] = {0}; 
+	DWORD BytesWritten = GetModuleFileName(NULL, ExePath, ArrayCount(ExePath));
+	Assert(BytesWritten < BytesRequired); // NOTE(Evan): Requires our .exe to near the top of a root directory.
+	
+	char *PloreDLLPathString = "plore.dll";
+	char *TempDLLPathString = "data\\plore_temp.dll";
+	char *LockPathString = "lock.tmp";
+	
+	char PloreDLLPath[PLORE_MAX_PATH] = {0}; // "build/plore.dll";
+	char TempDLLPath[PLORE_MAX_PATH] = {0};  //  = "data/plore_temp.dll";
+	char LockPath[PLORE_MAX_PATH] = {0};     //  = "build/lock.tmp";
+	
+	
+	CStringCopy(ExePath, PloreDLLPath, ArrayCount(PloreDLLPath));
+	CStringCopy(ExePath, TempDLLPath, ArrayCount(TempDLLPath));
+	CStringCopy(ExePath, LockPath, ArrayCount(LockPath));
+	
+	WindowsPopPathNode(PloreDLLPath, ArrayCount(PloreDLLPath), true);
+	WindowsPopPathNode(TempDLLPath, ArrayCount(TempDLLPath), false);
+	WindowsPopPathNode(LockPath, ArrayCount(LockPath), true);
+	
+	WindowsPopPathNode(TempDLLPath, ArrayCount(TempDLLPath), true);
+	
+	WindowsPushPath(PloreDLLPath, ArrayCount(PloreDLLPath), PloreDLLPathString, StringLength(PloreDLLPathString), false);
+	WindowsPushPath(TempDLLPath, ArrayCount(TempDLLPath), TempDLLPathString, StringLength(TempDLLPathString), false);
+	WindowsPushPath(LockPath, ArrayCount(LockPath), LockPathString, StringLength(LockPathString), false);
 	
     plore_code PloreCode = WindowsLoadPloreCode(PloreDLLPath, TempDLLPath, LockPath);
 	

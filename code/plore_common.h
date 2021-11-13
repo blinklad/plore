@@ -138,8 +138,10 @@ CStringCopy(char *Source, char *Destination, u64 BufferSize) {
 	}
 	
 	// NOTE(Evan): Truncate the string.
-	if (BytesWritten == BufferSize) {
+	if (BytesWritten >= BufferSize) {
 		Destination[BufferSize-1] = '\0';
+	} else {
+		Destination[BytesWritten] = '\0';
 	}
 	
 	return(BytesWritten);
