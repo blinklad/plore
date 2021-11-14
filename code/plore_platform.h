@@ -69,6 +69,9 @@ typedef PLATFORM_SET_CURRENT_DIRECTORY(platform_set_current_directory);
 #define PLATFORM_POP_PATH_NODE(name) void name(char *Buffer, u64 BufferSize, b64 AddTrailingSlash)
 typedef PLATFORM_POP_PATH_NODE(platform_pop_path_node);
 
+#define PLATFORM_IS_PATH_DIRECTORY(name) b64 name(char *Buffer)
+typedef PLATFORM_IS_PATH_DIRECTORY(platform_is_path_directory);
+
 typedef struct directory_entry_result {
 	char *Name;         // NOTE(Evan): Alias to the string passed in.
 	plore_file *Buffer; // NOTE(Evan): Alias of the buffer passed in.
@@ -78,6 +81,7 @@ typedef struct directory_entry_result {
 	u64 IgnoredCount;
 	b64 Succeeded;
 } directory_entry_result;
+
 #define PLATFORM_GET_DIRECTORY_ENTRIES(name) directory_entry_result name(char *DirectoryName, plore_file *Buffer, u64 Size)
 typedef PLATFORM_GET_DIRECTORY_ENTRIES(platform_get_directory_entries);
 
@@ -101,6 +105,7 @@ typedef struct platform_api {
 	platform_get_current_directory  *GetCurrentDirectory;
 	platform_set_current_directory  *SetCurrentDirectory;
 	platform_pop_path_node          *PopPathNode;
+	platform_is_path_directory      *IsPathDirectory;
 } platform_api;
 
 #endif

@@ -12,13 +12,14 @@ typedef struct plore_state {
 	plore_memory *Memory;
 	plore_file_context *FileContext;
 	plore_vimgui_context *VimguiContext;
+	memory_arena FrameArena;
 } plore_state;
 
 #include "plore_vimgui.c"
 #include "plore_table.c"
 
 internal void
-PrintDirectory(plore_directory_listing *Directory);
+PrintDirectory(plore_file_listing *Directory);
 
 
 internal void 
@@ -38,19 +39,20 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		State = PushStruct(Arena, plore_state);
 		State->Initialized = true;
 		State->Memory = PloreMemory;
+		State->FrameArena = SubArena(Arena, Megabytes(32), 16);
 		
 		State->FileContext = PushStruct(Arena, plore_file_context);
 		for (u64 Dir = 0; Dir < ArrayCount(State->FileContext->ViewDirectories); Dir++) {
-			State->FileContext->ViewDirectories[Dir] = PushStruct(Arena, plore_directory_listing);
+			State->FileContext->ViewDirectories[Dir] = PushStruct(Arena, plore_file_listing);
 		}
 		
-		for (u64 Dir = 0; Dir < ArrayCount(State->FileContext->DirectorySlots); Dir++) {
-			State->FileContext->DirectorySlots[Dir] = PushStruct(Arena, plore_directory_listing);
+		for (u64 Dir = 0; Dir < ArrayCount(State->FileContext->FileSlots); Dir++) {
+			State->FileContext->FileSlots[Dir] = PushStruct(Arena, plore_file_listing);
 		}
 		
 		#if 0
 		{
-			plore_directory_listing_slot *FirstSlot = State->FileContext->DirectorySlots[State->FileContext->DirectoryCount++];
+			plore_file_listing_slot *FirstSlot = State->FileContext->FileSlots[State->FileContext->DirectoryCount++];
 			Platform->GetCurrentDirectory(FirstSlot->Directory.Name, 
 										  ArrayCount(FirstSlot->Directory.Name));
 			directory_entry_result CurrentDirectory = Platform->GetDirectoryEntries(FirstSlot->Directory.Name, 
@@ -59,7 +61,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			Assert(CurrentDirectory.Succeeded);
 			FirstSlot->Directory.Count = CurrentDirectory.Count;
 			InsertListing(State->FileContext, &FirstSlot->Directory);
-			plore_directory_listing *Result = GetListing(State->FileContext, "C:\\plore");
+			plore_file_listing *Result = GetListing(State->FileContext, "C:\\plore");
 			int BreakHere = 5;
 		}
 		#endif
@@ -68,26 +70,31 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			
 	}
 	
+	ClearArena(&State->FrameArena);
+	
 	if (PloreInput->DLLWasReloaded) {
 		SetupPlatformCode(PlatformAPI);
 	}
 	plore_file_context *FileContext = State->FileContext;
 	keyboard_and_mouse Input = PloreInput->ThisFrame;
 	
-	
 	{
 		char *Buffer = PushBytes(Arena, PLORE_MAX_PATH);
 		Platform->GetCurrentDirectory(Buffer, PLORE_MAX_PATH);
-		if (!GetListing(FileContext, Buffer)) {
-			plore_directory_listing_insert_result ListResult = InsertListing(FileContext, Buffer);
+		plore_file_listing *MaybeCurrentDir = GetListing(FileContext, Buffer);
+		if (!MaybeCurrentDir) {
+			PrintLine("Current directory entry not found. Our current: `%s`, actual current: `%s`.", FileContext->Current->Name, Buffer);
+			plore_file_listing_insert_result ListResult = InsertListing(FileContext, Buffer);
 			FileContext->Current = &ListResult.Slot->Directory;
+		} else if (!CStringsAreEqual(FileContext->Current->Name, Buffer)) {
+			PrintLine("Current directory exists (`%s`), but doesn't match what we think the current dir is (`%s`)", Buffer, FileContext->Current->Name);
+			FileContext->Current = MaybeCurrentDir;
 		}
 	}
 	
-	if (FileContext->Current->Count != 0)
-	{
+	if (FileContext->Current->Count != 0) {
 		plore_file *CursorEntry = FileContext->Current->Entries + FileContext->Current->Cursor;
-			
+		
 		if (CursorEntry->Type == PloreFileNode_Directory) {
 			char *CursorDirectoryName = CursorEntry->AbsolutePath;
 			directory_entry_result CursorDirectory = Platform->GetDirectoryEntries(CursorDirectoryName, 
@@ -100,7 +107,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			CStringCopy(CursorDirectory.Name, FileContext->Cursor->Name, ArrayCount(FileContext->Cursor->Name));
 			FileContext->Cursor->Count = CursorDirectory.Count;
 		} else {
-			Platform->DebugPrintLine("Cursor is on file %s", CursorEntry->AbsolutePath);
+//			Platform->DebugPrintLine("Cursor is on file %s", CursorEntry->AbsolutePath);
 		}
 		
 	}
@@ -137,7 +144,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		v2 Span   = V2(W, H);
 		v4 Colour = V4(0.3f, 0.3f, 0.3f, 1.0f);
 		
-		plore_directory_listing *Directory = State->FileContext->ViewDirectories[Col];
+		plore_file_listing *Directory = State->FileContext->ViewDirectories[Col];
 		char *Title = Directory->Name;
 		if (Window(State->VimguiContext, (vimgui_window_desc) {
 						   .Title = Title,
@@ -162,6 +169,18 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	
 	VimguiEnd(State->VimguiContext);
 	
+#if 1
+	if (Input.HIsPressed) {
+		char *Buffer = PushBytes(&State->FrameArena, PLORE_MAX_PATH);
+		Platform->GetCurrentDirectory(Buffer, PLORE_MAX_PATH);
+		
+		Print("Moving up a directory, from %s ...", Buffer);
+		Platform->PopPathNode(Buffer, PLORE_MAX_PATH, false);
+		PrintLine("to %s ...", Buffer);
+		
+		Platform->SetCurrentDirectory(Buffer);
+	}
+#endif
 	
 #if 0
 	for (u64 Dir = 0; Dir < ArrayCount(FileContext->ViewDirectories); Dir++) {
@@ -177,7 +196,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 }
 
 internal void
-PrintDirectory(plore_directory_listing *Directory) {
+PrintDirectory(plore_file_listing *Directory) {
 	PrintLine("%s", Directory->Name);
 	for (u64 File = 0; File < Directory->Count; File++) {
 		plore_file *FileNode = Directory->Entries + File;

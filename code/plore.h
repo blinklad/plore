@@ -65,29 +65,29 @@ typedef struct plore_memory {
     memory_arena PermanentStorage;
 } plore_memory;
 
-typedef struct plore_directory_listing {
+typedef struct plore_file_listing {
 	char Name[PLORE_MAX_PATH];
 	plore_file Entries[256];
 	u64 Count;
 	u64 Cursor;
-} plore_directory_listing;
+} plore_file_listing;
 
-typedef struct plore_directory_listing_slot {
+typedef struct plore_file_listing_slot {
 	b64 Allocated;
-	plore_directory_listing Directory;
-} plore_directory_listing_slot;
+	plore_file_listing Directory;
+} plore_file_listing_slot;
 
 typedef struct plore_file_context {
 	union {
 		struct {
-			plore_directory_listing *Parent;
-			plore_directory_listing *Current;
-			plore_directory_listing *Cursor;
+			plore_file_listing *Parent;
+			plore_file_listing *Current;
+			plore_file_listing *Cursor;
 		};
-		plore_directory_listing *ViewDirectories[3];
+		plore_file_listing *ViewDirectories[3];
 	};
-	plore_directory_listing_slot *DirectorySlots[512];
-	u64 DirectoryCount;
+	plore_file_listing_slot *FileSlots[512];
+	u64 FileCount;
 } plore_file_context;
 
 typedef struct plore_render_list {

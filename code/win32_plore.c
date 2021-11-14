@@ -634,6 +634,11 @@ PLATFORM_POP_PATH_NODE(WindowsPopPathNode) {
 //}
 
 
+PLATFORM_IS_PATH_DIRECTORY(WindowsIsPathDirectory) {
+	b64 Result = PathIsDirectory(Buffer);
+	return(Result);
+}
+
 // NOTE(Evan): Directory name should not include trailing '\' nor any '*' or '?' wildcards.
 PLATFORM_GET_DIRECTORY_ENTRIES(WindowsGetDirectoryEntries) {
 	directory_entry_result Result = {
@@ -825,7 +830,8 @@ int WinMain (
 		.GetDirectoryEntries = WindowsGetDirectoryEntries,
 		.GetCurrentDirectory = WindowsGetCurrentDirectory,
 		.SetCurrentDirectory = WindowsSetCurrentDirectory,
-		.PopPathNode = WindowsPopPathNode,
+		.PopPathNode         = WindowsPopPathNode,
+		.IsPathDirectory     = WindowsIsPathDirectory,
     };
     
     PloreMemory.PermanentStorage.Memory = VirtualAlloc(0, PloreMemory.PermanentStorage.Size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
