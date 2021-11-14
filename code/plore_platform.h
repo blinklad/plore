@@ -70,9 +70,9 @@ typedef PLATFORM_SET_CURRENT_DIRECTORY(platform_set_current_directory);
 typedef PLATFORM_POP_PATH_NODE(platform_pop_path_node);
 
 typedef struct directory_entry_result {
-	char *Name;
-	plore_file *Buffer;
-	u64 Size;
+	char *Name;         // NOTE(Evan): Alias to the string passed in.
+	plore_file *Buffer; // NOTE(Evan): Alias of the buffer passed in.
+	u64 Size; 
 	u64 Count;
 	
 	u64 IgnoredCount;
