@@ -19,6 +19,13 @@ typedef struct plore_state {
 internal void
 PrintDirectory(plore_directory_listing *Directory);
 
+
+
+internal plore_directory_listing *
+GetListing(plore_file_context *Context, char *Name) {
+	u64 Hash = HashString(Name);
+}
+
 internal void 
 SetupPlatformCode(platform_api *PlatformAPI) {
 	Platform = PlatformAPI;
@@ -29,13 +36,18 @@ SetupPlatformCode(platform_api *PlatformAPI) {
 PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	memory_arena *Arena = &PloreMemory->PermanentStorage;
 	plore_state *State = (plore_state *)Arena->Memory;
+	
 	if (!State->Initialized) {
 		State = PushStruct(Arena, plore_state);
 		State->Initialized = true;
 		State->Memory = PloreMemory;
 		State->FileContext = PushStruct(Arena, plore_file_context);
-		State->VimguiContext = PushStruct(Arena, plore_vimgui_context);
+		for (u64 Dir = 0; Dir < ArrayCount(State->FileContext->ViewDirectories); Dir++) {
+			State->FileContext->ViewDirectories[Dir] = PushStruct(Arena, plore_directory_listing);
+		}
 		
+		State->VimguiContext = PushStruct(Arena, plore_vimgui_context);
+			
 		SetupPlatformCode(PlatformAPI);
 	}
 	
@@ -45,42 +57,50 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	plore_file_context *FileContext = State->FileContext;
 	keyboard_and_mouse Input = PloreInput->ThisFrame;
 	
-	Platform->GetCurrentDirectory(FileContext->CurrentDirectory.Name, ArrayCount(FileContext->CurrentDirectory.Name));
-	directory_entry_result CurrentDirectory = Platform->GetDirectoryEntries(FileContext->CurrentDirectory.Name, 
-																			FileContext->CurrentDirectory.Entries, 
-																			ArrayCount(FileContext->CurrentDirectory.Entries));
-	FileContext->CurrentDirectory.Count = CurrentDirectory.Count;
-	if (!CurrentDirectory.Succeeded) {
-		PrintLine("Could not get current directory.");
-	}
 	
-	Assert(FileContext->CurrentDirectory.Cursor < FileContext->CurrentDirectory.Count);
-	plore_file *CursorEntry = FileContext->CurrentDirectory.Entries + FileContext->CurrentDirectory.Cursor;
-		
-	if (CursorEntry->Type == PloreFileNode_Directory) {
-		char *CursorDirectoryName = CursorEntry->AbsolutePath;
-		directory_entry_result CursorDirectory = Platform->GetDirectoryEntries(CursorDirectoryName, 
-																			   FileContext->CursorDirectory.Entries, 
-																			   ArrayCount(FileContext->CursorDirectory.Entries));
-		
-		if (!CursorDirectory.Succeeded) {
-			PrintLine("Could not get cursor directory.");
+	{
+		Platform->GetCurrentDirectory(FileContext->Current->Name, ArrayCount(FileContext->Current->Name));
+		directory_entry_result CurrentDirectory = Platform->GetDirectoryEntries(FileContext->Current->Name, 
+																				FileContext->Current->Entries, 
+																				ArrayCount(FileContext->Current->Entries));
+		FileContext->Current->Count = CurrentDirectory.Count;
+		if (!CurrentDirectory.Succeeded) {
+			PrintLine("Could not get current directory.");
 		}
-		CStringCopy(CursorDirectory.Name, FileContext->CursorDirectory.Name, ArrayCount(FileContext->CursorDirectory.Name));
-		FileContext->CursorDirectory.Count = CursorDirectory.Count;
-	} else {
-		Platform->DebugPrintLine("Cursor is on file %s", CursorEntry->AbsolutePath);
 	}
 	
-	CStringCopy(FileContext->CurrentDirectory.Name, FileContext->ParentDirectory.Name, ArrayCount(FileContext->ParentDirectory.Name));
+	if (FileContext->Current->Count != 0)
+	{
+		plore_file *CursorEntry = FileContext->Current->Entries + FileContext->Current->Cursor;
+			
+		if (CursorEntry->Type == PloreFileNode_Directory) {
+			char *CursorDirectoryName = CursorEntry->AbsolutePath;
+			directory_entry_result CursorDirectory = Platform->GetDirectoryEntries(CursorDirectoryName, 
+																				   FileContext->Cursor->Entries, 
+																				   ArrayCount(FileContext->Cursor->Entries));
+			
+			if (!CursorDirectory.Succeeded) {
+				PrintLine("Could not get cursor directory.");
+			}
+			CStringCopy(CursorDirectory.Name, FileContext->Cursor->Name, ArrayCount(FileContext->Cursor->Name));
+			FileContext->Cursor->Count = CursorDirectory.Count;
+		} else {
+			Platform->DebugPrintLine("Cursor is on file %s", CursorEntry->AbsolutePath);
+		}
+		
+	}
 	
-	Platform->PopPathNode(FileContext->ParentDirectory.Name, ArrayCount(FileContext->ParentDirectory.Name), false);
-	directory_entry_result ParentDirectory = Platform->GetDirectoryEntries(FileContext->ParentDirectory.Name, 
-																		   FileContext->ParentDirectory.Entries, 
-																		   ArrayCount(FileContext->ParentDirectory.Entries));
-	FileContext->ParentDirectory.Count = ParentDirectory.Count;
-	if (!ParentDirectory.Succeeded) {
-		PrintLine("Could not get parent directory.");
+	{
+		CStringCopy(FileContext->Current->Name, FileContext->Parent->Name, ArrayCount(FileContext->Parent->Name));
+		
+		Platform->PopPathNode(FileContext->Parent->Name, ArrayCount(FileContext->Parent->Name), false);
+		directory_entry_result ParentDirectory = Platform->GetDirectoryEntries(FileContext->Parent->Name, 
+																			   FileContext->Parent->Entries, 
+																			   ArrayCount(FileContext->Parent->Entries));
+		FileContext->Parent->Count = ParentDirectory.Count;
+		if (!ParentDirectory.Succeeded) {
+			PrintLine("Could not get parent directory.");
+		}
 	}
 	
 	// NOTE(Evan): GUI stuff.
@@ -102,7 +122,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		v2 Span   = V2(W, H);
 		v4 Colour = V4(0.3f, 0.3f, 0.3f, 1.0f);
 		
-		plore_directory_listing *Directory = State->FileContext->Directories + Col;
+		plore_directory_listing *Directory = State->FileContext->ViewDirectories[Col];
 		char *Title = Directory->Name;
 		if (Window(State->VimguiContext, (vimgui_window_desc) {
 						   .Title = Title,
@@ -129,8 +149,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	
 	
 #if 0
-	for (u64 Dir = 0; Dir < ArrayCount(FileContext->Directories); Dir++) {
-		PrintDirectory(FileContext->Directories + Dir);
+	for (u64 Dir = 0; Dir < ArrayCount(FileContext->ViewDirectories); Dir++) {
+		PrintDirectory(FileContext->ViewDirectories + Dir);
 	}
 #endif
 	return(State->VimguiContext->RenderList);
