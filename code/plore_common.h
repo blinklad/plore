@@ -28,6 +28,7 @@ typedef uint8_t  u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
+typedef uint32_t b8;
 typedef uint32_t b32;
 typedef uint64_t b64;
 
@@ -35,13 +36,7 @@ typedef float f32;
 typedef double f64;
 
 
-
-// NOTE(Evan): Helpful macros and meta-definitions
-#define iRange(Variable, Count) \
-for (i32 Variable = 0; Variable < Count; ++Variable)
-
-#define uRange(Variable, Count) \
-for (u64 Variable = 0; Variable < Count; ++Variable)
+// NOTE(Evan): Some of these are intrinsics.
 
 #define ArrayCount(Array) ((sizeof(Array) / sizeof(Array[0])))
 #define Kilobytes(n) (((uint64) n)  * 1024ull)
@@ -146,5 +141,30 @@ CStringCopy(char *Source, char *Destination, u64 BufferSize) {
 	
 	return(BytesWritten);
 }
+
+#if 1
+
+// credit: stb
+#define ROTATE_LEFT(val, n)   (((val) << (n)) | ((val) >> (sizeof(u64)*8 - (n))))
+#define ROTATE_RIGHT(val, n)  (((val) >> (n)) | ((val) << (sizeof(u64)*8 - (n))))
+
+plore_inline u64 
+HashString(char *String)
+{
+	u64 Seed = 0x31415926;
+	u64 Hash = Seed;
+	while (*String) Hash = ROTATE_LEFT(Hash, 9) + (u8) *String++;
+	
+	// Thomas Wang 64-to-32 bit mix function, hopefully also works in 32 bits
+	Hash ^= Seed;
+	Hash = (~Hash) + (Hash << 18);
+	Hash ^= Hash ^ ROTATE_RIGHT(Hash, 31);
+	Hash = Hash * 21;
+	Hash ^= Hash ^ ROTATE_RIGHT(Hash, 11);
+	Hash += (Hash << 6);
+	Hash ^= ROTATE_RIGHT(Hash, 22);
+	return Hash+Seed;
+}
+#endif
 
 #endif
