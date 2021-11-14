@@ -48,6 +48,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			State->FileContext->DirectorySlots[Dir] = PushStruct(Arena, plore_directory_listing);
 		}
 		
+		#if 0
 		{
 			plore_directory_listing_slot *FirstSlot = State->FileContext->DirectorySlots[State->FileContext->DirectoryCount++];
 			Platform->GetCurrentDirectory(FirstSlot->Directory.Name, 
@@ -61,6 +62,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			plore_directory_listing *Result = GetListing(State->FileContext, "C:\\plore");
 			int BreakHere = 5;
 		}
+		#endif
 		
 		State->VimguiContext = PushStruct(Arena, plore_vimgui_context);
 			
@@ -74,13 +76,22 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	
 	
 	{
-		Platform->GetCurrentDirectory(FileContext->Current->Name, ArrayCount(FileContext->Current->Name));
-		directory_entry_result CurrentDirectory = Platform->GetDirectoryEntries(FileContext->Current->Name, 
-																				FileContext->Current->Entries, 
-																				ArrayCount(FileContext->Current->Entries));
-		FileContext->Current->Count = CurrentDirectory.Count;
-		if (!CurrentDirectory.Succeeded) {
-			PrintLine("Could not get current directory.");
+		char *Buffer = PushBytes(Arena, PLORE_MAX_PATH);
+		Platform->GetCurrentDirectory(Buffer, PLORE_MAX_PATH);
+		if (!GetListing(FileContext, Buffer)) {
+			plore_directory_listing_slot *FirstSlot = State->FileContext->DirectorySlots[State->FileContext->DirectoryCount++];
+			CStringCopy(Buffer, FirstSlot->Directory.Name, ArrayCount(FirstSlot->Directory.Entries));
+			directory_entry_result CurrentDirectory = Platform->GetDirectoryEntries(FirstSlot->Directory.Name, 
+																					FirstSlot->Directory.Entries, 
+																					ArrayCount(FirstSlot->Directory.Entries));
+			if (!CurrentDirectory.Succeeded) {
+				PrintLine("Could not get current directory.");
+			}
+			FirstSlot->Directory.Count = CurrentDirectory.Count;
+			
+			InsertListing(State->FileContext, &FirstSlot->Directory);
+			
+			FileContext->Current = &FirstSlot->Directory;
 		}
 	}
 	

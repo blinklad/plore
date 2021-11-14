@@ -21,6 +21,7 @@ GetListing(plore_file_context *Context, char *Name) {
 		}
 	}
 	
+	if (Slot && Result) Assert(Slot->Allocated);
 	return(Result);
 }
 
@@ -54,6 +55,7 @@ InsertListing(plore_file_context *Context, plore_directory_listing *Listing) {
 		Slot->Allocated = true;
 	}
 	
+	if (Slot) Assert(Slot->Allocated);
 	return(DidAlreadyExist);
 }
 
