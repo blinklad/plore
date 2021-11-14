@@ -86,7 +86,6 @@ typedef struct plore_file_context {
 		};
 		plore_directory_listing *ViewDirectories[3];
 	};
-	plore_directory_listing Directories[512];
 	plore_directory_listing_slot *DirectorySlots[512];
 	u64 DirectoryCount;
 } plore_file_context;

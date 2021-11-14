@@ -79,19 +79,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		char *Buffer = PushBytes(Arena, PLORE_MAX_PATH);
 		Platform->GetCurrentDirectory(Buffer, PLORE_MAX_PATH);
 		if (!GetListing(FileContext, Buffer)) {
-			plore_directory_listing_slot *FirstSlot = State->FileContext->DirectorySlots[State->FileContext->DirectoryCount++];
-			CStringCopy(Buffer, FirstSlot->Directory.Name, ArrayCount(FirstSlot->Directory.Entries));
-			directory_entry_result CurrentDirectory = Platform->GetDirectoryEntries(FirstSlot->Directory.Name, 
-																					FirstSlot->Directory.Entries, 
-																					ArrayCount(FirstSlot->Directory.Entries));
-			if (!CurrentDirectory.Succeeded) {
-				PrintLine("Could not get current directory.");
-			}
-			FirstSlot->Directory.Count = CurrentDirectory.Count;
-			
-			InsertListing(State->FileContext, &FirstSlot->Directory);
-			
-			FileContext->Current = &FirstSlot->Directory;
+			plore_directory_listing_insert_result ListResult = InsertListing(FileContext, Buffer);
+			FileContext->Current = &ListResult.Slot->Directory;
 		}
 	}
 	
