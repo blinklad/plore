@@ -23,8 +23,64 @@ PrintDirectory(plore_directory_listing *Directory);
 
 internal plore_directory_listing *
 GetListing(plore_file_context *Context, char *Name) {
+	plore_directory_listing *Result = 0;
+	plore_directory_listing_slot *Slot = 0;
 	u64 Hash = HashString(Name);
+	u64 Index = Hash % ArrayCount(Context->DirectorySlots);
+	Slot = Context->DirectorySlots[Index];
+	Assert(Slot);
+	if (Slot->Allocated) {
+		if (!CStringsAreEqual(Slot->Directory.Name, Name)) {
+			for (;;) {
+				Index = (Index + 1) % ArrayCount(Context->DirectorySlots);
+				Slot = Context->DirectorySlots[Index];
+				if (Slot->Allocated && CStringsAreEqual(Slot->Directory.Name, Name)) {
+					Result = &Slot->Directory;
+					break;
+				}
+			}
+		} else {
+			Result = &Slot->Directory;
+		}
+	}
+	
+	return(Result);
 }
+
+#if 1
+internal b64
+InsertListing(plore_file_context *Context, plore_directory_listing *Listing) {
+	b64 DidAlreadyExist = false;
+	plore_directory_listing_slot *Slot = 0;
+	
+	u64 Hash = HashString(Listing->Name);
+	u64 Index = Hash % ArrayCount(Context->DirectorySlots);
+	Slot = Context->DirectorySlots[Index];
+	
+	Assert(Slot);
+	if (Slot->Allocated && !CStringsAreEqual(Slot->Directory.Name, Listing->Name)) {
+		Assert(Context->DirectoryCount < ArrayCount(Context->DirectorySlots));
+		for (;;) {
+			Index = (Index + 1) % ArrayCount(Context->DirectorySlots);
+			Slot = Context->DirectorySlots[Index];
+			if (!Slot->Allocated) {                           // Marked for deletion.
+				Slot->Allocated = true;
+				break;
+			} else if (CStringsAreEqual(Slot->Directory.Name, Listing->Name)) { // Move along.
+				DidAlreadyExist = true;
+				break;
+			}
+		}
+	}
+	
+	if (!DidAlreadyExist) {
+		Slot->Directory = *Listing;
+		Slot->Allocated = true;
+	}
+	
+	return(DidAlreadyExist);
+}
+#endif
 
 internal void 
 SetupPlatformCode(platform_api *PlatformAPI) {
@@ -38,17 +94,37 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	plore_state *State = (plore_state *)Arena->Memory;
 	
 	if (!State->Initialized) {
+		SetupPlatformCode(PlatformAPI);
+		
 		State = PushStruct(Arena, plore_state);
 		State->Initialized = true;
 		State->Memory = PloreMemory;
+		
 		State->FileContext = PushStruct(Arena, plore_file_context);
 		for (u64 Dir = 0; Dir < ArrayCount(State->FileContext->ViewDirectories); Dir++) {
 			State->FileContext->ViewDirectories[Dir] = PushStruct(Arena, plore_directory_listing);
 		}
 		
+		for (u64 Dir = 0; Dir < ArrayCount(State->FileContext->DirectorySlots); Dir++) {
+			State->FileContext->DirectorySlots[Dir] = PushStruct(Arena, plore_directory_listing);
+		}
+		
+		{
+			plore_directory_listing_slot *FirstSlot = State->FileContext->DirectorySlots[State->FileContext->DirectoryCount++];
+			Platform->GetCurrentDirectory(FirstSlot->Directory.Name, 
+										  ArrayCount(FirstSlot->Directory.Name));
+			directory_entry_result CurrentDirectory = Platform->GetDirectoryEntries(FirstSlot->Directory.Name, 
+																					FirstSlot->Directory.Entries, 
+																					ArrayCount(FirstSlot->Directory.Entries));
+			Assert(CurrentDirectory.Succeeded);
+			FirstSlot->Directory.Count = CurrentDirectory.Count;
+			InsertListing(State->FileContext, &FirstSlot->Directory);
+			plore_directory_listing *Result = GetListing(State->FileContext, "C:\\plore");
+			int BreakHere = 5;
+		}
+		
 		State->VimguiContext = PushStruct(Arena, plore_vimgui_context);
 			
-		SetupPlatformCode(PlatformAPI);
 	}
 	
 	if (PloreInput->DLLWasReloaded) {
@@ -152,6 +228,11 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	for (u64 Dir = 0; Dir < ArrayCount(FileContext->ViewDirectories); Dir++) {
 		PrintDirectory(FileContext->ViewDirectories + Dir);
 	}
+#endif
+	
+	
+#if 0
+	
 #endif
 	return(State->VimguiContext->RenderList);
 }

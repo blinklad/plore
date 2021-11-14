@@ -72,6 +72,11 @@ typedef struct plore_directory_listing {
 	u64 Cursor;
 } plore_directory_listing;
 
+typedef struct plore_directory_listing_slot {
+	b64 Allocated;
+	plore_directory_listing Directory;
+} plore_directory_listing_slot;
+
 typedef struct plore_file_context {
 	union {
 		struct {
@@ -81,7 +86,8 @@ typedef struct plore_file_context {
 		};
 		plore_directory_listing *ViewDirectories[3];
 	};
-	plore_directory_listing *Directories[512];
+	plore_directory_listing_slot *DirectorySlots[512];
+	u64 DirectoryCount;
 } plore_file_context;
 
 typedef struct plore_render_list {
