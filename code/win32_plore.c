@@ -677,9 +677,6 @@ PLATFORM_GET_DIRECTORY_ENTRIES(WindowsGetDirectoryEntries) {
 				                  FILE_ATTRIBUTE_ENCRYPTED |
 				                  FILE_ATTRIBUTE_HIDDEN    |
 				                  FILE_ATTRIBUTE_OFFLINE   |
-				                  FILE_ATTRIBUTE_SYSTEM    |
-								  FILE_ATTRIBUTE_SYSTEM    |
-								  FILE_ATTRIBUTE_READONLY  |
 				                  FILE_ATTRIBUTE_TEMPORARY;
 			
 			if (FindData.dwFileAttributes & FlagsToIgnore) {
