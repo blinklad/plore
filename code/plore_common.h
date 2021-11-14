@@ -123,12 +123,14 @@ CStringCopy(char *Source, char *Destination, u64 BufferSize) {
 	u64 BytesWritten = 0;
 	Assert(Source && Destination && BufferSize);
 	
+	#if 0
 	// NOTE(Evan): We return bytes written, *not* including the null terminator,
 	// and currently allow empty strings.
 	if (!*Source) {
 		*Destination = '\0';
 		return BytesWritten;
 	}
+	#endif
 	
 	while (BytesWritten < BufferSize) {
 		Destination[BytesWritten++] = *Source++;

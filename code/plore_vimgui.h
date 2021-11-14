@@ -11,8 +11,6 @@ typedef struct vimgui_window {
 	u64 RowMax;
 	u64 RowCountThisFrame;
 	u64 RowCountLastFrame;
-	u64 Cursor;
-	b64 CursorMovementThisFrame;
 } vimgui_window;
 
 typedef struct plore_vimgui_context {
@@ -31,8 +29,6 @@ typedef struct plore_vimgui_context {
 	u64 WindowWeAreLayingOut;
 } plore_vimgui_context;
 
-typedef struct plore_state plore_state;
-
 internal void
 VimguiBegin(plore_vimgui_context *Context, keyboard_and_mouse Input); 
 
@@ -45,21 +41,11 @@ PushRenderText(plore_render_list *RenderList, rectangle Rect, v4 Colour, char *T
 internal void
 PushRenderQuad(plore_render_list *RenderList, rectangle Rect, v4 Colour);
 
-
 typedef struct vimgui_window_search_result {
 	u64 ID;
 	vimgui_window *Window;
 } vimgui_window_search_result;
 
-internal void
-DoWindowMovement(plore_vimgui_context *Context, i64 Sign);
-	
-internal void
-DoCursorMovement(plore_vimgui_context *Context, i64 Sign);
-
-internal vimgui_window_search_result
-GetWindowForMovement(plore_vimgui_context *Context, i64 Sign);
-	
 internal vimgui_window *
 GetActiveWindow(plore_vimgui_context *Context);
 	

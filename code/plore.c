@@ -27,13 +27,15 @@ SetupPlatformCode(platform_api *PlatformAPI) {
 }
 
 PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
-	plore_state *State = (plore_state *)PloreMemory->PermanentStorage.Memory;
+	memory_arena *Arena = &PloreMemory->PermanentStorage;
+	plore_state *State = (plore_state *)Arena->Memory;
 	if (!State->Initialized) {
+		State = PushStruct(Arena, plore_state);
 		State->Initialized = true;
 		State->Memory = PloreMemory;
-		State->FileContext = PushStruct(&PloreMemory->PermanentStorage, plore_file_context);
+		State->FileContext = PushStruct(Arena, plore_file_context);
+		State->VimguiContext = PushStruct(Arena, plore_vimgui_context);
 		
-		State->VimguiContext = PushStruct(&PloreMemory->PermanentStorage, plore_vimgui_context);
 		SetupPlatformCode(PlatformAPI);
 	}
 	
@@ -52,6 +54,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		PrintLine("Could not get current directory.");
 	}
 	
+	Assert(FileContext->CurrentDirectory.Cursor < FileContext->CurrentDirectory.Count);
 	plore_file *CursorEntry = FileContext->CurrentDirectory.Entries + FileContext->CurrentDirectory.Cursor;
 		
 	if (CursorEntry->Type == PloreFileNode_Directory) {

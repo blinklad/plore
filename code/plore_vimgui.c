@@ -9,19 +9,7 @@ VimguiBegin(plore_vimgui_context *Context, keyboard_and_mouse Input) {
 	for (u64 W = 0; W < Context->WindowCount; W++) {
 		vimgui_window *Window = Context->Windows + W;
 		Window->RowCountThisFrame = 0;
-		Window->CursorMovementThisFrame = false;
 	}
-	
-	if (Input.LIsPressed) {
-		DoWindowMovement(Context, +1);
-	} else if (Input.HIsPressed) {
-		DoWindowMovement(Context, -1);
-	} else if (Input.JIsPressed) {
-		DoCursorMovement(Context, +1);
-	} else if (Input.KIsPressed) {
-		DoCursorMovement(Context, -1);
-	}
-	// NOTE(Evan): We need a well-defined way to have per-window cursors, and easily reflect this at the callsite.
 }
 
 internal void
@@ -37,52 +25,6 @@ VimguiEnd(plore_vimgui_context *Context) {
 			// TODO(Evan): Cleanup.
 		}
 	}
-}
-
-internal void
-DoCursorMovement(plore_vimgui_context *Context, i64 Sign) {
-	vimgui_window *Window = GetActiveWindow(Context);
-	if (!Window->RowCountLastFrame) return;
-	
-	u64 WindowCursorStart = Window->Cursor;
-	Window->Cursor += Sign;
-	if (WindowCursorStart == 0 && Sign == -1) {
-		Window->Cursor = Window->RowCountLastFrame - 1;
-	} else if (Window->Cursor >= Window->RowCountLastFrame) {
-		Window->Cursor = 0;
-	}
-	Window->CursorMovementThisFrame = true;
-	PrintLine("Window->Cursor %d + Sign %d == %d, Window->RowCountLastFrame %d", WindowCursorStart, Sign, Window->Cursor, Window->RowCountLastFrame);
-}
-	
-internal void
-DoWindowMovement(plore_vimgui_context *Context, i64 Sign) {
-	Assert(Sign);
-	
-	vimgui_window_search_result MaybeActiveWindow = GetWindowForMovement(Context, Sign);
-	if (MaybeActiveWindow.ID) {
-		Context->ActiveWindow = MaybeActiveWindow.ID;
-		Context->HotWindow = MaybeActiveWindow.ID;
-	}
-}
-
-internal vimgui_window_search_result
-GetWindowForMovement(plore_vimgui_context *Context, i64 Sign) {
-	vimgui_window_search_result Result = {0};
-	for (u64 W = 0; W < Context->WindowCount; W++) {
-		vimgui_window *MaybeWindow = Context->Windows + W;
-		if (MaybeWindow->ID == Context->ActiveWindow) {
-			if ((Sign < 0 && W > 0) || (Sign > 0 && W < Context->WindowCount-1)) {
-				Result.Window = Context->Windows + W + Sign;
-				Result.ID = (u64) Result.Window->Title;
-			} else {
-				Result.Window = MaybeWindow;
-				Result.ID = (u64) Result.Window->Title;
-			}
-			break;
-		}
-	}
-	return(Result);
 }
 
 internal vimgui_window *
@@ -193,6 +135,7 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	}
 	
 	u64 MyRow = Window->RowCountThisFrame++;
+	#if 0
 	if (MyRow == Window->Cursor) {
 		MyColour.A += 0.2f;
 		
@@ -201,6 +144,7 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 			Result = true;
 		}
 	}
+	#endif
 	
 	
 	PushRenderQuad(&Context->RenderList, MyRect, MyColour);
@@ -213,7 +157,6 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	
 	return(Result);
 }
-
 
 typedef struct vimgui_window_desc {
 	u64 ID;
@@ -307,7 +250,9 @@ PushRenderText(plore_render_list *RenderList, rectangle Rect, v4 Colour, char *T
 		.Colour = WHITE_V4,
 		.Centered = Centered,
 	};
-	StringPrintSized(T->Text, ArrayCount(T->Text), Text);
+	if (*Text) {
+		StringPrintSized(T->Text, ArrayCount(T->Text), Text);
+	}
 }
 
 internal void

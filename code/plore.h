@@ -16,6 +16,10 @@
 #define PLORE_EXPORT 
 #endif
 
+struct plore_state;
+typedef struct plore_state plore_state;
+
+
 // NOTE(Evan):
 // Check for redundancy in X's keysym message pump when this is ported?
 // We could probably map a symbolic name to a key.
