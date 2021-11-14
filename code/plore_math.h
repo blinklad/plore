@@ -120,7 +120,7 @@ TestAABBAABB(aabb A, aabb B, v2 rV, v2 *nOut, f32 *tStartOut, f32 *tEndOut) {
 	
 	f32 tStart = 0.0f;
 	f32 tEnd = 1.0f;
-	uRange(Axis, 2) {
+	for (u64 Axis = 0; Axis < 2; Axis++) {
 		if (rV.E[Axis] < 0.0f) {
 			if (MaxB[Axis] < MinA[Axis]) return(false);
 			if (MaxA[Axis] < MinB[Axis]) {
