@@ -165,7 +165,10 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 				if (Button(State->VimguiContext, (vimgui_button_desc) {
 								   .Title = Listing->Entries[Row].Name,
 								   .FillWidth = true,
-								   .Centre = true })) {
+								   .Centre = true,
+								   .ForceFocus = Directory->Focus && Listing->Cursor == Row,
+							   })) {
+					Listing->Cursor = Row;
 					PrintLine("Button %s was clicked!", Listing->Entries[Row].Name);
 					if (Listing->Entries[Row].Type == PloreFileNode_Directory) {
 						PrintLine("Changing Directory to %s", Listing->Entries[Row].AbsolutePath);
@@ -197,6 +200,18 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		if (CursorEntry->Type == PloreFileNode_Directory) {
 			PrintLine("Moving down a directory, from %s to %s", FileContext->Current->Name, CursorEntry->Name);
 			Platform->SetCurrentDirectory(CursorEntry->Name);
+		}
+	}
+	
+	if (FileContext->Current->Count > 0) {
+		if (Input.JIsPressed) {
+			FileContext->Current->Cursor = (FileContext->Current->Cursor + 1) % FileContext->Current->Count;
+		} else if (Input.KIsPressed) {
+			if (FileContext->Current->Cursor == 0) {
+				FileContext->Current->Cursor = FileContext->Current->Count-1;
+			} else {
+				FileContext->Current->Cursor -= 1;
+			}
 		}
 	}
 #endif
