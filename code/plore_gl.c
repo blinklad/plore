@@ -168,12 +168,3 @@ DrawCircle(render_circle Circle) {
 		DebugDrawLine(P0, P1, Circle.Colour);
 	}
 }
-internal void
-DrawTriangle(render_triangle T) {
-	glBegin(GL_TRIANGLES);
-	glColor4f(T.Colour.R, T.Colour.B, T.Colour.G, T.Colour.A);
-	glVertex3f(T.P0.X, T.P0.Y, T.Z);
-	glVertex3f(T.P0.X, T.P0.Y, T.Z);
-	glVertex3f(T.P0.X, T.P0.Y, T.Z);
-	glEnd();
-}

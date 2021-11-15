@@ -194,6 +194,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								   .FillWidth = true,
 								   .Centre = true,
 								   .ForceFocus = Directory->Focus && Listing->Cursor == Row,
+								   .Colour = Listing->Cursor != Row ? (v4) {0} : V4(0.1, 0.1, 0.1, 0.05),
 							   })) {
 					Listing->Cursor = Row;
 					PrintLine("Button %s was clicked!", Listing->Entries[Row].Name);

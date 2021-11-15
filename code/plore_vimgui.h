@@ -16,8 +16,20 @@ typedef struct vimgui_window {
 	                // If the generation lags behind the global context, the window is deleted. 
 } vimgui_window;
 
+typedef enum vimgui_widget_type {
+	VimguiWidgetType_Window,
+	VimguiWidgetType_Button,
+	_VimguiWidgetType_ForceU64 = 0xFFFFFFFF,
+} vimgui_widget_type;
+
 typedef struct vimgui_widget {
-	u64 Dummy;
+	u64 ID;
+	u64 WindowID;
+	vimgui_widget_type Type;
+	rectangle Rect;
+	v4 Colour;
+	char *Title;
+	b64 Centered;
 } vimgui_widget;
 
 typedef struct plore_vimgui_context {
@@ -29,7 +41,6 @@ typedef struct plore_vimgui_context {
 	keyboard_and_mouse InputThisFrame;
 	u64 HotWidgetID;
 	u64 ActiveWidgetID;
-	plore_render_list RenderList;
 	
 	vimgui_window Windows[8];
 	u64 WindowCount;
@@ -37,6 +48,11 @@ typedef struct plore_vimgui_context {
 	u64 HotWindow;
 	u64 WindowWeAreLayingOut;
 	i64 GenerationCount;
+	
+	vimgui_widget Widgets[512];
+	u64 WidgetCount;
+	plore_render_list RenderList;
+	
 } plore_vimgui_context;
 
 internal void
@@ -45,6 +61,9 @@ VimguiBegin(plore_vimgui_context *Context, keyboard_and_mouse Input);
 internal void
 VimguiEnd(plore_vimgui_context *Context);
 
+internal void
+PushWidget(plore_vimgui_context *Context, vimgui_widget Widget);
+	
 internal void
 PushRenderText(plore_render_list *RenderList, rectangle Rect, v4 Colour, char *Text, b64 Centered);
 

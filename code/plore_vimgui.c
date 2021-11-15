@@ -9,8 +9,10 @@ VimguiBegin(plore_vimgui_context *Context, keyboard_and_mouse Input) {
 	Context->GUIPassActive = true;
 	
 	Context->InputThisFrame = Input;
+	
 	Context->RenderList.QuadCount = 0;
 	Context->RenderList.TextCount = 0;
+	Context->WidgetCount = 0;
 	
 	Context->WindowFocusStolenThisFrame = false;
 	Context->WidgetFocusStolenThisFrame = false;
@@ -43,6 +45,17 @@ VimguiEnd(plore_vimgui_context *Context) {
 	
 	// TODO(Evan): When we buffer widgets, build the render list here, so we can associate
 	// e.g. bitmaps, z-ordering, etc with draw commands, rather then just quads + text.
+	
+	for (u64 W = 0; W < Context->WidgetCount;  W++) {
+		vimgui_widget *Widget = Context->Widgets + W;
+		PushRenderQuad(&Context->RenderList, Widget->Rect, Widget->Colour);
+		
+		PushRenderText(&Context->RenderList, 
+					   Widget->Rect,
+					   Widget->Colour,
+					   Widget->Title, 
+					   Widget->Centered);
+	}
 	
 	// TODO(Evan): Flush font here!
 	
@@ -122,7 +135,10 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	u64 MyID = (u64) Desc.Title;
 	vimgui_window *Window = GetLayoutWindow(Context);
 	rectangle MyRect = {0};
-	v4 MyColour = V4(1, 1, 1, 0.1);
+	v4 MyColour = Desc.Colour;
+	if (MemoryCompare(&Desc.Colour, &(v4){0}, sizeof(v4)) == 0) {
+		MyColour = V4(1, 1, 1, 0.1);
+	}
 	
 	f32 TitlePad = 20.0f;
 	f32 ButtonStartY = Window->Rect.P.Y + TitlePad;
@@ -150,6 +166,7 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	};
 	
 	if (!Context->WidgetFocusStolenThisFrame && Desc.ForceFocus) {
+		MyColour = V4(1, 1, 1, 0.1);
 		Context->ActiveWidgetID = MyID;
 		Context->WidgetFocusStolenThisFrame = true;
 	} 
@@ -169,14 +186,15 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 		MyColour.A += 0.2f;
 	}
 	
+	PushWidget(Context, (vimgui_widget) {
+				   .Type = VimguiWidgetType_Button,
+				   .ID = MyID,
+				   .WindowID = Window->ID,
+				   .Rect = MyRect,
+				   .Colour = MyColour,
+				   .Title = Desc.Title,
+			   });
 	
-	PushRenderQuad(&Context->RenderList, MyRect, MyColour);
-	
-	PushRenderText(&Context->RenderList, 
-				   MyRect,
-				   MyColour,
-				   Desc.Title, 
-				   false);
 	
 	return(Result);
 }
@@ -245,23 +263,29 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 		}
 		
 		MaybeWindow->Rect = Rect;
-		MaybeWindow->Rect.P.Y += 80.0f;
+		MaybeWindow->Rect.P.Y += 80.0f; // NOTE(Evan): This offsets child widgets.
 		MaybeWindow->RowMax = (Rect.Span.Y) / 32.0f; // @Hardcode
 		MaybeWindow->Colour = Colour;
 		
-		PushRenderQuad(&Context->RenderList, Rect, Colour);
-		
-		PushRenderText(&Context->RenderList, 
-					   Rect,
-					   WHITE_V4,
-					   Title, 
-					   true);
+		PushWidget(Context, (vimgui_widget) {
+					   .Type = VimguiWidgetType_Window,
+					   .ID = MyID,
+					   .Rect = Rect,
+					   .Colour = MaybeWindow->Colour,
+					   .Title = MaybeWindow->Title,
+				   });
 		
 		Context->WindowWeAreLayingOut = MyID;
 	}
 	
 	return(!!MaybeWindow);
 	
+}
+
+internal void
+PushWidget(plore_vimgui_context *Context, vimgui_widget Widget) {
+	Assert(Context->WidgetCount < ArrayCount(Context->Widgets));
+	Context->Widgets[Context->WidgetCount++] = Widget;
 }
 
 
