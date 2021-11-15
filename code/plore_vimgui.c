@@ -5,7 +5,8 @@ VimguiBegin(plore_vimgui_context *Context, keyboard_and_mouse Input) {
 	
 	Context->InputThisFrame = Input;
 	Context->RenderList = (plore_render_list) {0};
-	Context->FocusStolenThisFrame = false;
+	Context->WindowFocusStolenThisFrame = false;
+	Context->WidgetFocusStolenThisFrame = false;
 	
 	for (u64 W = 0; W < Context->WindowCount; W++) {
 		vimgui_window *Window = Context->Windows + W;
@@ -82,10 +83,11 @@ SetHotWindow(plore_vimgui_context *Context, vimgui_window *Window) {
 }
 
 typedef struct vimgui_button_desc {
-	char *Title;
-	rectangle Rect;
 	b64 FillWidth;
 	b64 Centre;
+	b64 ForceFocus;
+	char *Title;
+	rectangle Rect;
 	v4 Colour;
 } vimgui_button_desc;
 
@@ -126,6 +128,10 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 		.Y = ButtonStartY + Window->RowCountThisFrame*RowHeight+1,
 	};
 	
+	if (!Context->WidgetFocusStolenThisFrame && Desc.ForceFocus) {
+		Context->ActiveWidgetID = MyID;
+		Context->WidgetFocusStolenThisFrame = true;
+	} 
 	if (IsWithinRectangleInclusive(Context->InputThisFrame.MouseP, MyRect)) {
 		SetHotWindow(Context, Window);
 		Context->HotWidgetID = MyID;
@@ -136,17 +142,11 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 		}
 	}
 	
-	u64 MyRow = Window->RowCountThisFrame++;
-	#if 0
-	if (MyRow == Window->Cursor) {
+	Window->RowCountThisFrame++;
+	
+	if (Desc.ForceFocus) {
 		MyColour.A += 0.2f;
-		
-		if (Window->CursorMovementThisFrame) {
-			Context->ActiveWidgetID = MyID;
-			Result = true;
-		}
 	}
-	#endif
 	
 	
 	PushRenderQuad(&Context->RenderList, MyRect, MyColour);
@@ -202,7 +202,7 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 	
 	if (MaybeWindow) {
 		// NOTE(Evan): Only check if the active window needs updating if focus wasn't stolen.
-		if (!Context->FocusStolenThisFrame) {
+		if (!Context->WindowFocusStolenThisFrame) {
 			b64 WeAreTheOnlyWindow = Context->WindowCount == 1;
 			if (WeAreTheOnlyWindow) {
 				Context->ActiveWindow = MyID;
@@ -211,7 +211,7 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 				Context->ActiveWindow = MyID;
 			} else if (Desc.ForceFocus) {
 				Context->ActiveWindow = MyID;
-				Context->FocusStolenThisFrame = true;
+				Context->WindowFocusStolenThisFrame = true;
 			}
 				
 		}
