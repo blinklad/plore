@@ -5,6 +5,7 @@ VimguiBegin(plore_vimgui_context *Context, keyboard_and_mouse Input) {
 	
 	Context->InputThisFrame = Input;
 	Context->RenderList = (plore_render_list) {0};
+	Context->FocusStolenThisFrame = false;
 	
 	for (u64 W = 0; W < Context->WindowCount; W++) {
 		vimgui_window *Window = Context->Windows + W;
@@ -164,6 +165,7 @@ typedef struct vimgui_window_desc {
 	char *Title;
 	rectangle Rect;
 	v4 Colour;
+	b64 ForceFocus;
 } vimgui_window_desc;
 
 internal b64
@@ -199,15 +201,20 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 	}
 	
 	if (MaybeWindow) {
-		b64 WeAreTheOnlyWindow = Context->WindowCount == 1;
-		if (WeAreTheOnlyWindow) {
-			Context->ActiveWindow = MyID;
-			Context->HotWindow = MyID;
-		} else if (IsWithinRectangleInclusive(Context->InputThisFrame.MouseP, Rect) && !Context->HotWindow) {
-			Context->ActiveWindow = MyID;
-		} else {
+		// NOTE(Evan): Only check if the active window needs updating if focus wasn't stolen.
+		if (!Context->FocusStolenThisFrame) {
+			b64 WeAreTheOnlyWindow = Context->WindowCount == 1;
+			if (WeAreTheOnlyWindow) {
+				Context->ActiveWindow = MyID;
+				Context->HotWindow = MyID;
+			} else if (IsWithinRectangleInclusive(Context->InputThisFrame.MouseP, Rect) && !Context->HotWindow) {
+				Context->ActiveWindow = MyID;
+			} else if (Desc.ForceFocus) {
+				Context->ActiveWindow = MyID;
+				Context->FocusStolenThisFrame = true;
+			}
+				
 		}
-		
 		if (Context->ActiveWindow == MyID) {
 			Colour.RGB = MultiplyVec3f(Colour.RGB, 1.20f);
 		}
@@ -247,7 +254,10 @@ PushRenderText(plore_render_list *RenderList, rectangle Rect, v4 Colour, char *T
 	};
 	
 	*T = (render_text ) {
-		.P = TextP,
+		.Rect = {
+			.P = TextP,
+			.Span = Rect.Span,
+		},
 		.Colour = WHITE_V4,
 		.Centered = Centered,
 	};

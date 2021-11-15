@@ -24,7 +24,7 @@ typedef struct render_quad {
 } render_quad;
 
 typedef struct render_text {
-	v2 P;
+	rectangle Rect;
 	char Text[64];
 	v4 Colour;
 	b64 Centered;

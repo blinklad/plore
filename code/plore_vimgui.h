@@ -16,6 +16,7 @@ typedef struct vimgui_window {
 typedef struct plore_vimgui_context {
 	b64 GUIPassActive;
 	b64 LayoutPassActive;
+	b64 FocusStolenThisFrame;
 	
 	keyboard_and_mouse InputThisFrame;
 	u64 HotWidgetID;

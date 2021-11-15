@@ -15,10 +15,11 @@ internal void
 WriteText(render_text T)
 {
 	if (T.Centered) {
-		T.P.X -= StringLength(T.Text)/2.0f * GLFont.Data[0].xadvance;
+		T.Rect.P.X -= StringLength(T.Text)/2.0f * GLFont.Data[0].xadvance;
 	}
-	f32 X = T.P.X;
-	f32 Y = T.P.Y;// - GLFont.Height;
+	
+	f32 X = T.Rect.P.X;
+	f32 Y = T.Rect.P.Y;// - GLFont.Height;
 	char *Text = T.Text;
 	
 	Assert(GLFont.Handle.Opaque);
@@ -40,6 +41,10 @@ WriteText(render_text T)
 	Text = StartText;
 	X = StartX;
 	Y = StartY;
+	
+	f32 MaxWidth = T.Rect.Span.W;
+	f32 CurrentWidth = 0;
+	f32 FontWidth = GLFont.Data[0].xadvance;
 	{
 		while (*Text) {
 			if (*Text >= 32 && *Text < 128) {
@@ -51,6 +56,8 @@ WriteText(render_text T)
 				glTexCoord2f(Q.s0, Q.t1); glVertex2f(Q.x0, Q.y1);
 			}
 			++Text;
+			CurrentWidth += GLFont.Data[0].xadvance;
+			if (CurrentWidth + 2 >= MaxWidth) break; 
 		}
 	}
 	Text = StartText;
