@@ -11,8 +11,12 @@ GetListing(plore_file_context *Context, char *Name) {
 			for (;;) {
 				Index = (Index + 1) % ArrayCount(Context->FileSlots);
 				Slot = Context->FileSlots[Index];
-				if (Slot->Allocated && CStringsAreEqual(Slot->Directory.Name, Name)) {
-					Result = &Slot->Directory;
+				if (Slot->Allocated) {
+					if (CStringsAreEqual(Slot->Directory.Name, Name)) {
+						Result = &Slot->Directory;
+						break;
+					}
+				} else {
 					break;
 				}
 			}
