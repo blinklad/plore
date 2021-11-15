@@ -93,7 +93,7 @@ typedef struct plore_range {
 #define PloreRange(Buffer) ((plore_range) {&Buffer, ArrayCount(Buffer)})
 
 plore_inline void *
-ClearMemory(void *Memory, u64 Count) {
+MemoryClear(void *Memory, u64 Count) {
 	u8 *Bytes = (u8 *)Memory;
 	for (u64 Byte = 0; Byte < Count; Byte++) {
 		*Bytes++ = 0;
@@ -111,6 +111,24 @@ MemoryCopy(void *Source, void *Destination, u64 Size) {
 	while(Count++ < Size) {
 		*D++ = *S++;
 	}
+}
+
+plore_inline i64
+MemoryCompare(void *_A, void *_B, u64 Count) {
+	u8 *A = (u8 *)_A;
+	u8 *B = (u8 *)_B;
+	
+	i64 Result = 0;
+	while(Count--) {
+		if (*A != *B) {
+			Result = *A > *B ? +1 : -1;
+			break;
+		} else {
+			A++, B++;
+		}
+	}
+	
+	return(Result);
 }
 
 plore_inline u64

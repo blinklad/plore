@@ -820,7 +820,7 @@ int WinMain (
     };
     
     PloreMemory.PermanentStorage.Memory = VirtualAlloc(0, PloreMemory.PermanentStorage.Size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-	ClearMemory(PloreMemory.PermanentStorage.Memory, PloreMemory.PermanentStorage.Size);
+	MemoryClear(PloreMemory.PermanentStorage.Memory, PloreMemory.PermanentStorage.Size);
     Assert(PloreMemory.PermanentStorage.Memory);
 
     windows_context WindowsContext = WindowsCreateAndShowOpenGLWindow(Instance);

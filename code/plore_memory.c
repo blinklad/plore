@@ -53,7 +53,7 @@ PushArena(memory_arena *Arena, uint64 BytesRequired, uint64 Alignment) {
     Assert(BytesRequired + EffectiveSize <= Arena->Size);
     
     Result = (uint8 *)Arena->Memory + Arena->BytesUsed;
-	ClearMemory(Result, EffectiveSize);
+	MemoryClear(Result, EffectiveSize);
     Arena->BytesUsed += EffectiveSize;
     
     return(Result);
