@@ -38,8 +38,6 @@ VimguiEnd(plore_vimgui_context *Context) {
 				PrintLine("Deleting window %s", Window->Title);
 				*Window = Context->Windows[--Context->WindowCount];
 			}
-		} else {
-			Window->Generation++;
 		}
 	}
 	
@@ -226,6 +224,8 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 	}
 	
 	if (MaybeWindow) {
+		MaybeWindow->Generation++;
+		
 		// NOTE(Evan): Only check if the active window needs updating if focus wasn't stolen.
 		if (!Context->WindowFocusStolenThisFrame) {
 			b64 WeAreTheOnlyWindow = Context->WindowCount == 1;
