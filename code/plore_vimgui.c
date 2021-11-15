@@ -22,6 +22,7 @@ VimguiEnd(plore_vimgui_context *Context) {
 		vimgui_window *Window = Context->Windows + W;
 		Window->RowCountLastFrame = Window->RowCountThisFrame;
 		if (!Window->RowCountThisFrame) {
+			Context->Windows[--Context->WindowCount] = *Window;
 			// TODO(Evan): Cleanup.
 		}
 	}
