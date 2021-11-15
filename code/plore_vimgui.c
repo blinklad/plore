@@ -18,12 +18,12 @@ VimguiEnd(plore_vimgui_context *Context) {
 	Context->GUIPassActive = false;
 	Context->WindowWeAreLayingOut = 0;
 	
+	// NOTE(Evan): Cleanup any windows that didn't have any activity this frame.
 	for (u64 W = 0; W < Context->WindowCount; W++) {
 		vimgui_window *Window = Context->Windows + W;
 		Window->RowCountLastFrame = Window->RowCountThisFrame;
 		if (!Window->RowCountThisFrame) {
 			Context->Windows[--Context->WindowCount] = *Window;
-			// TODO(Evan): Cleanup.
 		}
 	}
 }
