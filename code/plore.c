@@ -128,10 +128,22 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	
 	VimguiBegin(State->VimguiContext, Input);
 	
-	plore_file_listing *ViewDirectories[3] = {
-		FileContext->InTopLevelDirectory ? 0 : &Parent,
-		FileContext->Current,
-		&Cursor,
+	typedef struct plore_viewable_directory {
+		plore_file_listing *File;
+		b64 Focus;
+	} plore_viewable_directory;
+	
+	plore_viewable_directory ViewDirectories[3] = {
+		[0] = {
+			.File = FileContext->InTopLevelDirectory ? 0 : &Parent,
+		},
+		[1] = {
+			.File = FileContext->Current,
+			.Focus = true,
+		},
+		[2] = {
+			.File = &Cursor,
+		},
 	};
 
 	for (u64 Col = 0; Col < Cols; Col++) {
@@ -139,23 +151,25 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		v2 Span   = V2(W, H);
 		v4 Colour = V4(0.3f, 0.3f, 0.3f, 1.0f);
 		
-		plore_file_listing *Directory = ViewDirectories[Col];
-		if (!Directory) continue; /* Parent can be null, if we are currently looking at a top-level directory. */
+		plore_viewable_directory *Directory = ViewDirectories + Col;
+		plore_file_listing *Listing = Directory->File;
+		if (!Listing) continue; /* Parent can be null, if we are currently looking at a top-level directory. */
 		
-		char *Title = Directory->Name;
+		char *Title = Listing->Name;
 		if (Window(State->VimguiContext, (vimgui_window_desc) {
-						   .Title = Title,
-						   .Rect = {P, Span}, 
-						   .Colour = Colour })) {
-			for (u64 Row = 0; Row < Directory->Count; Row++) {
+						   .Title      = Title,
+						   .Rect       = {P, Span}, 
+						   .Colour     = Colour ,
+					       .ForceFocus = Directory->Focus })) {
+			for (u64 Row = 0; Row < Listing->Count; Row++) {
 				if (Button(State->VimguiContext, (vimgui_button_desc) {
-								   .Title = Directory->Entries[Row].Name,
+								   .Title = Listing->Entries[Row].Name,
 								   .FillWidth = true,
 								   .Centre = true })) {
-					PrintLine("Button %s was clicked!", Directory->Entries[Row].Name);
-					if (Directory->Entries[Row].Type == PloreFileNode_Directory) {
-						PrintLine("Changing directory to %s", Directory->Entries[Row].AbsolutePath);
-						Platform->SetCurrentDirectory(Directory->Entries[Row].AbsolutePath);
+					PrintLine("Button %s was clicked!", Listing->Entries[Row].Name);
+					if (Listing->Entries[Row].Type == PloreFileNode_Directory) {
+						PrintLine("Changing Directory to %s", Listing->Entries[Row].AbsolutePath);
+						Platform->SetCurrentDirectory(Listing->Entries[Row].AbsolutePath);
 					}
 				}
 			}
@@ -177,6 +191,13 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		
 		Platform->SetCurrentDirectory(Buffer);
 		
+	} else if (Input.LIsPressed) {
+		plore_file *CursorEntry = FileContext->Current->Entries + FileContext->Current->Cursor;
+		
+		if (CursorEntry->Type == PloreFileNode_Directory) {
+			PrintLine("Moving down a directory, from %s to %s", FileContext->Current->Name, CursorEntry->Name);
+			Platform->SetCurrentDirectory(CursorEntry->Name);
+		}
 	}
 #endif
 	
