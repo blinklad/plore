@@ -8,8 +8,6 @@
 
 #include "plore_string.h"
 
-#define STB_TRUETYPE_IMPLEMENTATION  // force following include to generate implementation
-#include "stb_truetype.h"
 #include "plore_gl.c"
 
 global plore_input GlobalPloreInput;
@@ -720,31 +718,6 @@ PLATFORM_GET_DIRECTORY_ENTRIES(WindowsGetDirectoryEntries) {
 	return(Result);
 }
 
-u8 FontBuffer[1<<21];
-u8 TempBitmap[512*512];
-
-internal plore_font 
-FontInit(void)
-{
-	plore_font Result = {
-		.Height = 32.0f,
-	};
-	platform_readable_file FontFile = WindowsDebugOpenFile("data/fonts/Inconsolata-Light.ttf");
-	platform_read_file_result TheFont = WindowsDebugReadEntireFile(FontFile, FontBuffer, ArrayCount(FontBuffer));
-	Assert(TheFont.ReadSuccessfully);
-	
-	stbtt_BakeFontBitmap(FontBuffer, 0, Result.Height, TempBitmap, 512, 512, 32, 96, Result.Data); // no guarantee this fits!
-	// can free ttf_buffer at this point
-	Result.Handle = WindowsGLCreateTextureHandle(TempBitmap, 512, 512);
-	
-	
-	WindowsDebugCloseFile(FontFile);
-	
-	return(Result);
-}
-
-plore_font GlobalFontHandle;
-
 internal void
 WindowsUnloadPloreCode(plore_code PloreCode) {
 	if (PloreCode.DLL) {
@@ -821,14 +794,17 @@ int WinMain (
         .WindowHeight = DEFAULT_WINDOW_HEIGHT,
 		
 		#if PLORE_INTERNAL
-        .DebugOpenFile = WindowsDebugOpenFile,
+        .DebugOpenFile       = WindowsDebugOpenFile,
         .DebugReadEntireFile = WindowsDebugReadEntireFile,
+		.DebugCloseFile      = WindowsDebugCloseFile,
+		
         .DebugPrintLine = WindowsDebugPrintLine,
-        .DebugPrint = WindowsDebugPrint,
+        .DebugPrint     = WindowsDebugPrint,
 		#endif
 		
 		.CreateTextureHandle = WindowsGLCreateTextureHandle,
 		.DestroyTextureHandle = WindowsGLDestroyTextureHandle,
+		
 		.ShowCursor = WindowsShowCursor,
 		.ToggleFullscreen = WindowsToggleFullscreen,
 		
@@ -855,7 +831,6 @@ int WinMain (
 	windows_timer PreviousTimer = WindowsGetTime();
 	f64 TimePreviousInSeconds = 0;
 	
-	plore_font MyFont = FontInit();
 	
     while (!ReceivedQuitMessage) {
 		WindowsPlatformAPI.WindowWidth = GlobalWindowsContext->Width;
@@ -919,13 +894,13 @@ int WinMain (
 			
 //			WindowsDebugPrintLine("File timing :: %f seconds", FileCopyTimeInSeconds);
 			
-			ImmediateBegin(WindowsContext.Width, WindowsContext.Height, MyFont);
+			ImmediateBegin(WindowsContext.Width, WindowsContext.Height);
 			for (u64 I = 0; I < RenderList.QuadCount; I++) {
 				DrawSquare(RenderList.Quads[I]);
 			}
 			
 			for (u64 I = 0; I < RenderList.TextCount; I++) {
-				WriteText(RenderList.Text[I]);
+				WriteText(RenderList.Font, RenderList.Text[I]);
 			}
 			
 			

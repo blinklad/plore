@@ -19,6 +19,12 @@
 struct plore_state;
 typedef struct plore_state plore_state;
 
+#include "stb_truetype.h"
+typedef struct plore_font {
+	stbtt_bakedchar Data[96]; // ASCII 32..126 is 95 glyphs
+	platform_texture_handle Handle;
+	f32 Height;
+} plore_font;
 
 // NOTE(Evan):
 // Check for redundancy in X's keysym message pump when this is ported?
@@ -88,11 +94,10 @@ typedef struct plore_render_list {
 	render_quad Quads[512];
 	u64 QuadCount;
 	
-	render_circle Circles[512];
-	u64 CircleCount;
-	
 	render_text Text[512];
 	u64 TextCount;
+	
+	plore_font *Font;
 } plore_render_list;
 
 #define PLORE_DO_ONE_FRAME(name) PLORE_EXPORT plore_render_list name(plore_memory *PloreMemory, plore_input *PloreInput, platform_api *PlatformAPI)

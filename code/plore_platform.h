@@ -101,6 +101,7 @@ typedef struct platform_api {
 	
     platform_debug_open_file        *DebugOpenFile;
     platform_debug_read_entire_file *DebugReadEntireFile;
+	platform_debug_close_file       *DebugCloseFile;
     platform_debug_print_line       *DebugPrintLine;
     platform_debug_print            *DebugPrint;
 	

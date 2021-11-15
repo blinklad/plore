@@ -7,12 +7,16 @@ global platform_api *Platform;
 global platform_debug_print_line *PrintLine;
 global platform_debug_print *Print;
 
+#define STB_TRUETYPE_IMPLEMENTATION  // force following include to generate implementation
+#include "stb_truetype.h"
+
 typedef struct plore_state {
 	b32 Initialized;
 	plore_memory *Memory;
 	plore_file_context *FileContext;
 	plore_vimgui_context *VimguiContext;
 	memory_arena FrameArena;
+	plore_font Font;
 } plore_state;
 
 #include "plore_vimgui.c"
@@ -23,10 +27,30 @@ PrintDirectory(plore_file_listing *Directory);
 
 
 internal void 
-SetupPlatformCode(platform_api *PlatformAPI) {
+PlatformInit(platform_api *PlatformAPI) {
 	Platform = PlatformAPI;
 	PrintLine = PlatformAPI->DebugPrintLine;
 	Print = PlatformAPI->DebugPrint;
+}
+
+u8 FontBuffer[1<<21];
+u8 TempBitmap[512*512];
+
+internal void 
+FontInit(plore_state *Context)
+{
+	Context->Font = (plore_font) {
+		.Height = 32.0f,
+	};
+	platform_readable_file FontFile = Platform->DebugOpenFile("data/fonts/Inconsolata-Light.ttf");
+	platform_read_file_result TheFont = Platform->DebugReadEntireFile(FontFile, FontBuffer, ArrayCount(FontBuffer));
+	Assert(TheFont.ReadSuccessfully);
+	
+	stbtt_BakeFontBitmap(FontBuffer, 0, Context->Font.Height, TempBitmap, 512, 512, 32, 96, Context->Font.Data); // no guarantee this fits!
+	// can free ttf_buffer at this point
+	Context->Font.Handle = Platform->CreateTextureHandle(TempBitmap, 512, 512);
+	
+	Platform->DebugCloseFile(FontFile);
 }
 
 PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
@@ -34,7 +58,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	plore_state *State = (plore_state *)Arena->Memory;
 	
 	if (!State->Initialized) {
-		SetupPlatformCode(PlatformAPI);
+		PlatformInit(PlatformAPI);
 		
 		State = PushStruct(Arena, plore_state);
 		State->Initialized = true;
@@ -47,14 +71,16 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			State->FileContext->FileSlots[Dir] = PushStruct(Arena, plore_file_listing);
 		}
 		
+		FontInit(State);
 		State->VimguiContext = PushStruct(Arena, plore_vimgui_context);
+		VimguiInit(State->VimguiContext, &State->Font);
 			
 	}
 	
 	ClearArena(&State->FrameArena);
 	
 	if (PloreInput->DLLWasReloaded) {
-		SetupPlatformCode(PlatformAPI);
+		PlatformInit(PlatformAPI);
 	}
 	plore_file_context *FileContext = State->FileContext;
 	keyboard_and_mouse Input = PloreInput->ThisFrame;
@@ -183,7 +209,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	
 	VimguiEnd(State->VimguiContext);
 	
-#if 1
 	if (Input.HIsPressed) {
 		char *Buffer = PushBytes(&State->FrameArena, PLORE_MAX_PATH);
 		Platform->GetCurrentDirectory(Buffer, PLORE_MAX_PATH);
@@ -214,7 +239,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			}
 		}
 	}
-#endif
 	
 #if 0
 	for (u64 Dir = 0; Dir < ArrayCount(FileContext->ViewDirectories); Dir++) {

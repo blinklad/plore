@@ -1,10 +1,17 @@
 internal void
+VimguiInit(plore_vimgui_context *Context, plore_font *Font) {
+	Context->RenderList.Font = Font;
+}
+
+internal void
 VimguiBegin(plore_vimgui_context *Context, keyboard_and_mouse Input) {
 	Assert(!Context->GUIPassActive);
 	Context->GUIPassActive = true;
 	
 	Context->InputThisFrame = Input;
-	Context->RenderList = (plore_render_list) {0};
+	Context->RenderList.QuadCount = 0;
+	Context->RenderList.TextCount = 0;
+	
 	Context->WindowFocusStolenThisFrame = false;
 	Context->WidgetFocusStolenThisFrame = false;
 	
@@ -28,6 +35,10 @@ VimguiEnd(plore_vimgui_context *Context) {
 			Context->Windows[--Context->WindowCount] = *Window;
 		}
 	}
+	
+	
+	// TODO(Evan): Flush font here!
+	
 }
 
 internal vimgui_window *
