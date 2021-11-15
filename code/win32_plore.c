@@ -705,6 +705,7 @@ PLATFORM_GET_DIRECTORY_ENTRIES(WindowsGetDirectoryEntries) {
 			Assert(BytesWritten < ArrayCount(File->AbsolutePath) - 2); // NOTE(Evan): For trailing '\';
 			
 			if (!IsDirectoryRoot) File->AbsolutePath[BytesWritten++] = '\\';
+			
 			CStringCopy(FindData.cFileName, File->AbsolutePath + BytesWritten, ArrayCount(File->AbsolutePath) - BytesWritten);
 			CStringCopy(FindData.cFileName, File->Name, ArrayCount(File->Name));
 			
