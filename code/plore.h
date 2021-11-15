@@ -78,16 +78,10 @@ typedef struct plore_file_listing_slot {
 } plore_file_listing_slot;
 
 typedef struct plore_file_context {
-	union {
-		struct {
-			plore_file_listing *Parent;
-			plore_file_listing *Current;
-			plore_file_listing *Cursor;
-		};
-		plore_file_listing *ViewDirectories[3];
-	};
+	plore_file_listing *Current;
 	plore_file_listing_slot *FileSlots[512];
 	u64 FileCount;
+	b64 InTopLevelDirectory;
 } plore_file_context;
 
 typedef struct plore_render_list {

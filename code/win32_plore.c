@@ -621,22 +621,28 @@ PLATFORM_SET_CURRENT_DIRECTORY(WindowsSetCurrentDirectory) {
 }
 
 PLATFORM_POP_PATH_NODE(WindowsPopPathNode) {
+	b64 SomethingWasRemoved = true;
 	PathRemoveBackslash(Buffer);
-	PathRemoveFileSpecA(Buffer);
-	if (AddTrailingSlash) {
+	SomethingWasRemoved = PathRemoveFileSpecA(Buffer) != 0;
+	if (AddTrailingSlash && SomethingWasRemoved) {
 		u64 Length = StringLength(Buffer);
+		Assert(Length < PLORE_MAX_PATH);
 		Buffer[Length++] = '\\';
 		Buffer[Length++] = '\0';
 	}
+	
+	return(SomethingWasRemoved);
 }
-
-//PLATFORM_STRIP_PATH(WindowsStripPath) {
-//}
-
 
 PLATFORM_IS_PATH_DIRECTORY(WindowsIsPathDirectory) {
 	b64 Result = PathIsDirectory(Buffer);
 	return(Result);
+}
+
+PLATFORM_IS_PATH_TOP_LEVEL(WindowsIsPathTopLevel) {
+	b64 Result = PathIsRoot(Buffer);
+	return(Result);
+	
 }
 
 // NOTE(Evan): Directory name should not include trailing '\' nor any '*' or '?' wildcards.
@@ -832,6 +838,7 @@ int WinMain (
 		.SetCurrentDirectory = WindowsSetCurrentDirectory,
 		.PopPathNode         = WindowsPopPathNode,
 		.IsPathDirectory     = WindowsIsPathDirectory,
+		.IsPathTopLevel      = WindowsIsPathTopLevel,
     };
     
     PloreMemory.PermanentStorage.Memory = VirtualAlloc(0, PloreMemory.PermanentStorage.Size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);

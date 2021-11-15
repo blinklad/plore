@@ -42,29 +42,10 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		State->FrameArena = SubArena(Arena, Megabytes(32), 16);
 		
 		State->FileContext = PushStruct(Arena, plore_file_context);
-		for (u64 Dir = 0; Dir < ArrayCount(State->FileContext->ViewDirectories); Dir++) {
-			State->FileContext->ViewDirectories[Dir] = PushStruct(Arena, plore_file_listing);
-		}
-		
+		State->FileContext->Current = PushStruct(Arena, plore_file_listing);
 		for (u64 Dir = 0; Dir < ArrayCount(State->FileContext->FileSlots); Dir++) {
 			State->FileContext->FileSlots[Dir] = PushStruct(Arena, plore_file_listing);
 		}
-		
-		#if 0
-		{
-			plore_file_listing_slot *FirstSlot = State->FileContext->FileSlots[State->FileContext->DirectoryCount++];
-			Platform->GetCurrentDirectory(FirstSlot->Directory.Name, 
-										  ArrayCount(FirstSlot->Directory.Name));
-			directory_entry_result CurrentDirectory = Platform->GetDirectoryEntries(FirstSlot->Directory.Name, 
-																					FirstSlot->Directory.Entries, 
-																					ArrayCount(FirstSlot->Directory.Entries));
-			Assert(CurrentDirectory.Succeeded);
-			FirstSlot->Directory.Count = CurrentDirectory.Count;
-			InsertListing(State->FileContext, &FirstSlot->Directory);
-			plore_file_listing *Result = GetListing(State->FileContext, "C:\\plore");
-			int BreakHere = 5;
-		}
-		#endif
 		
 		State->VimguiContext = PushStruct(Arena, plore_vimgui_context);
 			
@@ -90,36 +71,44 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			PrintLine("Current directory exists (`%s`), but doesn't match what we think the current dir is (`%s`)", Buffer, FileContext->Current->Name);
 			FileContext->Current = MaybeCurrentDir;
 		}
+		
+		FileContext->InTopLevelDirectory = Platform->IsPathTopLevel(Buffer, PLORE_MAX_PATH);
+		if (FileContext->InTopLevelDirectory) {
+			PrintLine("We are now in a top-level directory, so there is no parent.");
+		}
 	}
 	
+	plore_file_listing Cursor = {0};
 	if (FileContext->Current->Count != 0) {
 		plore_file *CursorEntry = FileContext->Current->Entries + FileContext->Current->Cursor;
 		
 		if (CursorEntry->Type == PloreFileNode_Directory) {
 			char *CursorDirectoryName = CursorEntry->AbsolutePath;
 			directory_entry_result CursorDirectory = Platform->GetDirectoryEntries(CursorDirectoryName, 
-																				   FileContext->Cursor->Entries, 
-																				   ArrayCount(FileContext->Cursor->Entries));
+																				   Cursor.Entries, 
+																				   ArrayCount(Cursor.Entries));
 			
 			if (!CursorDirectory.Succeeded) {
 				PrintLine("Could not get cursor directory.");
 			}
-			CStringCopy(CursorDirectory.Name, FileContext->Cursor->Name, ArrayCount(FileContext->Cursor->Name));
-			FileContext->Cursor->Count = CursorDirectory.Count;
+			CStringCopy(CursorDirectory.Name, Cursor.Name, ArrayCount(Cursor.Name));
+			Cursor.Count = CursorDirectory.Count;
 		} else {
 //			Platform->DebugPrintLine("Cursor is on file %s", CursorEntry->AbsolutePath);
 		}
 		
 	}
 	
+	plore_file_listing Parent = {0};
+	if (!FileContext->InTopLevelDirectory)
 	{
-		CStringCopy(FileContext->Current->Name, FileContext->Parent->Name, ArrayCount(FileContext->Parent->Name));
+		CStringCopy(FileContext->Current->Name, Parent.Name, ArrayCount(Parent.Name));
 		
-		Platform->PopPathNode(FileContext->Parent->Name, ArrayCount(FileContext->Parent->Name), false);
-		directory_entry_result ParentDirectory = Platform->GetDirectoryEntries(FileContext->Parent->Name, 
-																			   FileContext->Parent->Entries, 
-																			   ArrayCount(FileContext->Parent->Entries));
-		FileContext->Parent->Count = ParentDirectory.Count;
+		Platform->PopPathNode(Parent.Name, ArrayCount(Parent.Name), false);
+		directory_entry_result ParentDirectory = Platform->GetDirectoryEntries(Parent.Name, 
+																			   Parent.Entries, 
+																			   ArrayCount(Parent.Entries));
+		Parent.Count = ParentDirectory.Count;
 		if (!ParentDirectory.Succeeded) {
 			PrintLine("Could not get parent directory.");
 		}
@@ -139,12 +128,20 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	
 	VimguiBegin(State->VimguiContext, Input);
 	
+	plore_file_listing *ViewDirectories[3] = {
+		FileContext->InTopLevelDirectory ? 0 : &Parent,
+		FileContext->Current,
+		&Cursor,
+	};
+
 	for (u64 Col = 0; Col < Cols; Col++) {
 		v2 P      = V2(X + PadX, PadY);
 		v2 Span   = V2(W, H);
 		v4 Colour = V4(0.3f, 0.3f, 0.3f, 1.0f);
 		
-		plore_file_listing *Directory = State->FileContext->ViewDirectories[Col];
+		plore_file_listing *Directory = ViewDirectories[Col];
+		if (!Directory) continue; /* Parent can be null, if we are currently looking at a top-level directory. */
+		
 		char *Title = Directory->Name;
 		if (Window(State->VimguiContext, (vimgui_window_desc) {
 						   .Title = Title,
@@ -179,6 +176,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		PrintLine("to %s ...", Buffer);
 		
 		Platform->SetCurrentDirectory(Buffer);
+		
 	}
 #endif
 	

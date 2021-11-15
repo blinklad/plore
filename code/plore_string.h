@@ -20,6 +20,12 @@ StringLength(char *S) {
 	return(Result);
 }
 
+internal b64
+IsAlpha(char C) {
+	b64 Result = (C >= 'a' && C <= 'z') || (C >= 'A' && C <= 'Z');
+	return(Result);
+}
+
 typedef struct string_buffer {
 	char *String;
 	u64 Size;

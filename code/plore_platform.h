@@ -66,11 +66,14 @@ typedef PLATFORM_GET_CURRENT_DIRECTORY(platform_get_current_directory);
 #define PLATFORM_SET_CURRENT_DIRECTORY(name) b64 name(char *Name)
 typedef PLATFORM_SET_CURRENT_DIRECTORY(platform_set_current_directory);
 
-#define PLATFORM_POP_PATH_NODE(name) void name(char *Buffer, u64 BufferSize, b64 AddTrailingSlash)
+#define PLATFORM_POP_PATH_NODE(name) b64 name(char *Buffer, u64 BufferSize, b64 AddTrailingSlash)
 typedef PLATFORM_POP_PATH_NODE(platform_pop_path_node);
 
-#define PLATFORM_IS_PATH_DIRECTORY(name) b64 name(char *Buffer)
+#define PLATFORM_IS_PATH_DIRECTORY(name) b64 name(char *Buffer, u64 BufferSize)
 typedef PLATFORM_IS_PATH_DIRECTORY(platform_is_path_directory);
+
+#define PLATFORM_IS_PATH_TOP_LEVEL(name) b64 name(char *Buffer, u64 BufferSize)
+typedef PLATFORM_IS_PATH_TOP_LEVEL(platform_is_path_top_level);
 
 typedef struct directory_entry_result {
 	char *Name;         // NOTE(Evan): Alias to the string passed in.
@@ -106,6 +109,7 @@ typedef struct platform_api {
 	platform_set_current_directory  *SetCurrentDirectory;
 	platform_pop_path_node          *PopPathNode;
 	platform_is_path_directory      *IsPathDirectory;
+	platform_is_path_top_level      *IsPathTopLevel;
 } platform_api;
 
 #endif
