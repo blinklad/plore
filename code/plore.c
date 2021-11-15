@@ -189,6 +189,9 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 						   .Colour     = Colour ,
 					       .ForceFocus = Directory->Focus })) {
 			for (u64 Row = 0; Row < Listing->Count; Row++) {
+				if (Listing->Cursor == Row) {
+					PrintLine("`%s`'s cursor is on entry %d.", Title, Row);
+				}
 				if (Button(State->VimguiContext, (vimgui_button_desc) {
 								   .Title = Listing->Entries[Row].Name,
 								   .FillWidth = true,
