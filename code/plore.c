@@ -100,11 +100,12 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		
 		FileContext->InTopLevelDirectory = Platform->IsPathTopLevel(Buffer, PLORE_MAX_PATH);
 		if (FileContext->InTopLevelDirectory) {
-			PrintLine("We are now in a top-level directory, so there is no parent.");
+//			PrintLine("We are now in a top-level directory, so there is no parent.");
 		}
 	}
 	
 	plore_file_listing Cursor = {0};
+	b64 CursorIsOnDirectory = false;
 	if (FileContext->Current->Count != 0) {
 		plore_file *CursorEntry = FileContext->Current->Entries + FileContext->Current->Cursor;
 		

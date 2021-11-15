@@ -3,6 +3,7 @@
 #ifndef PLORE_VIMGUI_H
 #define PLORE_VIMGUI_H
 
+// NOTE(Evan): Container for other widgets. These are garbage collected when inactive.
 typedef struct vimgui_window {
 	u64 ID;
 	rectangle Rect;
@@ -11,7 +12,13 @@ typedef struct vimgui_window {
 	u64 RowMax;
 	u64 RowCountThisFrame;
 	u64 RowCountLastFrame;
+	i64 Generation; // NOTE(Evan): When a window is "touched", this is incremented.
+	                // If the generation lags behind the global context, the window is deleted. 
 } vimgui_window;
+
+typedef struct vimgui_widget {
+	u64 Dummy;
+} vimgui_widget;
 
 typedef struct plore_vimgui_context {
 	b64 GUIPassActive;
@@ -29,6 +36,7 @@ typedef struct plore_vimgui_context {
 	u64 ActiveWindow;
 	u64 HotWindow;
 	u64 WindowWeAreLayingOut;
+	i64 GenerationCount;
 } plore_vimgui_context;
 
 internal void

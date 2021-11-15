@@ -27,17 +27,29 @@ VimguiEnd(plore_vimgui_context *Context) {
 	Context->GUIPassActive = false;
 	Context->WindowWeAreLayingOut = 0;
 	
-	// NOTE(Evan): Cleanup any windows that didn't have any activity this frame.
+	// NOTE(Evan): Cleanup any windows that didn't have any activity the past two frames.
 	for (u64 W = 0; W < Context->WindowCount; W++) {
 		vimgui_window *Window = Context->Windows + W;
+		Assert(Window->ID);
+		
 		Window->RowCountLastFrame = Window->RowCountThisFrame;
-		if (!Window->RowCountThisFrame) {
-			Context->Windows[--Context->WindowCount] = *Window;
+		if (Window->RowCountThisFrame == 0) {
+			if (AbsDifference(Window->Generation, Context->GenerationCount) > 1) {
+				PrintLine("Deleting window %s", Window->Title);
+				*Window = Context->Windows[--Context->WindowCount];
+			}
+		} else {
+			Window->Generation++;
 		}
 	}
 	
+	// TODO(Evan): When we buffer widgets, build the render list here, so we can associate
+	// e.g. bitmaps, z-ordering, etc with draw commands, rather then just quads + text.
 	
 	// TODO(Evan): Flush font here!
+	
+	
+	Context->GenerationCount++;
 	
 }
 
@@ -125,7 +137,7 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	}
 	
 	if (Window->RowCountThisFrame > Window->RowMax) {
-		PrintLine("Maximum number of rows reached for Window %s", Window->Title);
+//		PrintLine("Maximum number of rows reached for Window %s", Window->Title);
 		return false;
 	}
 
@@ -206,8 +218,10 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 	if (!MaybeWindow) {
 		if (Context->WindowCount < ArrayCount(Context->Windows)) {
 			MaybeWindow = Context->Windows + Context->WindowCount++;
+			*MaybeWindow = (vimgui_window) {0};
 			MaybeWindow->ID = MyID;
 			MaybeWindow->Title = Title;
+			MaybeWindow->Generation = Context->GenerationCount;
 		}
 	}
 	
