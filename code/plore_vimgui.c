@@ -119,7 +119,6 @@ SetHotWindow(plore_vimgui_context *Context, vimgui_window *Window) {
 typedef struct vimgui_button_desc {
 	b64 FillWidth;
 	b64 Centre;
-	b64 ForceFocus;
 	char *Title;
 	rectangle Rect;
 	v4 Colour;
@@ -165,11 +164,6 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 		.Y = ButtonStartY + Window->RowCountThisFrame*RowHeight+1,
 	};
 	
-	if (!Context->WidgetFocusStolenThisFrame && Desc.ForceFocus) {
-		MyColour = V4(1, 1, 1, 0.1);
-		Context->ActiveWidgetID = MyID;
-		Context->WidgetFocusStolenThisFrame = true;
-	} 
 	if (IsWithinRectangleInclusive(Context->InputThisFrame.MouseP, MyRect)) {
 		SetHotWindow(Context, Window);
 		Context->HotWidgetID = MyID;
@@ -181,10 +175,6 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	}
 	
 	Window->RowCountThisFrame++;
-	
-	if (Desc.ForceFocus) {
-		MyColour.A += 0.2f;
-	}
 	
 	PushWidget(Context, (vimgui_widget) {
 				   .Type = VimguiWidgetType_Button,

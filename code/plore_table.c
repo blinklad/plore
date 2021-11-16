@@ -1,3 +1,11 @@
+typedef struct plore_file_listing_insert_result {
+	b64 DidAlreadyExist;
+	plore_file_listing_slot *Slot;
+} plore_file_listing_insert_result;
+
+internal plore_file_listing_insert_result
+InsertListing(plore_file_context *Context, char *Name);
+	
 internal plore_file_listing *
 GetListing(plore_file_context *Context, char *Name) {
 	plore_file_listing *Result = 0;
@@ -29,10 +37,17 @@ GetListing(plore_file_context *Context, char *Name) {
 	return(Result);
 }
 
-typedef struct plore_file_listing_insert_result {
-	b64 DidAlreadyExist;
-	plore_file_listing_slot *Slot;
-} plore_file_listing_insert_result;
+internal plore_file_listing *
+GetOrInsertListing(plore_file_context *Context, char *Name) {
+	plore_file_listing *Result = GetListing(Context, Name);
+	if (Result) return(Result);
+	
+	plore_file_listing_insert_result Listing = InsertListing(Context, Name);
+	Assert(!Listing.DidAlreadyExist);
+	Result = &Listing.Slot->Directory;
+	
+	return(Result);
+}
 
 internal plore_file_listing_insert_result
 InsertListing(plore_file_context *Context, char *Name) {

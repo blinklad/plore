@@ -86,59 +86,30 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	keyboard_and_mouse Input = PloreInput->ThisFrame;
 	
 	{
-		char *Buffer = PushBytes(Arena, PLORE_MAX_PATH);
+		char Buffer[PLORE_MAX_PATH];
 		Platform->GetCurrentDirectory(Buffer, PLORE_MAX_PATH);
-		plore_file_listing *MaybeCurrentDir = GetListing(FileContext, Buffer);
-		if (!MaybeCurrentDir) {
-			PrintLine("Current directory entry not found. Our current: `%s`, actual current: `%s`.", FileContext->Current->Name, Buffer);
-			plore_file_listing_insert_result ListResult = InsertListing(FileContext, Buffer);
-			FileContext->Current = &ListResult.Slot->Directory;
-		} else if (!CStringsAreEqual(FileContext->Current->Name, Buffer)) {
-			PrintLine("Current directory exists (`%s`), but doesn't match what we think the current dir is (`%s`)", Buffer, FileContext->Current->Name);
-			FileContext->Current = MaybeCurrentDir;
-		}
-		
+		FileContext->Current = GetOrInsertListing(FileContext, Buffer);
 		FileContext->InTopLevelDirectory = Platform->IsPathTopLevel(Buffer, PLORE_MAX_PATH);
-		if (FileContext->InTopLevelDirectory) {
-//			PrintLine("We are now in a top-level directory, so there is no parent.");
-		}
 	}
 	
-	plore_file_listing Cursor = {0};
-	b64 CursorIsOnDirectory = false;
+	plore_file_listing *Cursor = 0;
 	if (FileContext->Current->Count != 0) {
 		plore_file *CursorEntry = FileContext->Current->Entries + FileContext->Current->Cursor;
 		
 		if (CursorEntry->Type == PloreFileNode_Directory) {
-			char *CursorDirectoryName = CursorEntry->AbsolutePath;
-			directory_entry_result CursorDirectory = Platform->GetDirectoryEntries(CursorDirectoryName, 
-																				   Cursor.Entries, 
-																				   ArrayCount(Cursor.Entries));
-			
-			if (!CursorDirectory.Succeeded) {
-				PrintLine("Could not get cursor directory.");
-			}
-			CStringCopy(CursorDirectory.Name, Cursor.Name, ArrayCount(Cursor.Name));
-			Cursor.Count = CursorDirectory.Count;
-		} else {
-//			Platform->DebugPrintLine("Cursor is on file %s", CursorEntry->AbsolutePath);
+			Cursor = GetOrInsertListing(FileContext, CursorEntry->AbsolutePath);
 		}
-		
 	}
 	
-	plore_file_listing Parent = {0};
+	plore_file_listing *Parent = 0;
 	if (!FileContext->InTopLevelDirectory)
 	{
-		CStringCopy(FileContext->Current->Name, Parent.Name, ArrayCount(Parent.Name));
+		char Buffer[PLORE_MAX_PATH] = {0};
+		CStringCopy(FileContext->Current->Name, Buffer, ArrayCount(Buffer));
 		
-		Platform->PopPathNode(Parent.Name, ArrayCount(Parent.Name), false);
-		directory_entry_result ParentDirectory = Platform->GetDirectoryEntries(Parent.Name, 
-																			   Parent.Entries, 
-																			   ArrayCount(Parent.Entries));
-		Parent.Count = ParentDirectory.Count;
-		if (!ParentDirectory.Succeeded) {
-			PrintLine("Could not get parent directory.");
-		}
+		Platform->PopPathNode(Buffer, ArrayCount(Buffer), false);
+		
+		Parent = GetOrInsertListing(FileContext, Buffer);
 	}
 	
 	// NOTE(Evan): GUI stuff.
@@ -162,14 +133,14 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	
 	plore_viewable_directory ViewDirectories[3] = {
 		[0] = {
-			.File = FileContext->InTopLevelDirectory ? 0 : &Parent,
+			.File = FileContext->InTopLevelDirectory ? 0 : Parent,
 		},
 		[1] = {
 			.File = FileContext->Current,
 			.Focus = true,
 		},
 		[2] = {
-			.File = &Cursor,
+			.File = Cursor,
 		},
 	};
 
@@ -196,8 +167,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								   .Title = Listing->Entries[Row].Name,
 								   .FillWidth = true,
 								   .Centre = true,
-								   .ForceFocus = Directory->Focus && Listing->Cursor == Row,
-								   .Colour = Listing->Cursor != Row ? (v4) {0} : V4(0.1, 0.1, 0.1, 0.05),
+								   .Colour = Listing->Cursor == Row ? (v4) {0} : V4(0.1, 0.1, 0.1, 0.05),
 							   })) {
 					Listing->Cursor = Row;
 					PrintLine("Button %s was clicked!", Listing->Entries[Row].Name);
@@ -215,7 +185,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	VimguiEnd(State->VimguiContext);
 	
 	if (Input.HIsPressed) {
-		char *Buffer = PushBytes(&State->FrameArena, PLORE_MAX_PATH);
+		char Buffer[PLORE_MAX_PATH] = {0};
 		Platform->GetCurrentDirectory(Buffer, PLORE_MAX_PATH);
 		
 		Print("Moving up a directory, from %s ...", Buffer);
