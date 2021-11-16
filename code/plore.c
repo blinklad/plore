@@ -102,8 +102,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	}
 	
 	plore_file_listing *Parent = 0;
-	if (!FileContext->InTopLevelDirectory) { // @Cleanup
-		
+	if (!FileContext->InTopLevelDirectory) { 
+		// CLEANUP(Evan): Doesn't need to copy twice!
 		plore_file_listing CurrentCopy = *FileContext->Current;
 		plore_pop_path_node_result Result = Platform->PopPathNode(CurrentCopy.File.AbsolutePath, ArrayCount(CurrentCopy.File.AbsolutePath), false);
 		
@@ -142,14 +142,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		},
 	};
 	
-#if 0
-	if (Button(State->VimguiContext, (vimgui_button_desc) {
-				   .Title = FileContext->Cursor.AbsolutePath
-				   .Rect = { .P = V2(0, 0), .Span = V2(PlatformAPI->WindowWidth, 50) },
-			   })) {
-	}
-#endif
-	
 	if (Window(State->VimguiContext, (vimgui_window_desc) {
 					   .Title = FileContext->Current->File.AbsolutePath,
 					   .Rect = { .P = V2(0, 0), .Span = { PlatformAPI->WindowWidth, PlatformAPI->WindowHeight } },
@@ -168,7 +160,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			if (Window(State->VimguiContext, (vimgui_window_desc) {
 							   .Title      = Title,
 							   .Rect       = {P, Span}, 
-							   .Colour     = Colour ,
+							   .Colour     = Colour,
 							   .Centered = true,
 						       .ForceFocus = Directory->Focus })) {
 				
@@ -180,7 +172,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 									   .Title = Listing->Entries[Row].FilePart,
 									   .FillWidth = true,
 									   .Centre = true,
-									   .Colour = Listing->Cursor != Row ? (v4) {0} : V4(0.4, 0.4, 0.4, 1),
+									   .Colour = Listing->Cursor != Row ? (v4) {0} : V4(0.4, 0.4, 0.4, 0.1),
 								   })) {
 						Listing->Cursor = Row;
 						PrintLine("Button %s was clicked!", Listing->Entries[Row].FilePart);

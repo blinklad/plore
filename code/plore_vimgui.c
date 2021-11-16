@@ -51,6 +51,12 @@ VimguiEnd(plore_vimgui_context *Context) {
 		vimgui_widget *Widget = Context->Widgets + W;
 		PushRenderQuad(&Context->RenderList, Widget->Rect, Widget->Colour);
 		
+		if (Widget->Type == VimguiWidgetType_Window) {
+			Widget->Colour.R += 0.5f;
+			Widget->Colour.G += 0.4f;
+			Widget->Colour.B += 0.5f;
+		}
+		
 		PushRenderText(&Context->RenderList, 
 					   Widget->Rect,
 					   Widget->Colour,
@@ -320,7 +326,7 @@ PushRenderText(plore_render_list *RenderList, rectangle Rect, v4 Colour, char *T
 			.P = TextP,
 			.Span = Rect.Span,
 		},
-		.Colour = WHITE_V4,
+		.Colour = Colour,
 		.Centered = Centered,
 	};
 	if (*Text) {
