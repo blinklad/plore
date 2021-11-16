@@ -3,24 +3,52 @@ typedef struct plore_file_listing_insert_result {
 	plore_file_listing_slot *Slot;
 } plore_file_listing_insert_result;
 
+typedef struct plore_file_listing_desc {
+	plore_file_node Type;
+	char *AbsolutePath;
+	char *FilePart;
+} plore_file_listing_desc;
+
 internal plore_file_listing_insert_result
-InsertListing(plore_file_context *Context, char *Name);
+InsertListing(plore_file_context *Context, plore_file_listing_desc Desc);
+
+internal plore_file_listing_desc
+ListingFromFile(plore_file *File) {
+	plore_file_listing_desc Result = {
+		.Type = File->Type,
+		.AbsolutePath = File->AbsolutePath,
+		.FilePart = File->FilePart,
+	};
 	
+	return(Result);
+}
+
+internal plore_file_listing_desc
+ListingFromDirectoryPath(char *AbsolutePath, char *FilePart) {
+	plore_file_listing_desc Result = {
+		.Type = PloreFileNode_Directory,
+		.AbsolutePath = AbsolutePath,
+		.FilePart = FilePart,
+	};
+	
+	return(Result);
+}
+
 internal plore_file_listing *
-GetListing(plore_file_context *Context, char *Name) {
+GetListing(plore_file_context *Context, char *AbsolutePath) {
 	plore_file_listing *Result = 0;
 	plore_file_listing_slot *Slot = 0;
-	u64 Hash = HashString(Name);
+	u64 Hash = HashString(AbsolutePath);
 	u64 Index = Hash % ArrayCount(Context->FileSlots);
 	Slot = Context->FileSlots[Index];
 	Assert(Slot);
 	if (Slot->Allocated) {
-		if (!CStringsAreEqual(Slot->Directory.Name, Name)) {
+		if (!CStringsAreEqual(Slot->Directory.File.AbsolutePath, AbsolutePath)) {
 			for (;;) {
 				Index = (Index + 1) % ArrayCount(Context->FileSlots);
 				Slot = Context->FileSlots[Index];
 				if (Slot->Allocated) {
-					if (CStringsAreEqual(Slot->Directory.Name, Name)) {
+					if (CStringsAreEqual(Slot->Directory.File.AbsolutePath, AbsolutePath)) {
 						Result = &Slot->Directory;
 						break;
 					}
@@ -38,11 +66,11 @@ GetListing(plore_file_context *Context, char *Name) {
 }
 
 internal plore_file_listing *
-GetOrInsertListing(plore_file_context *Context, char *Name) {
-	plore_file_listing *Result = GetListing(Context, Name);
+GetOrInsertListing(plore_file_context *Context, plore_file_listing_desc Desc) {
+	plore_file_listing *Result = GetListing(Context, Desc.AbsolutePath);
 	if (Result) return(Result);
 	
-	plore_file_listing_insert_result Listing = InsertListing(Context, Name);
+	plore_file_listing_insert_result Listing = InsertListing(Context, Desc);
 	Assert(!Listing.DidAlreadyExist);
 	Result = &Listing.Slot->Directory;
 	
@@ -50,15 +78,15 @@ GetOrInsertListing(plore_file_context *Context, char *Name) {
 }
 
 internal plore_file_listing_insert_result
-InsertListing(plore_file_context *Context, char *Name) {
+InsertListing(plore_file_context *Context, plore_file_listing_desc Desc) {
 	plore_file_listing_insert_result Result = {0};
 	
-	u64 Hash = HashString(Name);
+	u64 Hash = HashString(Desc.AbsolutePath);
 	u64 Index = Hash % ArrayCount(Context->FileSlots);
 	Result.Slot = Context->FileSlots[Index];
 	
 	Assert(Result.Slot);
-	if (Result.Slot->Allocated && !CStringsAreEqual(Result.Slot->Directory.Name, Name)) {
+	if (Result.Slot->Allocated && !CStringsAreEqual(Result.Slot->Directory.File.AbsolutePath, Desc.AbsolutePath)) {
 		Assert(Context->FileCount < ArrayCount(Context->FileSlots));
 		for (;;) {
 			Index = (Index + 1) % ArrayCount(Context->FileSlots);
@@ -66,7 +94,7 @@ InsertListing(plore_file_context *Context, char *Name) {
 			if (!Result.Slot->Allocated) {                           // Marked for deletion.
 				Result.Slot->Allocated = true;
 				break;
-			} else if (CStringsAreEqual(Result.Slot->Directory.Name, Name)) { // Move along.
+			} else if (CStringsAreEqual(Result.Slot->Directory.File.AbsolutePath, Desc.AbsolutePath)) { // Move along.
 				Result.DidAlreadyExist = true;
 				break;
 			}
@@ -74,8 +102,9 @@ InsertListing(plore_file_context *Context, char *Name) {
 	}
 	
 	if (!Result.DidAlreadyExist) {
-		CStringCopy(Name, Result.Slot->Directory.Name, ArrayCount(Result.Slot->Directory.Entries));
-		directory_entry_result CurrentDirectory = Platform->GetDirectoryEntries(Result.Slot->Directory.Name, 
+		CStringCopy(Desc.AbsolutePath, Result.Slot->Directory.File.AbsolutePath, PLORE_MAX_PATH);
+		CStringCopy(Desc.FilePart, Result.Slot->Directory.File.FilePart, PLORE_MAX_PATH);
+		directory_entry_result CurrentDirectory = Platform->GetDirectoryEntries(Result.Slot->Directory.File.AbsolutePath, 
 																				Result.Slot->Directory.Entries, 
 																				ArrayCount(Result.Slot->Directory.Entries));
 		if (!CurrentDirectory.Succeeded) {

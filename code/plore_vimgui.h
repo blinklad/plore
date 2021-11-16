@@ -7,6 +7,7 @@
 typedef struct vimgui_window {
 	u64 ID;
 	rectangle Rect;
+	v2 Pad;
 	v4 Colour;
 	char *Title;
 	u64 RowMax;
@@ -47,6 +48,10 @@ typedef struct plore_vimgui_context {
 	u64 ActiveWindow;
 	u64 HotWindow;
 	u64 WindowWeAreLayingOut;
+	
+	u64 ParentStack[8];
+	u64 ParentStackCount;
+	
 	i64 GenerationCount;
 	
 	vimgui_widget Widgets[512];

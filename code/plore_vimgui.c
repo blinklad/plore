@@ -17,6 +17,8 @@ VimguiBegin(plore_vimgui_context *Context, keyboard_and_mouse Input) {
 	Context->WindowFocusStolenThisFrame = false;
 	Context->WidgetFocusStolenThisFrame = false;
 	
+	Context->ParentStackCount = 0;
+	
 	for (u64 W = 0; W < Context->WindowCount; W++) {
 		vimgui_window *Window = Context->Windows + W;
 		Window->RowCountThisFrame = 0;
@@ -37,7 +39,6 @@ VimguiEnd(plore_vimgui_context *Context) {
 		Window->RowCountLastFrame = Window->RowCountThisFrame;
 		if (Window->RowCountThisFrame == 0) {
 			if (AbsDifference(Window->Generation, Context->GenerationCount) > 1) {
-				PrintLine("Deleting window %s", Window->Title);
 				*Window = Context->Windows[--Context->WindowCount];
 			}
 		}
@@ -106,6 +107,23 @@ GetActiveWindow(plore_vimgui_context *Context) {
 	return(Window);
 }
 
+
+internal vimgui_window *
+GetWindow(plore_vimgui_context *Context, u64 ID) {
+	vimgui_window *MaybeWindow = 0;
+	for (u64 W = 0; W < Context->WindowCount; W++) {
+		vimgui_window *Window = Context->Windows + W;
+		if (Window->ID == ID) {
+			MaybeWindow = Window;
+			break;
+		}
+	}
+	
+	return(MaybeWindow);
+}
+
+
+
 internal void
 SetActiveWindow(plore_vimgui_context *Context, vimgui_window *Window) {
 	Context->ActiveWindow = Window->ID;
@@ -133,38 +151,36 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	b64 Result = false;
 	u64 MyID = (u64) Desc.Title;
 	vimgui_window *Window = GetLayoutWindow(Context);
-	rectangle MyRect = {0};
-	v4 MyColour = Desc.Colour;
 	if (MemoryCompare(&Desc.Colour, &(v4){0}, sizeof(v4)) == 0) {
-		MyColour = V4(1, 1, 1, 0.1);
-	}
-	
-	f32 TitlePad = 20.0f;
-	f32 ButtonStartY = Window->Rect.P.Y + TitlePad;
-	f32 RowPad = 4.0f;
-	f32 RowHeight = 36.0f;
-	
-	if (!Desc.FillWidth) {
-		Assert(!"We don't support absolute button positions right now.");
-		return false;
+		Desc.Colour = V4(1, 1, 1, 0.1);
 	}
 	
 	if (Window->RowCountThisFrame > Window->RowMax) {
-//		PrintLine("Maximum number of rows reached for Window %s", Window->Title);
 		return false;
 	}
-
-	MyRect.Span = (v2) {
-		.W = Window->Rect.Span.X,
-		.H = RowHeight - RowPad,
-	};
 	
-	MyRect.P = (v2) {
-		.X = Window->Rect.P.X,
-		.Y = ButtonStartY + Window->RowCountThisFrame*RowHeight+1,
-	};
+	if (Desc.FillWidth) {
+		Desc.Rect = (rectangle) {0};
+		f32 TitlePad = 30.0f;
+		f32 ButtonStartY = Window->Rect.P.Y + TitlePad;
+		f32 RowPad = 4.0f;
+		f32 RowHeight = 36.0f;
+		
+		Desc.Rect.Span = (v2) {
+			.W = Window->Rect.Span.X,
+			.H = RowHeight - RowPad,
+		};
+		
+		Desc.Rect.P = (v2) {
+			.X = Window->Rect.P.X,
+			.Y = ButtonStartY + Window->RowCountThisFrame*RowHeight+1,
+		};
+	} else {
+		Desc.Rect.P.X += Window->Rect.P.X;
+		Desc.Rect.P.Y += Window->Rect.P.Y;
+	}
 	
-	if (IsWithinRectangleInclusive(Context->InputThisFrame.MouseP, MyRect)) {
+	if (IsWithinRectangleInclusive(Context->InputThisFrame.MouseP, Desc.Rect)) {
 		SetHotWindow(Context, Window);
 		Context->HotWidgetID = MyID;
 		if (Context->InputThisFrame.MouseLeftIsPressed) {
@@ -180,8 +196,8 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 				   .Type = VimguiWidgetType_Button,
 				   .ID = MyID,
 				   .WindowID = Window->ID,
-				   .Rect = MyRect,
-				   .Colour = MyColour,
+				   .Rect = Desc.Rect,
+				   .Colour = Desc.Colour,
 				   .Title = Desc.Title,
 			   });
 	
@@ -195,43 +211,37 @@ typedef struct vimgui_window_desc {
 	rectangle Rect;
 	v4 Colour;
 	b64 ForceFocus;
+	b64 Centered;
 } vimgui_window_desc;
 
 internal b64
 Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
-	rectangle Rect = Desc.Rect;
-	v4 Colour = Desc.Colour;
-	char *Title = Desc.Title;
-	
 	u64 MyID; 
-	if (!Title) {
+	if (!Desc.Title) {
 		Assert(Desc.ID);
 		MyID = Desc.ID;
 	} else {
-		MyID = (u64) Title;
+		MyID = (u64) Desc.Title;
 	}
 	
-	vimgui_window *MaybeWindow = 0;
+	vimgui_window *MaybeWindow = GetWindow(Context, MyID);
 	
-	for (u64 W = 0; W < Context->WindowCount; W++) {
-		vimgui_window *Window = Context->Windows + W;
-		if (Window->ID == MyID) {
-			MaybeWindow = Window;
-			break;
-		}
-	}
 	
 	if (!MaybeWindow) {
 		if (Context->WindowCount < ArrayCount(Context->Windows)) {
 			MaybeWindow = Context->Windows + Context->WindowCount++;
 			*MaybeWindow = (vimgui_window) {0};
 			MaybeWindow->ID = MyID;
-			MaybeWindow->Title = Title;
+			MaybeWindow->Title = Desc.Title;
 			MaybeWindow->Generation = Context->GenerationCount;
 		}
 	}
 	
 	if (MaybeWindow) {
+		Assert(Context->ParentStackCount < ArrayCount(Context->ParentStack));
+		
+		u64 MyParentIndex = Context->ParentStackCount;
+		Context->ParentStack[Context->ParentStackCount++] = MaybeWindow->ID;
 		MaybeWindow->Generation++;
 		
 		// NOTE(Evan): Only check if the active window needs updating if focus wasn't stolen.
@@ -240,7 +250,7 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 			if (WeAreTheOnlyWindow) {
 				Context->ActiveWindow = MyID;
 				Context->HotWindow = MyID;
-			} else if (IsWithinRectangleInclusive(Context->InputThisFrame.MouseP, Rect) && !Context->HotWindow) {
+			} else if (IsWithinRectangleInclusive(Context->InputThisFrame.MouseP, Desc.Rect) && !Context->HotWindow) {
 				Context->ActiveWindow = MyID;
 			} else if (Desc.ForceFocus) {
 				Context->ActiveWindow = MyID;
@@ -249,27 +259,40 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 				
 		}
 		if (Context->ActiveWindow == MyID) {
-			Colour.RGB = MultiplyVec3f(Colour.RGB, 1.20f);
+			Desc.Colour.RGB = MultiplyVec3f(Desc.Colour.RGB, 1.20f);
 		}
 		
-		MaybeWindow->Rect = Rect;
-		MaybeWindow->Rect.P.Y += 80.0f; // NOTE(Evan): This offsets child widgets.
-		MaybeWindow->RowMax = (Rect.Span.Y) / 32.0f; // @Hardcode
-		MaybeWindow->Colour = Colour;
+		MaybeWindow->Rect = Desc.Rect;
+		
+		// NOTE(Evan): If index is 0, then we are the top-level window, and shouldn't offset ourselves
+		if (MyParentIndex) {
+			MyParentIndex -= 1;
+			vimgui_window *Parent = GetWindow(Context, Context->ParentStack[MyParentIndex]);
+			MaybeWindow->Rect.P.X += Parent->Rect.P.X;
+			MaybeWindow->Rect.P.Y += Parent->Rect.P.Y;
+			MaybeWindow->Rect.P.Y += 32.0f; // NOTE(Evan): This offsets child widgets.
+		} 
+		MaybeWindow->RowMax = (Desc.Rect.Span.Y) / 32.0f; // @Hardcode
+		MaybeWindow->Colour = Desc.Colour;
 		
 		PushWidget(Context, (vimgui_widget) {
 					   .Type = VimguiWidgetType_Window,
 					   .ID = MyID,
-					   .Rect = Rect,
+					   .Rect = MaybeWindow->Rect,
 					   .Colour = MaybeWindow->Colour,
 					   .Title = MaybeWindow->Title,
+					   .Centered = Desc.Centered, 
 				   });
 		
 		Context->WindowWeAreLayingOut = MyID;
 	}
 	
 	return(!!MaybeWindow);
-	
+}
+
+internal void
+WindowEnd(plore_vimgui_context *Context) {
+	if (Context->ParentStackCount) Context->ParentStackCount--;
 }
 
 internal void

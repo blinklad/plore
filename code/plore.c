@@ -87,8 +87,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	
 	{
 		char Buffer[PLORE_MAX_PATH];
-		Platform->GetCurrentDirectory(Buffer, PLORE_MAX_PATH);
-		FileContext->Current = GetOrInsertListing(FileContext, Buffer);
+		plore_get_current_directory_result Result = Platform->GetCurrentDirectory(Buffer, PLORE_MAX_PATH);
+		FileContext->Current = GetOrInsertListing(FileContext, ListingFromDirectoryPath(Result.AbsolutePath, Result.FilePart));
 		FileContext->InTopLevelDirectory = Platform->IsPathTopLevel(Buffer, PLORE_MAX_PATH);
 	}
 	
@@ -97,19 +97,17 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		plore_file *CursorEntry = FileContext->Current->Entries + FileContext->Current->Cursor;
 		
 		if (CursorEntry->Type == PloreFileNode_Directory) {
-			Cursor = GetOrInsertListing(FileContext, CursorEntry->AbsolutePath);
+			Cursor = GetOrInsertListing(FileContext, ListingFromFile(CursorEntry));
 		}
 	}
 	
 	plore_file_listing *Parent = 0;
-	if (!FileContext->InTopLevelDirectory)
-	{
-		char Buffer[PLORE_MAX_PATH] = {0};
-		CStringCopy(FileContext->Current->Name, Buffer, ArrayCount(Buffer));
+	if (!FileContext->InTopLevelDirectory) { // @Cleanup
 		
-		Platform->PopPathNode(Buffer, ArrayCount(Buffer), false);
+		plore_file_listing CurrentCopy = *FileContext->Current;
+		plore_pop_path_node_result Result = Platform->PopPathNode(CurrentCopy.File.AbsolutePath, ArrayCount(CurrentCopy.File.AbsolutePath), false);
 		
-		Parent = GetOrInsertListing(FileContext, Buffer);
+		Parent = GetOrInsertListing(FileContext, ListingFromDirectoryPath(Result.AbsolutePath, Result.FilePart));
 	}
 	
 	// NOTE(Evan): GUI stuff.
@@ -143,44 +141,65 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			.File = Cursor,
 		},
 	};
-
-	for (u64 Col = 0; Col < Cols; Col++) {
-		v2 P      = V2(X + PadX, PadY);
-		v2 Span   = V2(W, H);
-		v4 Colour = V4(0.3f, 0.3f, 0.3f, 1.0f);
-		
-		plore_viewable_directory *Directory = ViewDirectories + Col;
-		plore_file_listing *Listing = Directory->File;
-		if (!Listing) continue; /* Parent can be null, if we are currently looking at a top-level directory. */
-		
-		char *Title = Listing->Name;
-		if (Window(State->VimguiContext, (vimgui_window_desc) {
-						   .Title      = Title,
-						   .Rect       = {P, Span}, 
-						   .Colour     = Colour ,
-					       .ForceFocus = Directory->Focus })) {
-			for (u64 Row = 0; Row < Listing->Count; Row++) {
-				if (Listing->Cursor == Row) {
-					PrintLine("`%s`'s cursor is on entry %d.", Title, Row);
-				}
-				if (Button(State->VimguiContext, (vimgui_button_desc) {
-								   .Title = Listing->Entries[Row].Name,
-								   .FillWidth = true,
-								   .Centre = true,
-								   .Colour = Listing->Cursor == Row ? (v4) {0} : V4(0.1, 0.1, 0.1, 0.05),
-							   })) {
-					Listing->Cursor = Row;
-					PrintLine("Button %s was clicked!", Listing->Entries[Row].Name);
-					if (Listing->Entries[Row].Type == PloreFileNode_Directory) {
-						PrintLine("Changing Directory to %s", Listing->Entries[Row].AbsolutePath);
-						Platform->SetCurrentDirectory(Listing->Entries[Row].AbsolutePath);
+	
+#if 0
+	if (Button(State->VimguiContext, (vimgui_button_desc) {
+				   .Title = FileContext->Cursor.AbsolutePath
+				   .Rect = { .P = V2(0, 0), .Span = V2(PlatformAPI->WindowWidth, 50) },
+			   })) {
+	}
+#endif
+	
+	if (Window(State->VimguiContext, (vimgui_window_desc) {
+					   .Title = FileContext->Current->File.AbsolutePath,
+					   .Rect = { .P = V2(0, 0), .Span = { PlatformAPI->WindowWidth, PlatformAPI->WindowHeight } },
+					   .Colour = V4(0.10, 0.1, 0.1, 1.0f),
+				   })) {
+		for (u64 Col = 0; Col < Cols; Col++) {
+			v2 P      = V2(X, 0);
+			v2 Span   = V2(W, H);
+			v4 Colour = V4(0.2f, 0.2f, 0.2f, 1.0f);
+			
+			plore_viewable_directory *Directory = ViewDirectories + Col;
+			plore_file_listing *Listing = Directory->File;
+			if (!Listing) continue; /* Parent can be null, if we are currently looking at a top-level directory. */
+			
+			char *Title = Listing->File.FilePart;
+			if (Window(State->VimguiContext, (vimgui_window_desc) {
+							   .Title      = Title,
+							   .Rect       = {P, Span}, 
+							   .Colour     = Colour ,
+							   .Centered = true,
+						       .ForceFocus = Directory->Focus })) {
+				
+				for (u64 Row = 0; Row < Listing->Count; Row++) {
+					if (Listing->Cursor == Row) {
+						PrintLine("`%s`'s cursor is on entry %d.", Title, Row);
+					}
+					if (Button(State->VimguiContext, (vimgui_button_desc) {
+									   .Title = Listing->Entries[Row].FilePart,
+									   .FillWidth = true,
+									   .Centre = true,
+									   .Colour = Listing->Cursor != Row ? (v4) {0} : V4(0.4, 0.4, 0.4, 1),
+								   })) {
+						Listing->Cursor = Row;
+						PrintLine("Button %s was clicked!", Listing->Entries[Row].FilePart);
+						if (Listing->Entries[Row].Type == PloreFileNode_Directory) {
+							PrintLine("Changing Directory to %s", Listing->Entries[Row].AbsolutePath);
+							Platform->SetCurrentDirectory(Listing->Entries[Row].AbsolutePath);
+						}
 					}
 				}
+				
+				WindowEnd(State->VimguiContext);
 			}
+			
+			X += W + PadX;
 		}
 		
-		X += W + PadX;
+		WindowEnd(State->VimguiContext);
 	}
+	
 	
 	VimguiEnd(State->VimguiContext);
 	
@@ -198,8 +217,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		plore_file *CursorEntry = FileContext->Current->Entries + FileContext->Current->Cursor;
 		
 		if (CursorEntry->Type == PloreFileNode_Directory) {
-			PrintLine("Moving down a directory, from %s to %s", FileContext->Current->Name, CursorEntry->Name);
-			Platform->SetCurrentDirectory(CursorEntry->Name);
+			PrintLine("Moving down a directory, from %s to %s", FileContext->Current->File.AbsolutePath, CursorEntry->AbsolutePath);
+			Platform->SetCurrentDirectory(CursorEntry->AbsolutePath);
 		}
 	}
 	
@@ -230,10 +249,10 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 
 internal void
 PrintDirectory(plore_file_listing *Directory) {
-	PrintLine("%s", Directory->Name);
+	PrintLine("%s", Directory->File.AbsolutePath);
 	for (u64 File = 0; File < Directory->Count; File++) {
 		plore_file *FileNode = Directory->Entries + File;
-		PrintLine("\t%s", FileNode->Name);
+		PrintLine("\t%s", FileNode->AbsolutePath);
 	}
 	PrintLine("");
 }

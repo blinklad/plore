@@ -72,8 +72,8 @@ typedef struct plore_memory {
 } plore_memory;
 
 typedef struct plore_file_listing {
-	char Name[PLORE_MAX_PATH];
-	plore_file Entries[256];
+	plore_file File;
+	plore_file Entries[256]; // NOTE(Evan): Directories only.
 	u64 Count;
 	u64 Cursor;
 } plore_file_listing;
