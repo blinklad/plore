@@ -102,6 +102,7 @@ InsertListing(plore_file_context *Context, plore_file_listing_desc Desc) {
 	}
 	
 	if (!Result.DidAlreadyExist) {
+		Result.Slot->Directory.File.Type = Desc.Type;
 		CStringCopy(Desc.AbsolutePath, Result.Slot->Directory.File.AbsolutePath, PLORE_MAX_PATH);
 		CStringCopy(Desc.FilePart, Result.Slot->Directory.File.FilePart, PLORE_MAX_PATH);
 		directory_entry_result CurrentDirectory = Platform->GetDirectoryEntries(Result.Slot->Directory.File.AbsolutePath, 

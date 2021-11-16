@@ -4,7 +4,7 @@ VimguiInit(plore_vimgui_context *Context, plore_font *Font) {
 }
 
 internal void
-VimguiBegin(plore_vimgui_context *Context, keyboard_and_mouse Input) {
+VimguiBegin(plore_vimgui_context *Context, keyboard_and_mouse Input, v2 WindowDimensions) {
 	Assert(!Context->GUIPassActive);
 	Context->GUIPassActive = true;
 	
@@ -18,6 +18,8 @@ VimguiBegin(plore_vimgui_context *Context, keyboard_and_mouse Input) {
 	Context->WidgetFocusStolenThisFrame = false;
 	
 	Context->ParentStackCount = 0;
+	Context->WindowWeAreLayingOut = 0;
+	Context->WindowDimensions = WindowDimensions;
 	
 	for (u64 W = 0; W < Context->WindowCount; W++) {
 		vimgui_window *Window = Context->Windows + W;
@@ -29,24 +31,10 @@ internal void
 VimguiEnd(plore_vimgui_context *Context) {
 	Assert(Context->GUIPassActive);
 	Context->GUIPassActive = false;
-	Context->WindowWeAreLayingOut = 0;
 	
-	// NOTE(Evan): Cleanup any windows that didn't have any activity the past two frames.
-	for (u64 W = 0; W < Context->WindowCount; W++) {
-		vimgui_window *Window = Context->Windows + W;
-		Assert(Window->ID);
-		
-		Window->RowCountLastFrame = Window->RowCountThisFrame;
-		if (Window->RowCountThisFrame == 0) {
-			if (AbsDifference(Window->Generation, Context->GenerationCount) > 1) {
-				*Window = Context->Windows[--Context->WindowCount];
-			}
-		}
-	}
 	
 	// TODO(Evan): When we buffer widgets, build the render list here, so we can associate
 	// e.g. bitmaps, z-ordering, etc with draw commands, rather then just quads + text.
-	
 	for (u64 W = 0; W < Context->WidgetCount;  W++) {
 		vimgui_widget *Widget = Context->Widgets + W;
 		PushRenderQuad(&Context->RenderList, Widget->Rect, Widget->Colour);
@@ -64,8 +52,19 @@ VimguiEnd(plore_vimgui_context *Context) {
 					   Widget->Centered);
 	}
 	
-	// TODO(Evan): Flush font here!
 	
+	// NOTE(Evan): Cleanup any windows that didn't have any activity the past two frames.
+	for (u64 W = 0; W < Context->WindowCount; W++) {
+		vimgui_window *Window = Context->Windows + W;
+		Assert(Window->ID);
+		
+		Window->RowCountLastFrame = Window->RowCountThisFrame;
+		if (Window->RowCountThisFrame == 0) {
+			if (AbsDifference(Window->Generation, Context->GenerationCount) > 1) {
+				*Window = Context->Windows[--Context->WindowCount];
+			}
+		}
+	}
 	
 	Context->GenerationCount++;
 	
@@ -198,7 +197,8 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	
 	Window->RowCountThisFrame++;
 	
-	PushWidget(Context, (vimgui_widget) {
+	PushWidget(Context, Window,
+			   (vimgui_widget) {
 				   .Type = VimguiWidgetType_Button,
 				   .ID = MyID,
 				   .WindowID = Window->ID,
@@ -271,17 +271,22 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 		MaybeWindow->Rect = Desc.Rect;
 		
 		// NOTE(Evan): If index is 0, then we are the top-level window, and shouldn't offset ourselves
+		vimgui_window *Parent = 0;
 		if (MyParentIndex) {
 			MyParentIndex -= 1;
-			vimgui_window *Parent = GetWindow(Context, Context->ParentStack[MyParentIndex]);
+			Parent = GetWindow(Context, Context->ParentStack[MyParentIndex]);
 			MaybeWindow->Rect.P.X += Parent->Rect.P.X;
 			MaybeWindow->Rect.P.Y += Parent->Rect.P.Y;
 			MaybeWindow->Rect.P.Y += 32.0f; // NOTE(Evan): This offsets child widgets.
 		} 
-		MaybeWindow->RowMax = (Desc.Rect.Span.Y) / 32.0f; // @Hardcode
+		MaybeWindow->RowMax = (Desc.Rect.Span.Y) / (36.0f) - 1; // @Hardcode
 		MaybeWindow->Colour = Desc.Colour;
+		Context->WindowWeAreLayingOut = MyID;
 		
-		PushWidget(Context, (vimgui_widget) {
+		PrintLine("%s RowMax : %d", MaybeWindow->Title, MaybeWindow->RowMax);
+
+		PushWidget(Context, Parent, 
+				   (vimgui_widget) {
 					   .Type = VimguiWidgetType_Window,
 					   .ID = MyID,
 					   .Rect = MaybeWindow->Rect,
@@ -290,24 +295,45 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 					   .Centered = Desc.Centered, 
 				   });
 		
-		Context->WindowWeAreLayingOut = MyID;
 	}
 	
 	return(!!MaybeWindow);
 }
 
+// NOTE(Evan): Clips A into B's bounds, inclusive.
+plore_inline rectangle
+ClipRect(rectangle A, rectangle B) {
+	rectangle Result = {
+		.P = {
+			.X = Clamp(A.P.X, B.P.X, B.P.X + B.Span.X), 
+			.Y = Clamp(A.P.Y, B.P.Y, B.P.Y + B.Span.Y), 
+		},
+		.Span = {
+			.W = Clamp(A.Span.X, 0, B.Span.X),
+			.H = Clamp(A.Span.Y, 0, B.Span.Y),
+		}
+	};
+	
+	return(Result);
+}
+
 internal void
 WindowEnd(plore_vimgui_context *Context) {
-	if (Context->ParentStackCount) Context->ParentStackCount--;
+	if (Context->ParentStackCount) {
+		PrintLine("Popping window. There are %d windows currently.", Context->ParentStackCount);
+		u64 Window = Context->ParentStack[--Context->ParentStackCount-1];
+		Context->WindowWeAreLayingOut = Window;
+	}
 }
 
 internal void
-PushWidget(plore_vimgui_context *Context, vimgui_widget Widget) {
+PushWidget(plore_vimgui_context *Context, vimgui_window *Parent, vimgui_widget Widget) {
 	Assert(Context->WidgetCount < ArrayCount(Context->Widgets));
+	rectangle ParentRect = { .Span = Context->WindowDimensions };
+	if (Parent) ParentRect = Parent->Rect;
+	Widget.Rect = ClipRect(Widget.Rect, ParentRect);
 	Context->Widgets[Context->WidgetCount++] = Widget;
 }
-
-
 
 
 internal void

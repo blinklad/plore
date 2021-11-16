@@ -58,16 +58,17 @@ typedef struct plore_vimgui_context {
 	u64 WidgetCount;
 	plore_render_list RenderList;
 	
+	v2 WindowDimensions;
 } plore_vimgui_context;
 
 internal void
-VimguiBegin(plore_vimgui_context *Context, keyboard_and_mouse Input); 
+VimguiBegin(plore_vimgui_context *Context, keyboard_and_mouse Input, v2 WindowDimensions);
 
 internal void
 VimguiEnd(plore_vimgui_context *Context);
 
 internal void
-PushWidget(plore_vimgui_context *Context, vimgui_widget Widget);
+PushWidget(plore_vimgui_context *Context, vimgui_window *Parent, vimgui_widget Widget);
 	
 internal void
 PushRenderText(plore_render_list *RenderList, rectangle Rect, v4 Colour, char *Text, b64 Centered);

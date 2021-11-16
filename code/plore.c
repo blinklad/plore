@@ -96,9 +96,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	if (FileContext->Current->Count != 0) {
 		plore_file *CursorEntry = FileContext->Current->Entries + FileContext->Current->Cursor;
 		
-		if (CursorEntry->Type == PloreFileNode_Directory) {
-			Cursor = GetOrInsertListing(FileContext, ListingFromFile(CursorEntry));
-		}
+		Cursor = GetOrInsertListing(FileContext, ListingFromFile(CursorEntry));
 	}
 	
 	plore_file_listing *Parent = 0;
@@ -113,16 +111,17 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	// NOTE(Evan): GUI stuff.
 	u64 Cols = 3;
 	
+	f32 FooterHeight = 50;
 	f32 fCols = (f32) Cols;
 	f32 PadX = 10.0f;
 	f32 PadY = 10.0f;
-	f32 W = (PlatformAPI->WindowWidth  - (fCols + 1) * PadX) / fCols;
-	f32 H = (PlatformAPI->WindowHeight - (1     + 1) * PadY) / 1;
+	f32 W = ((PlatformAPI->WindowWidth  - 0)            - (fCols + 1) * PadX) / fCols;
+	f32 H = ((PlatformAPI->WindowHeight - FooterHeight) - (1     + 1) * PadY) / 1;
 	
 	f32 X = 0;
 	f32 Y = 0;
 	
-	VimguiBegin(State->VimguiContext, Input);
+	VimguiBegin(State->VimguiContext, Input, V2(PlatformAPI->WindowWidth, PlatformAPI->WindowHeight));
 	
 	typedef struct plore_viewable_directory {
 		plore_file_listing *File;
@@ -144,12 +143,13 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	
 	if (Window(State->VimguiContext, (vimgui_window_desc) {
 					   .Title = FileContext->Current->File.AbsolutePath,
-					   .Rect = { .P = V2(0, 0), .Span = { PlatformAPI->WindowWidth, PlatformAPI->WindowHeight } },
+					   .Rect = { .P = V2(0, 0), .Span = { PlatformAPI->WindowWidth, PlatformAPI->WindowHeight-FooterHeight } },
 					   .Colour = V4(0.10, 0.1, 0.1, 1.0f),
 				   })) {
+		
 		for (u64 Col = 0; Col < Cols; Col++) {
 			v2 P      = V2(X, 0);
-			v2 Span   = V2(W, H);
+			v2 Span   = V2(W, H-12);
 			v4 Colour = V4(0.2f, 0.2f, 0.2f, 1.0f);
 			
 			plore_viewable_directory *Directory = ViewDirectories + Col;
@@ -189,6 +189,22 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			X += W + PadX;
 		}
 		
+		if (Cursor) {
+			char CursorInfo[512] = {0};
+			StringPrintSized(CursorInfo, 
+							 ArrayCount(CursorInfo),
+						     "[%s] %s 01-02-3", 
+						     (Cursor->File.Type == PloreFileNode_Directory) ? "DIR" : "FILE", 
+						     Cursor->File.FilePart);
+			
+			if (Button(State->VimguiContext, (vimgui_button_desc) {
+						   .Title = CursorInfo,
+						   .Rect = { 
+							   .P = V2(0, PlatformAPI->WindowHeight + FooterHeight), .Span = V2(PlatformAPI->WindowWidth, FooterHeight + PadY)
+						   },
+					   })) {
+			}
+		}
 		WindowEnd(State->VimguiContext);
 	}
 	
