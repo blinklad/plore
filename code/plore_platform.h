@@ -9,7 +9,7 @@ typedef enum plore_file_node {
 
 typedef struct plore_file {
 	char AbsolutePath[PLORE_MAX_PATH];
-	char Name[PLORE_MAX_PATH];
+	char FilePart[PLORE_MAX_PATH];
 	plore_file_node Type;
 } plore_file;
 
@@ -60,13 +60,24 @@ typedef PLATFORM_SHOW_CURSOR(platform_show_cursor);
 #define PLATFORM_TOGGLE_FULLSCREEN(name) void name()
 typedef PLATFORM_TOGGLE_FULLSCREEN(platform_toggle_fullscreen);
 
-#define PLATFORM_GET_CURRENT_DIRECTORY(name) void name(char *Buffer, u64 BufferSize)
+typedef struct plore_get_current_directory_result {
+	char *AbsolutePath;
+	char *FilePart;
+} plore_get_current_directory_result;
+
+#define PLATFORM_GET_CURRENT_DIRECTORY(name) plore_get_current_directory_result name(char *Buffer, u64 BufferSize)
 typedef PLATFORM_GET_CURRENT_DIRECTORY(platform_get_current_directory);
 
 #define PLATFORM_SET_CURRENT_DIRECTORY(name) b64 name(char *Name)
 typedef PLATFORM_SET_CURRENT_DIRECTORY(platform_set_current_directory);
 
-#define PLATFORM_POP_PATH_NODE(name) b64 name(char *Buffer, u64 BufferSize, b64 AddTrailingSlash)
+typedef struct plore_pop_path_node_result {
+	b64 DidRemoveSomething;
+	char *AbsolutePath;
+	char *FilePart;
+} plore_pop_path_node_result;
+
+#define PLATFORM_POP_PATH_NODE(name) plore_pop_path_node_result name(char *Buffer, u64 BufferSize, b64 AddTrailingSlash)
 typedef PLATFORM_POP_PATH_NODE(platform_pop_path_node);
 
 #define PLATFORM_IS_PATH_DIRECTORY(name) b64 name(char *Buffer, u64 BufferSize)

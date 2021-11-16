@@ -609,7 +609,14 @@ WindowsLoadPloreCode(char *DLLPath, char *TempDLLPath, char *LockPath) {
 }
 
 PLATFORM_GET_CURRENT_DIRECTORY(WindowsGetCurrentDirectory) {
-	GetCurrentDirectory(BufferSize, Buffer);
+	plore_get_current_directory_result Result = {
+		.AbsolutePath = Buffer,
+	};
+	
+	GetCurrentDirectory(BufferSize, Result.AbsolutePath);
+	Result.FilePart = PathFindFileName(Result.AbsolutePath);
+	
+	return(Result);
 }
 
 PLATFORM_SET_CURRENT_DIRECTORY(WindowsSetCurrentDirectory) {
@@ -619,17 +626,21 @@ PLATFORM_SET_CURRENT_DIRECTORY(WindowsSetCurrentDirectory) {
 }
 
 PLATFORM_POP_PATH_NODE(WindowsPopPathNode) {
-	b64 SomethingWasRemoved = true;
+	plore_pop_path_node_result Result = {
+		.DidRemoveSomething = true,
+		.AbsolutePath = Buffer,
+	};
 	PathRemoveBackslash(Buffer);
-	SomethingWasRemoved = PathRemoveFileSpecA(Buffer) != 0;
-	if (AddTrailingSlash && SomethingWasRemoved) {
+	Result.DidRemoveSomething = PathRemoveFileSpecA(Buffer) != 0;
+	if (AddTrailingSlash && Result.DidRemoveSomething) {
 		u64 Length = StringLength(Buffer);
 		Assert(Length < PLORE_MAX_PATH);
 		Buffer[Length++] = '\\';
 		Buffer[Length++] = '\0';
 	}
+	Result.FilePart = PathFindFileName(Result.AbsolutePath);
 	
-	return(SomethingWasRemoved);
+	return(Result);
 }
 
 PLATFORM_IS_PATH_DIRECTORY(WindowsIsPathDirectory) {
@@ -704,8 +715,9 @@ PLATFORM_GET_DIRECTORY_ENTRIES(WindowsGetDirectoryEntries) {
 			
 			if (!IsDirectoryRoot) File->AbsolutePath[BytesWritten++] = '\\';
 			
+			// @Cleanup
 			CStringCopy(FindData.cFileName, File->AbsolutePath + BytesWritten, ArrayCount(File->AbsolutePath) - BytesWritten);
-			CStringCopy(FindData.cFileName, File->Name, ArrayCount(File->Name));
+			CStringCopy(FindData.cFileName, File->FilePart, ArrayCount(File->AbsolutePath));
 			
 			Result.Count++;
 			
