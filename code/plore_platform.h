@@ -99,6 +99,10 @@ typedef struct directory_entry_result {
 #define PLATFORM_GET_DIRECTORY_ENTRIES(name) directory_entry_result name(char *DirectoryName, plore_file *Buffer, u64 Size)
 typedef PLATFORM_GET_DIRECTORY_ENTRIES(platform_get_directory_entries);
 
+
+#define PLATFORM_MOVE_FILE(name) b64 name(char *sAbsolutePath, char *dAbsolutePath)
+typedef PLATFORM_MOVE_FILE(platform_move_file);
+
 // NOTE(Evan): Platform API
 typedef struct platform_api {
     u64 WindowWidth;
@@ -122,6 +126,8 @@ typedef struct platform_api {
 	platform_pop_path_node          *PopPathNode;
 	platform_is_path_directory      *IsPathDirectory;
 	platform_is_path_top_level      *IsPathTopLevel;
+	
+	platform_move_file              *MoveFile;
 } platform_api;
 
 #endif

@@ -7,7 +7,6 @@
 #include "win32_gl_loader.c"
 
 #include "plore_string.h"
-
 #include "plore_gl.c"
 
 global plore_input GlobalPloreInput;
@@ -103,271 +102,6 @@ PLATFORM_SHOW_CURSOR(WindowsShowCursor) {
 }
 
 
-// NOTE(Evan): Not part of the platform API.
-OPENGL_DEBUG_CALLBACK(WindowsGLDebugMessageCallback)
-{
-    if (severity == GL_DEBUG_SEVERITY_HIGH || severity == GL_DEBUG_SEVERITY_MEDIUM)
-    {
-        WindowsDebugPrintLine("OpenGL error!... Not sure what, just an error!");
-        // oh no
-    }
-}
-
-
-internal void 
-DebugConsoleSetup() {
-    // Log setup 
-	int ConsoleHandle = 0;
-	intptr_t StreamHandle = 0;
-	CONSOLE_SCREEN_BUFFER_INFO ConsoleScreenInfo = {0};
-	FILE *Stream = 0;
-
-	AllocConsole();
-
-	// Set the screen buffer to be big enough to let us scroll text
-	GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &ConsoleScreenInfo);
-	ConsoleScreenInfo.dwSize.Y = 500;
-	SetConsoleScreenBufferSize(GetStdHandle(STD_OUTPUT_HANDLE), ConsoleScreenInfo.dwSize);
-
-	// Redirect unbuffered STDOUT, STDIN, STDERR to the console
-    {
-        StreamHandle = (intptr_t)GetStdHandle(STD_OUTPUT_HANDLE);
-        ConsoleHandle = _open_osfhandle(StreamHandle, _O_TEXT);
-        Stream = _fdopen(ConsoleHandle, "w");
-        *stdout = *Stream;
-        setvbuf(stdout, NULL, _IONBF, 0);
-    }
-
-    {
-        StreamHandle = (intptr_t)GetStdHandle(STD_INPUT_HANDLE);
-        ConsoleHandle = _open_osfhandle(StreamHandle, _O_TEXT);
-        Stream = _fdopen(ConsoleHandle, "r");
-        *stdin = *Stream;
-        setvbuf(stdin, NULL, _IONBF, 0);
-    }
-
-    {
-        StreamHandle = (intptr_t)GetStdHandle(STD_ERROR_HANDLE);
-        ConsoleHandle = _open_osfhandle(StreamHandle, _O_TEXT);
-        Stream = _fdopen(ConsoleHandle, "w");
-        *stderr = *Stream;
-        setvbuf(stderr, NULL, _IONBF, 0);
-    }
-
-
-	// Reopen streams required for console output by stdio
-	freopen("CONOUT$", "w", stdout);
-	freopen("CONOUT$", "w", stderr);
-}
-
-plore_inline windows_timer
-WindowsGetTime() {
-	local u64 Frequency = 0;
-	if (!Frequency) {
-		LARGE_INTEGER _Frequency;
-		Assert(QueryPerformanceFrequency(&_Frequency));
-		Frequency = _Frequency.QuadPart;
-	}
-	
-	windows_timer CurrentTime = {0};
-	CurrentTime.Frequency = Frequency;
-	LARGE_INTEGER CurrentTicks;
-	Assert(QueryPerformanceCounter(&CurrentTicks));
-	CurrentTime.TicksNow = CurrentTicks.QuadPart;
-	
-	return(CurrentTime);
-}
-
-// more complex 4.x context:
-// https://gist.github.com/mmozeiko/ed2ad27f75edf9c26053ce332a1f6647
-internal windows_context
-WindowsCreateAndShowOpenGLWindow(HINSTANCE Instance) {
-    windows_context WindowsContext = {
-        .Width = DEFAULT_WINDOW_WIDTH,
-        .Height = DEFAULT_WINDOW_HEIGHT,
-    };
-
-    // Create a dummy window, pixel format, device context and rendering context,
-    // just so we can get function pointers to wgl_ARB stuff!
-    {
-        WNDCLASSA dummy_winclass = {
-            .style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC,
-            .lpfnWndProc = DefWindowProcA,
-            .hInstance = GetModuleHandle(0),
-            .lpszClassName = "Dummy Winclass",
-        };
-
-        RegisterClassA(&dummy_winclass);
-        WindowsContext.Window = CreateWindowExA(
-                0,
-                "Dummy Winclass",  // Arbitrary WinClass descriptor
-                "Dummy Winclass", 
-                0,
-                CW_USEDEFAULT,
-                CW_USEDEFAULT,
-                CW_USEDEFAULT,
-                CW_USEDEFAULT,
-                NULL, 
-                NULL,   
-                Instance, 
-                NULL);
-        
-
-        PIXELFORMATDESCRIPTOR DesiredPixelFormat = {
-            .nSize = sizeof(DesiredPixelFormat),
-            .nVersion = 1,
-            .dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER,
-            .iPixelType = PFD_TYPE_RGBA,
-            .cColorBits = 32,
-            .cAlphaBits = 8,
-            .cDepthBits = 24,
-            .iLayerType = PFD_MAIN_PLANE,
-        };
-        
-        WindowsContext.DeviceContext = GetDC(WindowsContext.Window);
-
-        int32 PixelFormatID = ChoosePixelFormat(WindowsContext.DeviceContext, &DesiredPixelFormat);
-        PIXELFORMATDESCRIPTOR SuggestedPixelFormat = {0};
-        DescribePixelFormat(WindowsContext.DeviceContext, PixelFormatID, sizeof(PIXELFORMATDESCRIPTOR), &SuggestedPixelFormat);
-        SetPixelFormat(WindowsContext.DeviceContext, PixelFormatID, &SuggestedPixelFormat);
-        WindowsContext.OpenGLContext = wglCreateContext(WindowsContext.DeviceContext);
-
-        if (!wglMakeCurrent(WindowsContext.DeviceContext, WindowsContext.OpenGLContext)) {
-            WindowsDebugPrintLine("Could not make context current!!!");
-        }
-
-        HMODULE opengl32_dll = LoadLibraryA("opengl32.dll");
-
-        #define PLORE_X(name, ret, args) \
-            name = (PFN_ ## name) wglGetProcAddress(#name);\
-            if (!name) { \
-                name = (PFN_ ## name) GetProcAddress(opengl32_dll, #name);\
-            }\
-
-        PLORE_GL_FUNCS
-        #undef PLORE_X
-
-            
-
-        wglMakeCurrent(WindowsContext.DeviceContext, 0);
-        wglDeleteContext(WindowsContext.OpenGLContext);
-        ReleaseDC(WindowsContext.Window, WindowsContext.DeviceContext);
-        DestroyWindow(WindowsContext.Window);
-    }
-    
-    // Create our _actual_ window, a real (ARB) pixel format, device context, and rendering context.
-    // The window is made current here.
-    {
-        WNDCLASSEX WinClass = {
-            .cbSize = sizeof(WNDCLASSEX),
-            .style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC,
-            .lpfnWndProc   = WindowsMessagePumpCallback,
-            .hInstance     = Instance,
-            .lpszClassName = "Plore Winclass",
-            .hCursor = LoadCursor(NULL, IDC_ARROW),
-        };
-
-        RegisterClassEx(&WinClass);
-        WindowsContext.Window = CreateWindowEx(
-                WS_EX_APPWINDOW | WS_EX_WINDOWEDGE,
-                "Plore Winclass",  // Arbitrary WinClass descriptor
-                "Plore", 
-                WS_CAPTION | WS_SYSMENU | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_SIZEBOX | WS_MAXIMIZEBOX | WS_MINIMIZEBOX,
-                0,       // posx
-                0,       // posy
-                DEFAULT_WINDOW_WIDTH,    // width
-                DEFAULT_WINDOW_WIDTH,    // height
-                NULL, 
-                NULL,   
-                Instance, 
-                NULL);
-
-
-        int DesiredPixelFormatAttributesARB[] = {
-            WGL_DRAW_TO_WINDOW_ARB,     GL_TRUE,
-            WGL_SUPPORT_OPENGL_ARB,     GL_TRUE,
-            WGL_DOUBLE_BUFFER_ARB,      GL_TRUE,
-            WGL_ACCELERATION_ARB,       WGL_FULL_ACCELERATION_ARB,
-            WGL_PIXEL_TYPE_ARB,         WGL_TYPE_RGBA_ARB,
-            WGL_COLOR_BITS_ARB,         32,
-            WGL_DEPTH_BITS_ARB,         24,
-            WGL_STENCIL_BITS_ARB,       8,
-            0
-        };
-        WindowsContext.DeviceContext = GetDC(WindowsContext.Window);
-
-        UINT CountOfMatchingFormatsWindowsCanFind = 0;
-        int32 PixelFormatIDARB;
-        if (!wglChoosePixelFormatARB(WindowsContext.DeviceContext, 
-                                DesiredPixelFormatAttributesARB, 
-                                0, 
-                                1, 
-                                &PixelFormatIDARB, 
-                                &CountOfMatchingFormatsWindowsCanFind) || CountOfMatchingFormatsWindowsCanFind == 0) {
-            WindowsDebugPrintLine("oh no");
-        };
-
-        PIXELFORMATDESCRIPTOR SuggestedPixelFormatARB = {0};
-        DescribePixelFormat(WindowsContext.DeviceContext, PixelFormatIDARB, sizeof(PIXELFORMATDESCRIPTOR), &SuggestedPixelFormatARB);
-        if (!SetPixelFormat(WindowsContext.DeviceContext, PixelFormatIDARB, &SuggestedPixelFormatARB)) {
-            WindowsDebugPrintLine("Could not set pixel format!!");
-        }
-
-        int OpenGLAttributes[] =  {
-            WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
-            WGL_CONTEXT_MINOR_VERSION_ARB, 3,
-            WGL_CONTEXT_PROFILE_MASK_ARB,  WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
-            #if defined(PLORE_INTERNAL)
-            // ask for debug context for non "Release" builds
-            // this is so we can enable debug callback
-            WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_DEBUG_BIT_ARB,
-            #endif
-            0,
-        };
-            
-        WindowsContext.OpenGLContext = wglCreateContextAttribsARB(WindowsContext.DeviceContext, 0, OpenGLAttributes);
-
-        if (!wglMakeCurrent(WindowsContext.DeviceContext, WindowsContext.OpenGLContext)) {
-        }
-
-        #if PLORE_INTERNAL
-            // enable debug callback
-            glDebugMessageCallback(&WindowsGLDebugMessageCallback, NULL);
-			glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-		#endif
-    }
-    
-    // Make sure the window is visible and has the correct size!
-    ShowWindow(WindowsContext.Window, SW_NORMAL);
-    SetWindowPos(
-        WindowsContext.Window,
-        0,
-        0,
-        0,
-        WindowsContext.Width,
-        WindowsContext.Height,
-        0
-    );
-	
-	// NOTE(Evan): "Window Size" throughout the codebase really means "client rectangle", as in, the drawable area.
-	DWORD Style = GetWindowLongPtr(WindowsContext.Window, GWL_STYLE );
-	DWORD ExStyle = GetWindowLongPtr(WindowsContext.Window, GWL_EXSTYLE);
-	HMENU Menu = GetMenu(WindowsContext.Window);
-	
-	RECT Rect = { 0, 0, WindowsContext.Width, WindowsContext.Height };
-	
-	AdjustWindowRectEx(&Rect, Style, Menu ? TRUE : FALSE, ExStyle);
-	
-	SetWindowPos(WindowsContext.Window, NULL, 0, 0, Rect.right - Rect.left, Rect.bottom - Rect.top, SWP_NOZORDER | SWP_NOMOVE );
-    
-	ShowCursor(TRUE);
-	
-    // 1/0 = Enable/disable vsync, -1 = adaptive sync.
-    wglSwapIntervalEXT(1);
-
-    return WindowsContext;
-}
-
 global WINDOWPLACEMENT GlobalWindowPlacement = { .length = sizeof(GlobalWindowPlacement) };
 
 PLATFORM_TOGGLE_FULLSCREEN(WindowsToggleFullscreen) {
@@ -401,6 +135,407 @@ PLATFORM_TOGGLE_FULLSCREEN(WindowsToggleFullscreen) {
 					 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER
 					 | SWP_FRAMECHANGED);
 	}
+}
+
+PLATFORM_GET_CURRENT_DIRECTORY(WindowsGetCurrentDirectory) {
+	plore_get_current_directory_result Result = {
+		.AbsolutePath = Buffer,
+	};
+	
+	GetCurrentDirectory(BufferSize, Result.AbsolutePath);
+	Result.FilePart = PathFindFileName(Result.AbsolutePath);
+	
+	return(Result);
+}
+
+PLATFORM_SET_CURRENT_DIRECTORY(WindowsSetCurrentDirectory) {
+	b64 Result = SetCurrentDirectory(Name);
+	
+	return(Result);
+}
+
+PLATFORM_POP_PATH_NODE(WindowsPopPathNode) {
+	plore_pop_path_node_result Result = {
+		.DidRemoveSomething = true,
+		.AbsolutePath = Buffer,
+	};
+	PathRemoveBackslash(Buffer);
+	Result.DidRemoveSomething = PathRemoveFileSpecA(Buffer) != 0;
+	if (AddTrailingSlash && Result.DidRemoveSomething) {
+		u64 Length = StringLength(Buffer);
+		Assert(Length < PLORE_MAX_PATH);
+		Buffer[Length++] = '\\';
+		Buffer[Length++] = '\0';
+	}
+	Result.FilePart = PathFindFileName(Result.AbsolutePath);
+	
+	return(Result);
+}
+
+PLATFORM_IS_PATH_DIRECTORY(WindowsIsPathDirectory) {
+	b64 Result = PathIsDirectory(Buffer);
+	return(Result);
+}
+
+PLATFORM_IS_PATH_TOP_LEVEL(WindowsIsPathTopLevel) {
+	b64 Result = PathIsRoot(Buffer);
+	return(Result);
+	
+}
+
+// NOTE(Evan): Directory name should not include trailing '\' nor any '*' or '?' wildcards.
+PLATFORM_GET_DIRECTORY_ENTRIES(WindowsGetDirectoryEntries) {
+	directory_entry_result Result = {
+		.Name = DirectoryName,
+		.Buffer = Buffer,
+		.Size = Size,
+	};
+	
+	char SearchableDirectoryName[PLORE_MAX_PATH] = {0};
+	u64 BytesWritten = CStringCopy(DirectoryName, SearchableDirectoryName, ArrayCount(SearchableDirectoryName));
+	u64 SearchBytesWritten = 0;
+	char SearchChars[] = {'\\', '*'};
+	b64 SearchCanFit = BytesWritten < PLORE_MAX_PATH + sizeof(SearchChars);
+	if (!SearchCanFit) {
+		return(Result);
+	}
+	
+	b64 IsDirectoryRoot = PathIsRoot(DirectoryName);
+	if (!IsDirectoryRoot) {
+		SearchableDirectoryName[BytesWritten + SearchBytesWritten++] = '\\';
+	} else {
+		int BreakHere = 5;
+	}
+	
+	SearchableDirectoryName[BytesWritten + SearchBytesWritten++] = '*';
+	SearchableDirectoryName[BytesWritten + SearchBytesWritten++] = '\0';
+	
+	WIN32_FIND_DATA FindData = {0};
+	HANDLE FindHandle = FindFirstFile(SearchableDirectoryName, &FindData);
+	u64 IgnoredCount = 0;
+	if (FindHandle != INVALID_HANDLE_VALUE) {
+		do {
+			Assert(Result.Count < Result.Size);
+			
+			char *FileName = FindData.cFileName;
+			if (FileName[0] == '.' || FileName[0] == '$') continue;
+			
+			plore_file *File = Buffer + Result.Count;
+			
+			DWORD FlagsToIgnore = FILE_ATTRIBUTE_DEVICE    |
+				FILE_ATTRIBUTE_ENCRYPTED |
+				FILE_ATTRIBUTE_HIDDEN    |
+				FILE_ATTRIBUTE_OFFLINE   |
+				FILE_ATTRIBUTE_TEMPORARY;
+			
+			if (FindData.dwFileAttributes & FlagsToIgnore) {
+				Result.IgnoredCount++;
+				continue;
+			}
+			
+			if (FindData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+				File->Type = PloreFileNode_Directory;
+			} else { // NOTE(Evan): Assume a 'normal' file.
+				File->Type = PloreFileNode_File;
+			} 
+			
+			u64 BytesWritten = CStringCopy(DirectoryName, File->AbsolutePath, ArrayCount(File->AbsolutePath));
+			Assert(BytesWritten < ArrayCount(File->AbsolutePath) - 2); // NOTE(Evan): For trailing '\';
+			
+			if (!IsDirectoryRoot) File->AbsolutePath[BytesWritten++] = '\\';
+			
+			// @Cleanup
+			CStringCopy(FindData.cFileName, File->AbsolutePath + BytesWritten, ArrayCount(File->AbsolutePath) - BytesWritten);
+			CStringCopy(FindData.cFileName, File->FilePart, ArrayCount(File->AbsolutePath));
+			
+			Result.Count++;
+			
+		} while (FindNextFile(FindHandle, &FindData));
+	} else {
+		WindowsDebugPrintLine("Could not open directory %s", SearchableDirectoryName);
+	}
+	
+	Result.Succeeded = true;
+	return(Result);
+}
+
+PLATFORM_MOVE_FILE(WindowsMoveFile) {
+	// NOTE(Evan): MoveFile will delete the source file if this is set;
+	Assert(dAbsolutePath);
+	b64 Result = false;
+	if (dAbsolutePath) {
+		Result = MoveFileEx(sAbsolutePath, dAbsolutePath, 0);
+	}
+	
+	return(Result);
+}
+
+
+// 
+// NOTE(Evan): Internal API definitions.
+//
+OPENGL_DEBUG_CALLBACK(WindowsGLDebugMessageCallback)
+{
+    if (severity == GL_DEBUG_SEVERITY_HIGH || severity == GL_DEBUG_SEVERITY_MEDIUM)
+    {
+        WindowsDebugPrintLine("OpenGL error!... Not sure what, just an error!");
+        // oh no
+    }
+}
+
+
+internal void 
+DebugConsoleSetup() {
+    // Log setup 
+	int ConsoleHandle = 0;
+	intptr_t StreamHandle = 0;
+	CONSOLE_SCREEN_BUFFER_INFO ConsoleScreenInfo = {0};
+	FILE *Stream = 0;
+	
+	AllocConsole();
+	
+	// Set the screen buffer to be big enough to let us scroll text
+	GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &ConsoleScreenInfo);
+	ConsoleScreenInfo.dwSize.Y = 500;
+	SetConsoleScreenBufferSize(GetStdHandle(STD_OUTPUT_HANDLE), ConsoleScreenInfo.dwSize);
+	
+	// Redirect unbuffered STDOUT, STDIN, STDERR to the console
+    {
+        StreamHandle = (intptr_t)GetStdHandle(STD_OUTPUT_HANDLE);
+        ConsoleHandle = _open_osfhandle(StreamHandle, _O_TEXT);
+        Stream = _fdopen(ConsoleHandle, "w");
+        *stdout = *Stream;
+        setvbuf(stdout, NULL, _IONBF, 0);
+    }
+	
+    {
+        StreamHandle = (intptr_t)GetStdHandle(STD_INPUT_HANDLE);
+        ConsoleHandle = _open_osfhandle(StreamHandle, _O_TEXT);
+        Stream = _fdopen(ConsoleHandle, "r");
+        *stdin = *Stream;
+        setvbuf(stdin, NULL, _IONBF, 0);
+    }
+	
+    {
+        StreamHandle = (intptr_t)GetStdHandle(STD_ERROR_HANDLE);
+        ConsoleHandle = _open_osfhandle(StreamHandle, _O_TEXT);
+        Stream = _fdopen(ConsoleHandle, "w");
+        *stderr = *Stream;
+        setvbuf(stderr, NULL, _IONBF, 0);
+    }
+	
+	
+	// Reopen streams required for console output by stdio
+	freopen("CONOUT$", "w", stdout);
+	freopen("CONOUT$", "w", stderr);
+}
+
+plore_inline windows_timer
+WindowsGetTime() {
+	local u64 Frequency = 0;
+	if (!Frequency) {
+		LARGE_INTEGER _Frequency;
+		Assert(QueryPerformanceFrequency(&_Frequency));
+		Frequency = _Frequency.QuadPart;
+	}
+	
+	windows_timer CurrentTime = {0};
+	CurrentTime.Frequency = Frequency;
+	LARGE_INTEGER CurrentTicks;
+	Assert(QueryPerformanceCounter(&CurrentTicks));
+	CurrentTime.TicksNow = CurrentTicks.QuadPart;
+	
+	return(CurrentTime);
+}
+
+// more complex 4.x context:
+// https://gist.github.com/mmozeiko/ed2ad27f75edf9c26053ce332a1f6647
+internal windows_context
+WindowsCreateAndShowOpenGLWindow(HINSTANCE Instance) {
+    windows_context WindowsContext = {
+        .Width = DEFAULT_WINDOW_WIDTH,
+        .Height = DEFAULT_WINDOW_HEIGHT,
+    };
+	
+    // Create a dummy window, pixel format, device context and rendering context,
+    // just so we can get function pointers to wgl_ARB stuff!
+    {
+        WNDCLASSA dummy_winclass = {
+            .style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC,
+            .lpfnWndProc = DefWindowProcA,
+            .hInstance = GetModuleHandle(0),
+            .lpszClassName = "Dummy Winclass",
+        };
+		
+        RegisterClassA(&dummy_winclass);
+        WindowsContext.Window = CreateWindowExA(
+												0,
+												"Dummy Winclass",  // Arbitrary WinClass descriptor
+												"Dummy Winclass", 
+												0,
+												CW_USEDEFAULT,
+												CW_USEDEFAULT,
+												CW_USEDEFAULT,
+												CW_USEDEFAULT,
+												NULL, 
+												NULL,   
+												Instance, 
+												NULL);
+        
+		
+        PIXELFORMATDESCRIPTOR DesiredPixelFormat = {
+            .nSize = sizeof(DesiredPixelFormat),
+            .nVersion = 1,
+            .dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER,
+            .iPixelType = PFD_TYPE_RGBA,
+            .cColorBits = 32,
+            .cAlphaBits = 8,
+            .cDepthBits = 24,
+            .iLayerType = PFD_MAIN_PLANE,
+        };
+        
+        WindowsContext.DeviceContext = GetDC(WindowsContext.Window);
+		
+        int32 PixelFormatID = ChoosePixelFormat(WindowsContext.DeviceContext, &DesiredPixelFormat);
+        PIXELFORMATDESCRIPTOR SuggestedPixelFormat = {0};
+        DescribePixelFormat(WindowsContext.DeviceContext, PixelFormatID, sizeof(PIXELFORMATDESCRIPTOR), &SuggestedPixelFormat);
+        SetPixelFormat(WindowsContext.DeviceContext, PixelFormatID, &SuggestedPixelFormat);
+        WindowsContext.OpenGLContext = wglCreateContext(WindowsContext.DeviceContext);
+		
+        if (!wglMakeCurrent(WindowsContext.DeviceContext, WindowsContext.OpenGLContext)) {
+            WindowsDebugPrintLine("Could not make context current!!!");
+        }
+		
+        HMODULE opengl32_dll = LoadLibraryA("opengl32.dll");
+		
+#define PLORE_X(name, ret, args) \
+name = (PFN_ ## name) wglGetProcAddress(#name);\
+if (!name) { \
+name = (PFN_ ## name) GetProcAddress(opengl32_dll, #name);\
+}\
+		
+        PLORE_GL_FUNCS
+#undef PLORE_X
+		
+		
+		
+        wglMakeCurrent(WindowsContext.DeviceContext, 0);
+        wglDeleteContext(WindowsContext.OpenGLContext);
+        ReleaseDC(WindowsContext.Window, WindowsContext.DeviceContext);
+        DestroyWindow(WindowsContext.Window);
+    }
+    
+    // Create our _actual_ window, a real (ARB) pixel format, device context, and rendering context.
+    // The window is made current here.
+    {
+        WNDCLASSEX WinClass = {
+            .cbSize = sizeof(WNDCLASSEX),
+            .style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC,
+            .lpfnWndProc   = WindowsMessagePumpCallback,
+            .hInstance     = Instance,
+            .lpszClassName = "Plore Winclass",
+            .hCursor = LoadCursor(NULL, IDC_ARROW),
+        };
+		
+        RegisterClassEx(&WinClass);
+        WindowsContext.Window = CreateWindowEx(
+											   WS_EX_APPWINDOW | WS_EX_WINDOWEDGE,
+											   "Plore Winclass",  // Arbitrary WinClass descriptor
+											   "Plore", 
+											   WS_CAPTION | WS_SYSMENU | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_SIZEBOX | WS_MAXIMIZEBOX | WS_MINIMIZEBOX,
+											   0,       // posx
+											   0,       // posy
+											   DEFAULT_WINDOW_WIDTH,    // width
+											   DEFAULT_WINDOW_WIDTH,    // height
+											   NULL, 
+											   NULL,   
+											   Instance, 
+											   NULL);
+		
+		
+        int DesiredPixelFormatAttributesARB[] = {
+            WGL_DRAW_TO_WINDOW_ARB,     GL_TRUE,
+            WGL_SUPPORT_OPENGL_ARB,     GL_TRUE,
+            WGL_DOUBLE_BUFFER_ARB,      GL_TRUE,
+            WGL_ACCELERATION_ARB,       WGL_FULL_ACCELERATION_ARB,
+            WGL_PIXEL_TYPE_ARB,         WGL_TYPE_RGBA_ARB,
+            WGL_COLOR_BITS_ARB,         32,
+            WGL_DEPTH_BITS_ARB,         24,
+            WGL_STENCIL_BITS_ARB,       8,
+            0
+        };
+        WindowsContext.DeviceContext = GetDC(WindowsContext.Window);
+		
+        UINT CountOfMatchingFormatsWindowsCanFind = 0;
+        int32 PixelFormatIDARB;
+        if (!wglChoosePixelFormatARB(WindowsContext.DeviceContext, 
+									 DesiredPixelFormatAttributesARB, 
+									 0, 
+									 1, 
+									 &PixelFormatIDARB, 
+									 &CountOfMatchingFormatsWindowsCanFind) || CountOfMatchingFormatsWindowsCanFind == 0) {
+            WindowsDebugPrintLine("oh no");
+        };
+		
+        PIXELFORMATDESCRIPTOR SuggestedPixelFormatARB = {0};
+        DescribePixelFormat(WindowsContext.DeviceContext, PixelFormatIDARB, sizeof(PIXELFORMATDESCRIPTOR), &SuggestedPixelFormatARB);
+        if (!SetPixelFormat(WindowsContext.DeviceContext, PixelFormatIDARB, &SuggestedPixelFormatARB)) {
+            WindowsDebugPrintLine("Could not set pixel format!!");
+        }
+		
+        int OpenGLAttributes[] =  {
+            WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
+            WGL_CONTEXT_MINOR_VERSION_ARB, 3,
+            WGL_CONTEXT_PROFILE_MASK_ARB,  WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
+#if defined(PLORE_INTERNAL)
+            // ask for debug context for non "Release" builds
+            // this is so we can enable debug callback
+            WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_DEBUG_BIT_ARB,
+#endif
+            0,
+        };
+		
+        WindowsContext.OpenGLContext = wglCreateContextAttribsARB(WindowsContext.DeviceContext, 0, OpenGLAttributes);
+		
+        if (!wglMakeCurrent(WindowsContext.DeviceContext, WindowsContext.OpenGLContext)) {
+        }
+		
+#if PLORE_INTERNAL
+		// enable debug callback
+		glDebugMessageCallback(&WindowsGLDebugMessageCallback, NULL);
+		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+#endif
+    }
+    
+    // Make sure the window is visible and has the correct size!
+    ShowWindow(WindowsContext.Window, SW_NORMAL);
+    SetWindowPos(
+				 WindowsContext.Window,
+				 0,
+				 0,
+				 0,
+				 WindowsContext.Width,
+				 WindowsContext.Height,
+				 0
+				 );
+	
+	// NOTE(Evan): "Window Size" throughout the codebase really means "client rectangle", as in, the drawable area.
+	DWORD Style = GetWindowLongPtr(WindowsContext.Window, GWL_STYLE );
+	DWORD ExStyle = GetWindowLongPtr(WindowsContext.Window, GWL_EXSTYLE);
+	HMENU Menu = GetMenu(WindowsContext.Window);
+	
+	RECT Rect = { 0, 0, WindowsContext.Width, WindowsContext.Height };
+	
+	AdjustWindowRectEx(&Rect, Style, Menu ? TRUE : FALSE, ExStyle);
+	
+	SetWindowPos(WindowsContext.Window, NULL, 0, 0, Rect.right - Rect.left, Rect.bottom - Rect.top, SWP_NOZORDER | SWP_NOMOVE );
+    
+	ShowCursor(TRUE);
+	
+    // 1/0 = Enable/disable vsync, -1 = adaptive sync.
+    wglSwapIntervalEXT(1);
+	
+    return WindowsContext;
 }
 
 
@@ -458,6 +593,10 @@ LRESULT CALLBACK WindowsMessagePumpCallback(HWND hwnd, UINT uMsg, WPARAM wParam,
 					
                     case 'L': {
                         PROCESS_KEY(L);
+                    } break;
+					
+                    case 'Y': {
+                        PROCESS_KEY(Y);
                     } break;
 					
                     case 'T': {
@@ -612,128 +751,6 @@ WindowsLoadPloreCode(char *DLLPath, char *TempDLLPath, char *LockPath) {
 	return(Result);
 }
 
-PLATFORM_GET_CURRENT_DIRECTORY(WindowsGetCurrentDirectory) {
-	plore_get_current_directory_result Result = {
-		.AbsolutePath = Buffer,
-	};
-	
-	GetCurrentDirectory(BufferSize, Result.AbsolutePath);
-	Result.FilePart = PathFindFileName(Result.AbsolutePath);
-	
-	return(Result);
-}
-
-PLATFORM_SET_CURRENT_DIRECTORY(WindowsSetCurrentDirectory) {
-	b64 Result = SetCurrentDirectory(Name);
-	
-	return(Result);
-}
-
-PLATFORM_POP_PATH_NODE(WindowsPopPathNode) {
-	plore_pop_path_node_result Result = {
-		.DidRemoveSomething = true,
-		.AbsolutePath = Buffer,
-	};
-	PathRemoveBackslash(Buffer);
-	Result.DidRemoveSomething = PathRemoveFileSpecA(Buffer) != 0;
-	if (AddTrailingSlash && Result.DidRemoveSomething) {
-		u64 Length = StringLength(Buffer);
-		Assert(Length < PLORE_MAX_PATH);
-		Buffer[Length++] = '\\';
-		Buffer[Length++] = '\0';
-	}
-	Result.FilePart = PathFindFileName(Result.AbsolutePath);
-	
-	return(Result);
-}
-
-PLATFORM_IS_PATH_DIRECTORY(WindowsIsPathDirectory) {
-	b64 Result = PathIsDirectory(Buffer);
-	return(Result);
-}
-
-PLATFORM_IS_PATH_TOP_LEVEL(WindowsIsPathTopLevel) {
-	b64 Result = PathIsRoot(Buffer);
-	return(Result);
-	
-}
-
-// NOTE(Evan): Directory name should not include trailing '\' nor any '*' or '?' wildcards.
-PLATFORM_GET_DIRECTORY_ENTRIES(WindowsGetDirectoryEntries) {
-	directory_entry_result Result = {
-		.Name = DirectoryName,
-		.Buffer = Buffer,
-		.Size = Size,
-	};
-	
-	char SearchableDirectoryName[PLORE_MAX_PATH] = {0};
-	u64 BytesWritten = CStringCopy(DirectoryName, SearchableDirectoryName, ArrayCount(SearchableDirectoryName));
-	u64 SearchBytesWritten = 0;
-	char SearchChars[] = {'\\', '*'};
-	b64 SearchCanFit = BytesWritten < PLORE_MAX_PATH + sizeof(SearchChars);
-	if (!SearchCanFit) {
-		return(Result);
-	}
-	
-	b64 IsDirectoryRoot = PathIsRoot(DirectoryName);
-	if (!IsDirectoryRoot) {
-		SearchableDirectoryName[BytesWritten + SearchBytesWritten++] = '\\';
-	} else {
-		int BreakHere = 5;
-	}
-	
-	SearchableDirectoryName[BytesWritten + SearchBytesWritten++] = '*';
-	SearchableDirectoryName[BytesWritten + SearchBytesWritten++] = '\0';
-	
-	WIN32_FIND_DATA FindData = {0};
-	HANDLE FindHandle = FindFirstFile(SearchableDirectoryName, &FindData);
-	u64 IgnoredCount = 0;
-	if (FindHandle != INVALID_HANDLE_VALUE) {
-		do {
-			Assert(Result.Count < Result.Size);
-			
-			char *FileName = FindData.cFileName;
-			if (FileName[0] == '.' || FileName[0] == '$') continue;
-			
-			plore_file *File = Buffer + Result.Count;
-			
-			DWORD FlagsToIgnore = FILE_ATTRIBUTE_DEVICE    |
-				                  FILE_ATTRIBUTE_ENCRYPTED |
-				                  FILE_ATTRIBUTE_HIDDEN    |
-				                  FILE_ATTRIBUTE_OFFLINE   |
-				                  FILE_ATTRIBUTE_TEMPORARY;
-			
-			if (FindData.dwFileAttributes & FlagsToIgnore) {
-				Result.IgnoredCount++;
-				continue;
-			}
-			
-			if (FindData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-				File->Type = PloreFileNode_Directory;
-			} else { // NOTE(Evan): Assume a 'normal' file.
-				File->Type = PloreFileNode_File;
-			} 
-			
-			u64 BytesWritten = CStringCopy(DirectoryName, File->AbsolutePath, ArrayCount(File->AbsolutePath));
-			Assert(BytesWritten < ArrayCount(File->AbsolutePath) - 2); // NOTE(Evan): For trailing '\';
-			
-			if (!IsDirectoryRoot) File->AbsolutePath[BytesWritten++] = '\\';
-			
-			// @Cleanup
-			CStringCopy(FindData.cFileName, File->AbsolutePath + BytesWritten, ArrayCount(File->AbsolutePath) - BytesWritten);
-			CStringCopy(FindData.cFileName, File->FilePart, ArrayCount(File->AbsolutePath));
-			
-			Result.Count++;
-			
-		} while (FindNextFile(FindHandle, &FindData));
-	} else {
-		WindowsDebugPrintLine("Could not open directory %s", SearchableDirectoryName);
-	}
-	
-	Result.Succeeded = true;
-	return(Result);
-}
-
 internal void
 WindowsUnloadPloreCode(plore_code PloreCode) {
 	if (PloreCode.DLL) {
@@ -833,6 +850,9 @@ int WinMain (
 		.PopPathNode         = WindowsPopPathNode,
 		.IsPathDirectory     = WindowsIsPathDirectory,
 		.IsPathTopLevel      = WindowsIsPathTopLevel,
+		
+#undef MoveFile
+		.MoveFile            = WindowsMoveFile,
     };
     
     PloreMemory.PermanentStorage.Memory = VirtualAlloc(0, PloreMemory.PermanentStorage.Size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
