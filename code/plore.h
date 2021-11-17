@@ -50,6 +50,7 @@ PLORE_X(J) \
 PLORE_X(K) \
 PLORE_X(L) \
 PLORE_X(T) \
+PLORE_X(Y) \
 PLORE_X(Slash) \
 
 #define PLORE_X(Name) b32 Name##IsPressed; b32 Name##IsDown; b32 Name##WasDown;

@@ -12,6 +12,7 @@ global platform_debug_print *Print;
 
 typedef struct plore_state {
 	b64 Initialized;
+	f64 DT;
 	plore_memory *Memory;
 	plore_file_context *FileContext;
 	plore_vimgui_context *VimguiContext;
@@ -30,37 +31,7 @@ internal void
 PrintDirectory(plore_file_listing *Directory);
 
 #if defined(PLORE_INTERNAL)
-global plore_state *GlobalState;
-
-internal void
-DebugInit(plore_state *State) {
-	GlobalState = State;
-}
-
-internal void
-DrawText(char *Format, ...) {
-	char Buffer[512] = {0};
-	
-	va_list Args;
-	va_start(Args, Format);
-	stbsp_vsnprintf(Buffer, ArrayCount(Buffer), Format, Args);
-	va_end(Args);
-	
-	PushRenderText(GlobalState->RenderList,
-				   (rectangle) { 
-					   .P = {
-						   0,
-						   GlobalState->VimguiContext->WindowDimensions.Y * 0.8f,
-					   },
-					   .Span = { 
-						   GlobalState->VimguiContext->WindowDimensions.W, 100 
-					   },
-				   },
-				   WHITE_V4,
-				   Buffer, 
-				   true,
-				   64.0f);
-}
+#include "plore_debug.c"
 #endif
 
 internal void 
@@ -137,6 +108,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			
 	}
 	
+	
 	ClearArena(&State->FrameArena);
 	
 #if defined(PLORE_INTERNAL)
@@ -145,9 +117,16 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		DebugInit(State);
 	}
 #endif
+	
 	plore_file_context *FileContext = State->FileContext;
 	keyboard_and_mouse Input = PloreInput->ThisFrame;
 	
+	local f32 LastTime;
+	State->DT = PloreInput->Time - LastTime;
+	LastTime = PloreInput->Time;
+	
+	// CLEANUP(Evan): We Begin() here as the render list is shared for debug draw purposes right now.
+	VimguiBegin(State->VimguiContext, Input, V2(PlatformAPI->WindowWidth, PlatformAPI->WindowHeight));
 	
 	if (Input.HIsPressed) {
 		char Buffer[PLORE_MAX_PATH] = {0};
@@ -172,34 +151,48 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		PrintLine("Slash pressed.");
 	}
 	
-	local u64 JCount = 0;
-	if (Input.JIsDown) {
-		JCount++;
-	} else {
-		JCount = 0;
-	}
+	local b64 WasYanked = 0;
+	local b64 DoYank = 0;
 	
-	local u64 KCount = 0;
-	if (Input.KIsDown) {
-		KCount++;
+	local plore_file_listing *Yanked = 0;
+	if (Input.YIsPressed) {
+		PrintLine("Here");
+		DrawText("Y is pressed");
+		if (WasYanked) {
+			WasYanked = false;
+			DoYank = true;
+		}
 	} else {
-		KCount = 0;
-	}
-	
-	if (FileContext->Current->Count > 0) {
-		if (Input.JIsPressed || JCount > 20) {
-			FileContext->Current->Cursor = (FileContext->Current->Cursor + 1) % FileContext->Current->Count;
-			if (JCount) JCount = 10;
-		} else if (Input.KIsPressed || KCount > 20) {
-			if (KCount) KCount = 10;
-			if (FileContext->Current->Cursor == 0) {
-				FileContext->Current->Cursor = FileContext->Current->Count-1;
-			} else {
-				FileContext->Current->Cursor -= 1;
+		local u64 JCount = 0;
+		if (Input.JIsDown) {
+			DrawText("J is down");
+			JCount++;
+		} else {
+			JCount = 0;
+		}
+		
+		local u64 KCount = 0;
+		if (Input.KIsDown) {
+			KCount++;
+		} else {
+			KCount = 0;
+		}
+		
+		if (FileContext->Current->Count > 0) {
+			if (Input.JIsPressed || JCount > 20) {
+				FileContext->Current->Cursor = (FileContext->Current->Cursor + 1) % FileContext->Current->Count;
+				if (JCount) JCount = 10;
+			} else if (Input.KIsPressed || KCount > 20) {
+				if (KCount) KCount = 10;
+				if (FileContext->Current->Cursor == 0) {
+					FileContext->Current->Cursor = FileContext->Current->Count-1;
+				} else {
+					FileContext->Current->Cursor -= 1;
+				}
 			}
 		}
-	}
 	
+	}
 	
 	{
 		char Buffer[PLORE_MAX_PATH];
@@ -237,7 +230,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	f32 X = 0;
 	f32 Y = 0;
 	
-	VimguiBegin(State->VimguiContext, Input, V2(PlatformAPI->WindowWidth, PlatformAPI->WindowHeight));
 	
 	typedef struct plore_viewable_directory {
 		plore_file_listing *File;
@@ -321,14 +313,13 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		WindowEnd(State->VimguiContext);
 	}
 	
-	DrawText("Bottom text");
-	DrawText("Bottom text");
-	DrawText("Bottom text");
-	DrawText("Bottom text");
-	DrawText("Bottom text");
-	DrawText("Bottom text");
+#if defined(PLORE_INTERNAL)
+	FlushText();
+#endif
 	
 	VimguiEnd(State->VimguiContext);
+	
+	
 	
 	// NOTE(Evan): Right now, we copy this out. We may not want to in the future(tm), even if it is okay now.
 	return(*State->VimguiContext->RenderList);
