@@ -51,6 +51,8 @@ PLORE_X(K) \
 PLORE_X(L) \
 PLORE_X(T) \
 PLORE_X(Y) \
+PLORE_X(U) \
+PLORE_X(P) \
 PLORE_X(Slash) \
 
 #define PLORE_X(Name) b32 Name##IsPressed; b32 Name##IsDown; b32 Name##WasDown;
@@ -81,6 +83,8 @@ typedef struct plore_file_listing {
 	plore_file Entries[256]; // NOTE(Evan): Directories only.
 	u64 Count;
 	u64 Cursor;
+	b64 IsYanked;
+	b64 IsSelected;
 } plore_file_listing;
 
 typedef struct plore_file_listing_slot {

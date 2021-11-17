@@ -151,21 +151,46 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		PrintLine("Slash pressed.");
 	}
 	
+	local b64 WasPasted = 0;
+	local b64 DoPaste = 0;
+	
+	local b64 WasUndone = 0;
 	local b64 WasYanked = 0;
 	local b64 DoYank = 0;
+	local b64 UndoYank = 0;
 	
 	local plore_file_listing *Yanked = 0;
 	if (Input.YIsPressed) {
-		PrintLine("Here");
-		DrawText("Y is pressed");
-		if (WasYanked) {
+		if (WasYanked) { // Yank
 			WasYanked = false;
 			DoYank = true;
+		} else if (WasUndone) {
+			UndoYank = true;
+		} else {
+			WasYanked = true;
+		}
+	} else if (Input.UIsPressed) { // Undo
+		if (WasUndone || WasYanked || WasPasted) {
+			WasUndone = false;
+			WasPasted = false;
+			WasYanked = false;
+		} else {
+			WasUndone = true;
+		}
+	} else if (Input.PIsPressed) { // Paste
+		if (WasPasted) {
+			WasPasted = false;
+			DoPaste = true;
+		} else {
+			WasPasted = true;
 		}
 	} else {
 		local u64 JCount = 0;
 		if (Input.JIsDown) {
-			DrawText("J is down");
+			WasYanked = false;
+			WasPasted = false;
+			DoYank = false;
+			WasUndone = false;
 			JCount++;
 		} else {
 			JCount = 0;
@@ -173,6 +198,10 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		
 		local u64 KCount = 0;
 		if (Input.KIsDown) {
+			WasYanked = false;
+			WasPasted = false;
+			DoYank = false;
+			WasUndone = false;
 			KCount++;
 		} else {
 			KCount = 0;
@@ -194,10 +223,13 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	
 	}
 	
+	
+	
+	
 	{
 		char Buffer[PLORE_MAX_PATH];
 		plore_get_current_directory_result Result = Platform->GetCurrentDirectory(Buffer, PLORE_MAX_PATH);
-		FileContext->Current = GetOrInsertListing(FileContext, ListingFromDirectoryPath(Result.AbsolutePath, Result.FilePart));
+		FileContext->Current = GetOrInsertListing(FileContext, ListingFromDirectoryPath(Result.AbsolutePath, Result.FilePart)).Listing;
 		FileContext->InTopLevelDirectory = Platform->IsPathTopLevel(Buffer, PLORE_MAX_PATH);
 	}
 	
@@ -205,7 +237,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	if (FileContext->Current->Count != 0) {
 		plore_file *CursorEntry = FileContext->Current->Entries + FileContext->Current->Cursor;
 		
-		Cursor = GetOrInsertListing(FileContext, ListingFromFile(CursorEntry));
+		Cursor = GetOrInsertListing(FileContext, ListingFromFile(CursorEntry)).Listing;
 	}
 	
 	plore_file_listing *Parent = 0;
@@ -214,10 +246,62 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		plore_file_listing CurrentCopy = *FileContext->Current;
 		plore_pop_path_node_result Result = Platform->PopPathNode(CurrentCopy.File.AbsolutePath, ArrayCount(CurrentCopy.File.AbsolutePath), false);
 		
-		Parent = GetOrInsertListing(FileContext, ListingFromDirectoryPath(Result.AbsolutePath, Result.FilePart));
+		plore_file_listing_get_or_insert_result ParentResult = GetOrInsertListing(FileContext, ListingFromDirectoryPath(Result.AbsolutePath, Result.FilePart));
+		
+		// Make sure the parent's cursor is set to the current directory.
+		// The parent's row will be invalid on plore startup.
+		Parent = ParentResult.Listing;
+		if (!ParentResult.DidAlreadyExist) {
+			for (u64 Row = 0; Row < Parent->Count; Row++) {
+				plore_file *File = Parent->Entries + Row;
+				if (File->Type != PloreFileNode_Directory) continue;
+				
+				if (CStringsAreEqual(File->AbsolutePath, FileContext->Current->File.AbsolutePath)) {
+					DrawText("`%s`'s cursor has been set to %d (`%s`)", 
+							 Parent->File.FilePart,
+							 Row,
+							 File->AbsolutePath);
+					Parent->Cursor = Row;
+					break;
+				}
+			}
+														  
+		}
+		
 	}
 	
+	//
+	// NOTE(Evan): Vim command processing
+	//
+	if (DoYank) {
+		if (Cursor && !Cursor->IsYanked) {
+			if (Yanked) Yanked->IsYanked = false;
+			Yanked = Cursor;
+			Cursor->IsYanked = true;
+			DrawText("Yanked %s!", Cursor->File.FilePart);
+		}
+		DoYank = false;
+	} else if (UndoYank) {
+		if (Yanked) {
+			Yanked->IsYanked = false;
+			DrawText("Unyanked %s!", Yanked->File.FilePart);
+			Yanked = 0;
+		}
+		UndoYank = false;
+	} else if (DoPaste) {
+		if (Yanked) {
+			Yanked->IsYanked = false;
+			DrawText("'Pasted' %s!", Yanked->File.FilePart);
+			Yanked = 0;
+		}
+		DoPaste = false;
+	}
+	
+	
+	
+	//
 	// NOTE(Evan): GUI stuff.
+	//
 	u64 Cols = 3;
 	
 	f32 FooterHeight = 50;
@@ -273,11 +357,18 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 						       .ForceFocus = Directory->Focus })) {
 				
 				for (u64 Row = 0; Row < Listing->Count; Row++) {
+					v4 Colour = {0};
+					plore_file_listing *RowEntry = GetListing(FileContext, Listing->Entries[Row].AbsolutePath);
+					if (Listing->Cursor == Row) {
+						Colour = V4(0.4, 0.4, 0.4, 0.1);
+					} else if (RowEntry && RowEntry->IsYanked) {
+						Colour = V4(0.3, 0.3, 0.4, 0.45);
+					}
 					if (Button(State->VimguiContext, (vimgui_button_desc) {
 									   .Title = Listing->Entries[Row].FilePart,
 									   .FillWidth = true,
 									   .Centre = true,
-									   .Colour = Listing->Cursor != Row ? (v4) {0} : V4(0.4, 0.4, 0.4, 0.1),
+									   .Colour = Colour,
 								   })) {
 						Listing->Cursor = Row;
 						PrintLine("Button %s was clicked!", Listing->Entries[Row].FilePart);
@@ -296,11 +387,19 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		
 		if (Cursor) {
 			char CursorInfo[512] = {0};
-			StringPrintSized(CursorInfo, 
-							 ArrayCount(CursorInfo),
-						     "[%s] %s 01-02-3", 
-						     (Cursor->File.Type == PloreFileNode_Directory) ? "DIR" : "FILE", 
-						     Cursor->File.FilePart);
+			if (WasYanked || DoYank) {
+				if (WasYanked) {
+					StringPrintSized(CursorInfo, 
+									 ArrayCount(CursorInfo),
+									 "y");
+				} 
+			} else {
+				StringPrintSized(CursorInfo, 
+								 ArrayCount(CursorInfo),
+							     "[%s] %s 01-02-3", 
+							     (Cursor->File.Type == PloreFileNode_Directory) ? "DIR" : "FILE", 
+							     Cursor->File.FilePart);
+			}
 			
 			if (Button(State->VimguiContext, (vimgui_button_desc) {
 						   .Title = CursorInfo,

@@ -45,8 +45,6 @@ DrawText(char *Format, ...) {
 
 internal void
 FlushText(void) {
-	PrintLine("Time :: %f", GlobalState->DT);
-	
 	u64 W = GlobalState->VimguiContext->WindowDimensions.W;
 	u64 H = GlobalState->VimguiContext->WindowDimensions.H;
 	f32 StartY = GlobalState->VimguiContext->WindowDimensions.H * 0.5f;
@@ -64,6 +62,22 @@ FlushText(void) {
 			Colour.A = Fade;
 					
 			Text->T += GlobalState->DT;
+			
+			PushRenderText(GlobalState->RenderList,
+						   (rectangle) { 
+							   .P = {
+								   0,
+								   StartY - T * 100,
+							   },
+							   .Span = { 
+								   W, 100 
+							   },
+						   },
+						   V4(0, 0, 0, Fade),
+						   Text->Buffer, 
+						   true,
+						   64.0f);
+			
 			PushRenderText(GlobalState->RenderList,
 						   (rectangle) { 
 							   .P = {

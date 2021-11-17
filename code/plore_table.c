@@ -65,15 +65,23 @@ GetListing(plore_file_context *Context, char *AbsolutePath) {
 	return(Result);
 }
 
-internal plore_file_listing *
+typedef struct plore_file_listing_get_or_insert_result {
+	plore_file_listing *Listing;
+	b64 DidAlreadyExist;
+} plore_file_listing_get_or_insert_result;
+
+internal plore_file_listing_get_or_insert_result
 GetOrInsertListing(plore_file_context *Context, plore_file_listing_desc Desc) {
-	plore_file_listing *Result = GetListing(Context, Desc.AbsolutePath);
-	if (Result) return(Result);
-	
-	plore_file_listing_insert_result Listing = InsertListing(Context, Desc);
-	Assert(!Listing.DidAlreadyExist);
-	Result = &Listing.Slot->Directory;
-	
+	plore_file_listing_get_or_insert_result Result = {
+		.Listing = GetListing(Context, Desc.AbsolutePath),
+	};
+	if (Result.Listing) {
+		Result.DidAlreadyExist = true;
+	} else {
+		plore_file_listing_insert_result Listing = InsertListing(Context, Desc);
+		Assert(!Listing.DidAlreadyExist);
+		Result.Listing = &Listing.Slot->Directory;
+	}
 	return(Result);
 }
 
@@ -91,7 +99,7 @@ InsertListing(plore_file_context *Context, plore_file_listing_desc Desc) {
 		for (;;) {
 			Index = (Index + 1) % ArrayCount(Context->FileSlots);
 			Result.Slot = Context->FileSlots[Index];
-			if (!Result.Slot->Allocated) {                           // Marked for deletion.
+			if (!Result.Slot->Allocated) { // Marked for deletion.
 				Result.Slot->Allocated = true;
 				break;
 			} else if (CStringsAreEqual(Result.Slot->Directory.File.AbsolutePath, Desc.AbsolutePath)) { // Move along.

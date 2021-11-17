@@ -541,14 +541,16 @@ name = (PFN_ ## name) GetProcAddress(opengl32_dll, #name);\
 
 LRESULT CALLBACK WindowsMessagePumpCallback(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-#define PROCESS_KEY(Name) ThisFrame->##Name##IsDown = IsDown; \
-						  ThisFrame->##Name##WasDown = LastFrame->##Name##IsDown; \
-						  ThisFrame->##Name##IsPressed = (ThisFrame->##Name##IsDown) && !(ThisFrame->##Name##WasDown); \
-						  WindowsDebugPrint("" #Name " is %s", ThisFrame->##Name##IsDown ? "down, " : "not down, "); \
-						  WindowsDebugPrint("" #Name " was %s", ThisFrame->##Name##WasDown ? "down, " : "not down, "); \
-						  if (ThisFrame->##Name##IsPressed) WindowsDebugPrint("" #Name " is pressed!"); \
-						  if (LastFrame->##Name##IsPressed) WindowsDebugPrint("" #Name " was pressed last frame, so it shouldn't be pressed now!");
-	
+#define PROCESS_KEY_CASE(SymbolicName, Name) \
+case SymbolicName: {\
+	ThisFrame->##Name##IsDown = IsDown; \
+	ThisFrame->##Name##WasDown = LastFrame->##Name##IsDown; \
+	ThisFrame->##Name##IsPressed = (ThisFrame->##Name##IsDown) && !(ThisFrame->##Name##WasDown); \
+	WindowsDebugPrint("" #Name " is %s", ThisFrame->##Name##IsDown ? "down, " : "not down, "); \
+	WindowsDebugPrint("" #Name " was %s", ThisFrame->##Name##WasDown ? "down, " : "not down, "); \
+	if (ThisFrame->##Name##IsPressed) WindowsDebugPrint("" #Name " is pressed!"); \
+	if (LastFrame->##Name##IsPressed) WindowsDebugPrint("" #Name " was pressed last frame, so it shouldn't be pressed now!");\
+} break;
 	
 	keyboard_and_mouse *ThisFrame = &GlobalPloreInput.ThisFrame;
 	keyboard_and_mouse *LastFrame = &GlobalPloreInput.LastFrame;
@@ -566,66 +568,25 @@ LRESULT CALLBACK WindowsMessagePumpCallback(HWND hwnd, UINT uMsg, WPARAM wParam,
 				WindowsToggleFullscreen();
 			} else {
                 switch (wParam) {
-                    case 'A': {
-                        PROCESS_KEY(A);
-                    } break;
-                    case 'D': {
-                        PROCESS_KEY(D);
-                    } break;
-                    case 'W': {
-                        PROCESS_KEY(W);
-                    } break;
-                    case 'S': {
-                        PROCESS_KEY(S);
-                    } break;
-					
-					case 'H': {
-                        PROCESS_KEY(H);
-                    } break;
-	
-					case 'J': {
-                        PROCESS_KEY(J);
-                    } break;
-	
-                    case 'K': {
-                        PROCESS_KEY(K);
-                    } break;
-					
-                    case 'L': {
-                        PROCESS_KEY(L);
-                    } break;
-					
-                    case 'Y': {
-                        PROCESS_KEY(Y);
-                    } break;
-					
-                    case 'T': {
-                        PROCESS_KEY(T);
-                    } break;
-					
-                    case VK_OEM_2: {
-                        PROCESS_KEY(Slash);
-                    } break;
-					
-                    case VK_RETURN: {
-                        PROCESS_KEY(Return);
-                    } break;
-                    case VK_SPACE: {
-                        PROCESS_KEY(Space);
-                    } break;
-                    case VK_CONTROL: {
-                        PROCESS_KEY(Ctrl);
-                    } break;
-                    case VK_SHIFT: {
-                        PROCESS_KEY(Shift);
-                    } break;
-                    case VK_OEM_MINUS: {
-                        PROCESS_KEY(Minus);
-                    } break;
-                    case VK_OEM_PLUS: {
-                        PROCESS_KEY(Plus);
-                    } break;
-                                   
+                    PROCESS_KEY_CASE('A', A);
+                    PROCESS_KEY_CASE('D', D);
+                    PROCESS_KEY_CASE('W', W);
+                    PROCESS_KEY_CASE('S', S);
+                    PROCESS_KEY_CASE('H', H);
+                    PROCESS_KEY_CASE('J', J);
+                    PROCESS_KEY_CASE('K', K);
+                    PROCESS_KEY_CASE('L', L);
+                    PROCESS_KEY_CASE('Y', Y);
+                    PROCESS_KEY_CASE('T', T);
+                    PROCESS_KEY_CASE('U', U);
+                    PROCESS_KEY_CASE('P', P);
+                    PROCESS_KEY_CASE(VK_OEM_2, Slash);
+                    PROCESS_KEY_CASE(VK_RETURN, Return);
+                    PROCESS_KEY_CASE(VK_SPACE, Space);
+                    PROCESS_KEY_CASE(VK_CONTROL, Ctrl);
+                    PROCESS_KEY_CASE(VK_SHIFT, Shift);
+                    PROCESS_KEY_CASE(VK_OEM_MINUS, Minus);
+                    PROCESS_KEY_CASE(VK_OEM_PLUS, Plus);
                     default:
                     WindowsDebugPrint("...but not recorded!");
                 }
@@ -638,7 +599,10 @@ LRESULT CALLBACK WindowsMessagePumpCallback(HWND hwnd, UINT uMsg, WPARAM wParam,
 		case WM_LBUTTONUP: 
 		{
 			b32 IsDown = uMsg == WM_LBUTTONDOWN;
-			PROCESS_KEY(MouseLeft);
+			switch (uMsg) {
+				PROCESS_KEY_CASE(WM_LBUTTONDOWN, MouseLeft);
+				PROCESS_KEY_CASE(WM_LBUTTONUP, MouseLeft);
+			}
             WindowsDebugPrintLine("");
 		} break;
 		
@@ -646,7 +610,10 @@ LRESULT CALLBACK WindowsMessagePumpCallback(HWND hwnd, UINT uMsg, WPARAM wParam,
 		case WM_RBUTTONUP: 
 		{
 			b32 IsDown = uMsg == WM_RBUTTONDOWN;
-			PROCESS_KEY(MouseRight);
+			switch (uMsg) {
+				PROCESS_KEY_CASE(WM_RBUTTONDOWN, MouseRight);
+				PROCESS_KEY_CASE(WM_RBUTTONUP, MouseRight);
+			}
             WindowsDebugPrintLine("");
 		} break;
 		
