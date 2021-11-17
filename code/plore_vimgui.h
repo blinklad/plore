@@ -29,6 +29,7 @@ typedef struct vimgui_widget {
 	vimgui_widget_type Type;
 	rectangle Rect;
 	v4 Colour;
+	v4 TextColour;
 	char *Title;
 	b64 Centered;
 } vimgui_widget;

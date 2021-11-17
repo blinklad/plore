@@ -47,7 +47,7 @@ WriteText(plore_font *Font, render_text T) {
 	f32 StartY = Y;
 	char *StartText = Text; 
 	
-	glColor3f(T.Colour.R, T.Colour.G, T.Colour.B);
+	glColor4f(T.Colour.R, T.Colour.G, T.Colour.B, T.Colour.A);
 	Text = StartText;
 	X = StartX;
 	Y = StartY;

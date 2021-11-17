@@ -40,17 +40,12 @@ VimguiEnd(plore_vimgui_context *Context) {
 		vimgui_widget *Widget = Context->Widgets + W;
 		PushRenderQuad(Context->RenderList, Widget->Rect, Widget->Colour);
 		
-		if (Widget->Type == VimguiWidgetType_Window) {
-			Widget->Colour.R += 0.5f;
-			Widget->Colour.G += 0.4f;
-			Widget->Colour.B += 0.5f;
-		}
-		
 		PushRenderText(Context->RenderList, 
 					   Widget->Rect,
-					   Widget->Colour,
+					   Widget->TextColour,
 					   Widget->Title, 
-					   Widget->Centered, 32.0f);
+					   Widget->Centered, 
+					   32.0f);
 	}
 	
 	
@@ -146,6 +141,7 @@ typedef struct vimgui_button_desc {
 	char *Title;
 	rectangle Rect;
 	v4 Colour;
+	v4 TextColour;
 } vimgui_button_desc;
 
 internal b64
@@ -156,14 +152,21 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	
 	b64 Result = false;
 	u64 MyID = (u64) Desc.Title;
+	
 	vimgui_window *Window = GetLayoutWindow(Context);
+	if (Window->RowCountThisFrame > Window->RowMax) {
+		return false;
+	}
+	
+	// NOTE(Evan): Default args.
 	if (MemoryCompare(&Desc.Colour, &(v4){0}, sizeof(v4)) == 0) {
 		Desc.Colour = V4(1, 1, 1, 0.1);
 	}
 	
-	if (Window->RowCountThisFrame > Window->RowMax) {
-		return false;
+	if (MemoryCompare(&Desc.TextColour, &(v4){0}, sizeof(v4)) == 0) {
+		Desc.TextColour = V4(1, 1, 1, 1);
 	}
+	
 	
 	if (Desc.FillWidth) {
 		Desc.Rect = (rectangle) {0};
@@ -205,6 +208,7 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 				   .WindowID = Window->ID,
 				   .Rect = Desc.Rect,
 				   .Colour = Desc.Colour,
+				   .TextColour = Desc.TextColour,
 				   .Title = Desc.Title,
 			   });
 	
@@ -290,6 +294,12 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 					   .ID = MyID,
 					   .Rect = MaybeWindow->Rect,
 					   .Colour = MaybeWindow->Colour,
+					   .TextColour =  {
+						   .R = 0.5f,
+						   .G = 0.4f,
+						   .B = 0.5f,
+						   .A = 1.0f,
+					   },
 					   .Title = MaybeWindow->Title,
 					   .Centered = Desc.Centered, 
 				   });
