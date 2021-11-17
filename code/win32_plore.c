@@ -464,6 +464,10 @@ LRESULT CALLBACK WindowsMessagePumpCallback(HWND hwnd, UINT uMsg, WPARAM wParam,
                         PROCESS_KEY(T);
                     } break;
 					
+                    case VK_OEM_2: {
+                        PROCESS_KEY(Slash);
+                    } break;
+					
                     case VK_RETURN: {
                         PROCESS_KEY(Return);
                     } break;

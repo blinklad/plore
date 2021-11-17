@@ -19,11 +19,14 @@
 struct plore_state;
 typedef struct plore_state plore_state;
 
+// HACK(Evan): Currently, we bake a "display" and "debug" font!
 #include "stb_truetype.h"
 typedef struct plore_font {
-	stbtt_bakedchar Data[96]; // ASCII 32..126 is 95 glyphs
-	platform_texture_handle Handle;
-	f32 Height;
+	struct {
+		stbtt_bakedchar Data[96]; // ASCII 32..126 is 95 glyphs
+		platform_texture_handle Handle;
+		f32 Height;
+	} Fonts[2];
 } plore_font;
 
 // NOTE(Evan):
@@ -47,6 +50,7 @@ PLORE_X(J) \
 PLORE_X(K) \
 PLORE_X(L) \
 PLORE_X(T) \
+PLORE_X(Slash) \
 
 #define PLORE_X(Name) b32 Name##IsPressed; b32 Name##IsDown; b32 Name##WasDown;
 typedef struct keyboard_and_mouse {
