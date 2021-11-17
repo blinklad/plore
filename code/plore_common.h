@@ -170,15 +170,13 @@ CStringsAreEqual(char *A, char *B) {
 	return(true);
 }
 
-#if 1
-
 // credit: stb
 #define ROTATE_LEFT(val, n)   (((val) << (n)) | ((val) >> (sizeof(u64)*8 - (n))))
 #define ROTATE_RIGHT(val, n)  (((val) >> (n)) | ((val) << (sizeof(u64)*8 - (n))))
 
+// TODO(Evan): Better hash function.
 plore_inline u64 
-HashString(char *String)
-{
+HashString(char *String) {
 	u64 Seed = 0x31415926;
 	u64 Hash = Seed;
 	while (*String) Hash = ROTATE_LEFT(Hash, 9) + (u8) *String++;
@@ -193,6 +191,5 @@ HashString(char *String)
 	Hash ^= ROTATE_RIGHT(Hash, 22);
 	return Hash+Seed;
 }
-#endif
 
 #endif
