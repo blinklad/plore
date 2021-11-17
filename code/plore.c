@@ -11,12 +11,16 @@ global platform_debug_print *Print;
 #include "stb_truetype.h"
 
 typedef struct plore_state {
-	b32 Initialized;
+	b64 Initialized;
 	plore_memory *Memory;
 	plore_file_context *FileContext;
 	plore_vimgui_context *VimguiContext;
-	memory_arena FrameArena;
-	plore_font Font;
+	plore_render_list *RenderList;
+	
+	memory_arena Arena;      // NOTE(Evan): Never freed.
+	memory_arena FrameArena; // NOTE(Evan): Freed at the beginning of each frame.
+	
+	plore_font *Font;
 } plore_state;
 
 #include "plore_vimgui.c"
@@ -25,6 +29,39 @@ typedef struct plore_state {
 internal void
 PrintDirectory(plore_file_listing *Directory);
 
+#if defined(PLORE_INTERNAL)
+global plore_state *GlobalState;
+
+internal void
+DebugInit(plore_state *State) {
+	GlobalState = State;
+}
+
+internal void
+DrawText(char *Format, ...) {
+	char Buffer[512] = {0};
+	
+	va_list Args;
+	va_start(Args, Format);
+	stbsp_vsnprintf(Buffer, ArrayCount(Buffer), Format, Args);
+	va_end(Args);
+	
+	PushRenderText(GlobalState->RenderList,
+				   (rectangle) { 
+					   .P = {
+						   0,
+						   GlobalState->VimguiContext->WindowDimensions.Y * 0.8f,
+					   },
+					   .Span = { 
+						   GlobalState->VimguiContext->WindowDimensions.W, 100 
+					   },
+				   },
+				   WHITE_V4,
+				   Buffer, 
+				   true,
+				   64.0f);
+}
+#endif
 
 internal void 
 PlatformInit(platform_api *PlatformAPI) {
@@ -36,21 +73,35 @@ PlatformInit(platform_api *PlatformAPI) {
 u8 FontBuffer[1<<21];
 u8 TempBitmap[512*512];
 
-internal void 
-FontInit(plore_state *Context)
+
+// NOTE(Evan): This is hacked in here just so we can figure out what the program should do!
+internal plore_font * 
+FontInit(memory_arena *Arena, char *Path)
 {
-	Context->Font = (plore_font) {
-		.Height = 32.0f,
+	plore_font *Result = PushStruct(Arena, plore_font);
+	*Result = (plore_font) {
+		.Fonts = {
+			[0] = {
+				.Height = 32.0f,
+			}, 
+			[1] = {
+				.Height = 64.0f,
+			},
+		},
 	};
-	platform_readable_file FontFile = Platform->DebugOpenFile("data/fonts/Inconsolata-Light.ttf");
+	
+	platform_readable_file FontFile = Platform->DebugOpenFile(Path);
 	platform_read_file_result TheFont = Platform->DebugReadEntireFile(FontFile, FontBuffer, ArrayCount(FontBuffer));
 	Assert(TheFont.ReadSuccessfully);
 	
-	stbtt_BakeFontBitmap(FontBuffer, 0, Context->Font.Height, TempBitmap, 512, 512, 32, 96, Context->Font.Data); // no guarantee this fits!
-	// can free ttf_buffer at this point
-	Context->Font.Handle = Platform->CreateTextureHandle(TempBitmap, 512, 512);
+	for (u64 F = 0; F < 2; F++) {
+		stbtt_BakeFontBitmap(FontBuffer, 0, Result->Fonts[F].Height, TempBitmap, 512, 512, 32, 96, Result->Fonts[F].Data); // No guarantee this fits!
+		Result->Fonts[F].Handle = Platform->CreateTextureHandle(TempBitmap, 512, 512);
+		
+		Platform->DebugCloseFile(FontFile);
+	}
 	
-	Platform->DebugCloseFile(FontFile);
+	return(Result);
 }
 
 PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
@@ -63,27 +114,92 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		State = PushStruct(Arena, plore_state);
 		State->Initialized = true;
 		State->Memory = PloreMemory;
+		State->Arena = PloreMemory->PermanentStorage;
 		State->FrameArena = SubArena(Arena, Megabytes(32), 16);
 		
-		State->FileContext = PushStruct(Arena, plore_file_context);
-		State->FileContext->Current = PushStruct(Arena, plore_file_listing);
+		State->FileContext = PushStruct(&State->Arena, plore_file_context);
+		State->FileContext->Current = PushStruct(&State->Arena, plore_file_listing);
 		for (u64 Dir = 0; Dir < ArrayCount(State->FileContext->FileSlots); Dir++) {
-			State->FileContext->FileSlots[Dir] = PushStruct(Arena, plore_file_listing);
+			State->FileContext->FileSlots[Dir] = PushStruct(&State->Arena, plore_file_listing);
 		}
 		
-		FontInit(State);
-		State->VimguiContext = PushStruct(Arena, plore_vimgui_context);
-		VimguiInit(State->VimguiContext, &State->Font);
+		State->Font = FontInit(&State->Arena, "data/fonts/Inconsolata-Light.ttf");
+		
+#if defined(PLORE_INTERNAL)
+		DebugInit(State);
+#endif
+		
+		State->RenderList = PushStruct(&State->Arena, plore_render_list);
+		State->RenderList->Font = State->Font;
+		
+		State->VimguiContext = PushStruct(&State->Arena, plore_vimgui_context);
+		VimguiInit(State->VimguiContext, State->RenderList);
 			
 	}
 	
 	ClearArena(&State->FrameArena);
 	
+#if defined(PLORE_INTERNAL)
 	if (PloreInput->DLLWasReloaded) {
 		PlatformInit(PlatformAPI);
+		DebugInit(State);
 	}
+#endif
 	plore_file_context *FileContext = State->FileContext;
 	keyboard_and_mouse Input = PloreInput->ThisFrame;
+	
+	
+	if (Input.HIsPressed) {
+		char Buffer[PLORE_MAX_PATH] = {0};
+		Platform->GetCurrentDirectory(Buffer, PLORE_MAX_PATH);
+		
+		Print("Moving up a directory, from %s ...", Buffer);
+		Platform->PopPathNode(Buffer, PLORE_MAX_PATH, false);
+		PrintLine("to %s ...", Buffer);
+		
+		Platform->SetCurrentDirectory(Buffer);
+		
+	} else if (Input.LIsPressed) {
+		plore_file *CursorEntry = FileContext->Current->Entries + FileContext->Current->Cursor;
+		
+		if (CursorEntry->Type == PloreFileNode_Directory) {
+			PrintLine("Moving down a directory, from %s to %s", FileContext->Current->File.AbsolutePath, CursorEntry->AbsolutePath);
+			Platform->SetCurrentDirectory(CursorEntry->AbsolutePath);
+		}
+	}
+	
+	if (Input.SlashIsPressed) {
+		PrintLine("Slash pressed.");
+	}
+	
+	local u64 JCount = 0;
+	if (Input.JIsDown) {
+		JCount++;
+	} else {
+		JCount = 0;
+	}
+	
+	local u64 KCount = 0;
+	if (Input.KIsDown) {
+		KCount++;
+	} else {
+		KCount = 0;
+	}
+	
+	if (FileContext->Current->Count > 0) {
+		if (Input.JIsPressed || JCount > 20) {
+			FileContext->Current->Cursor = (FileContext->Current->Cursor + 1) % FileContext->Current->Count;
+			if (JCount) JCount = 10;
+		} else if (Input.KIsPressed || KCount > 20) {
+			if (KCount) KCount = 10;
+			if (FileContext->Current->Cursor == 0) {
+				FileContext->Current->Cursor = FileContext->Current->Count-1;
+			} else {
+				FileContext->Current->Cursor -= 1;
+			}
+		}
+	}
+	
 	
 	{
 		char Buffer[PLORE_MAX_PATH];
@@ -149,7 +265,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		
 		for (u64 Col = 0; Col < Cols; Col++) {
 			v2 P      = V2(X, 0);
-			v2 Span   = V2(W, H-12);
+			v2 Span   = V2(W, H-22);
 			v4 Colour = V4(0.2f, 0.2f, 0.2f, 1.0f);
 			
 			plore_viewable_directory *Directory = ViewDirectories + Col;
@@ -165,9 +281,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 						       .ForceFocus = Directory->Focus })) {
 				
 				for (u64 Row = 0; Row < Listing->Count; Row++) {
-					if (Listing->Cursor == Row) {
-						PrintLine("`%s`'s cursor is on entry %d.", Title, Row);
-					}
 					if (Button(State->VimguiContext, (vimgui_button_desc) {
 									   .Title = Listing->Entries[Row].FilePart,
 									   .FillWidth = true,
@@ -208,51 +321,17 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		WindowEnd(State->VimguiContext);
 	}
 	
+	DrawText("Bottom text");
+	DrawText("Bottom text");
+	DrawText("Bottom text");
+	DrawText("Bottom text");
+	DrawText("Bottom text");
+	DrawText("Bottom text");
 	
 	VimguiEnd(State->VimguiContext);
 	
-	if (Input.HIsPressed) {
-		char Buffer[PLORE_MAX_PATH] = {0};
-		Platform->GetCurrentDirectory(Buffer, PLORE_MAX_PATH);
-		
-		Print("Moving up a directory, from %s ...", Buffer);
-		Platform->PopPathNode(Buffer, PLORE_MAX_PATH, false);
-		PrintLine("to %s ...", Buffer);
-		
-		Platform->SetCurrentDirectory(Buffer);
-		
-	} else if (Input.LIsPressed) {
-		plore_file *CursorEntry = FileContext->Current->Entries + FileContext->Current->Cursor;
-		
-		if (CursorEntry->Type == PloreFileNode_Directory) {
-			PrintLine("Moving down a directory, from %s to %s", FileContext->Current->File.AbsolutePath, CursorEntry->AbsolutePath);
-			Platform->SetCurrentDirectory(CursorEntry->AbsolutePath);
-		}
-	}
-	
-	if (FileContext->Current->Count > 0) {
-		if (Input.JIsPressed) {
-			FileContext->Current->Cursor = (FileContext->Current->Cursor + 1) % FileContext->Current->Count;
-		} else if (Input.KIsPressed) {
-			if (FileContext->Current->Cursor == 0) {
-				FileContext->Current->Cursor = FileContext->Current->Count-1;
-			} else {
-				FileContext->Current->Cursor -= 1;
-			}
-		}
-	}
-	
-#if 0
-	for (u64 Dir = 0; Dir < ArrayCount(FileContext->ViewDirectories); Dir++) {
-		PrintDirectory(FileContext->ViewDirectories + Dir);
-	}
-#endif
-	
-	
-#if 0
-	
-#endif
-	return(State->VimguiContext->RenderList);
+	// NOTE(Evan): Right now, we copy this out. We may not want to in the future(tm), even if it is okay now.
+	return(*State->VimguiContext->RenderList);
 }
 
 internal void

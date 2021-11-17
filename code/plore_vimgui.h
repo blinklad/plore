@@ -56,7 +56,7 @@ typedef struct plore_vimgui_context {
 	
 	vimgui_widget Widgets[512];
 	u64 WidgetCount;
-	plore_render_list RenderList;
+	plore_render_list *RenderList;
 	
 	v2 WindowDimensions;
 } plore_vimgui_context;
@@ -71,7 +71,7 @@ internal void
 PushWidget(plore_vimgui_context *Context, vimgui_window *Parent, vimgui_widget Widget);
 	
 internal void
-PushRenderText(plore_render_list *RenderList, rectangle Rect, v4 Colour, char *Text, b64 Centered);
+PushRenderText(plore_render_list *RenderList, rectangle Rect, v4 Colour, char *Text, b64 Centered, f32 Height);
 
 internal void
 PushRenderQuad(plore_render_list *RenderList, rectangle Rect, v4 Colour);

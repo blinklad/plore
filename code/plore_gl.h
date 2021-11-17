@@ -21,6 +21,7 @@ typedef struct render_text {
 	char Text[64];
 	v4 Colour;
 	b64 Centered;
+	f32 Height;
 } render_text;
 
 internal void

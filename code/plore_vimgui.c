@@ -1,6 +1,7 @@
 internal void
-VimguiInit(plore_vimgui_context *Context, plore_font *Font) {
-	Context->RenderList.Font = Font;
+VimguiInit(plore_vimgui_context *Context, plore_render_list *RenderList) {
+	Assert(RenderList->Font);
+	Context->RenderList = RenderList;
 }
 
 internal void
@@ -10,8 +11,8 @@ VimguiBegin(plore_vimgui_context *Context, keyboard_and_mouse Input, v2 WindowDi
 	
 	Context->InputThisFrame = Input;
 	
-	Context->RenderList.QuadCount = 0;
-	Context->RenderList.TextCount = 0;
+	Context->RenderList->QuadCount = 0;
+	Context->RenderList->TextCount = 0;
 	Context->WidgetCount = 0;
 	
 	Context->WindowFocusStolenThisFrame = false;
@@ -37,7 +38,7 @@ VimguiEnd(plore_vimgui_context *Context) {
 	// e.g. bitmaps, z-ordering, etc with draw commands, rather then just quads + text.
 	for (u64 W = 0; W < Context->WidgetCount;  W++) {
 		vimgui_widget *Widget = Context->Widgets + W;
-		PushRenderQuad(&Context->RenderList, Widget->Rect, Widget->Colour);
+		PushRenderQuad(Context->RenderList, Widget->Rect, Widget->Colour);
 		
 		if (Widget->Type == VimguiWidgetType_Window) {
 			Widget->Colour.R += 0.5f;
@@ -45,11 +46,11 @@ VimguiEnd(plore_vimgui_context *Context) {
 			Widget->Colour.B += 0.5f;
 		}
 		
-		PushRenderText(&Context->RenderList, 
+		PushRenderText(Context->RenderList, 
 					   Widget->Rect,
 					   Widget->Colour,
 					   Widget->Title, 
-					   Widget->Centered);
+					   Widget->Centered, 32.0f);
 	}
 	
 	
@@ -283,8 +284,6 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 		MaybeWindow->Colour = Desc.Colour;
 		Context->WindowWeAreLayingOut = MyID;
 		
-		PrintLine("%s RowMax : %d", MaybeWindow->Title, MaybeWindow->RowMax);
-
 		PushWidget(Context, Parent, 
 				   (vimgui_widget) {
 					   .Type = VimguiWidgetType_Window,
@@ -320,7 +319,6 @@ ClipRect(rectangle A, rectangle B) {
 internal void
 WindowEnd(plore_vimgui_context *Context) {
 	if (Context->ParentStackCount) {
-		PrintLine("Popping window. There are %d windows currently.", Context->ParentStackCount);
 		u64 Window = Context->ParentStack[--Context->ParentStackCount-1];
 		Context->WindowWeAreLayingOut = Window;
 	}
@@ -337,7 +335,7 @@ PushWidget(plore_vimgui_context *Context, vimgui_window *Parent, vimgui_widget W
 
 
 internal void
-PushRenderText(plore_render_list *RenderList, rectangle Rect, v4 Colour, char *Text, b64 Centered) {
+PushRenderText(plore_render_list *RenderList, rectangle Rect, v4 Colour, char *Text, b64 Centered, f32 Height) {
 	Assert(RenderList && RenderList->TextCount < ArrayCount(RenderList->Text));
 	render_text *T = RenderList->Text + RenderList->TextCount++;
 	
@@ -347,13 +345,14 @@ PushRenderText(plore_render_list *RenderList, rectangle Rect, v4 Colour, char *T
 		.Y = Rect.P.Y + 26.0f,                            // TODO(Evan): Move font metric handling to Vimgui.
 	};
 	
-	*T = (render_text ) {
+	*T = (render_text) {
 		.Rect = {
 			.P = TextP,
 			.Span = Rect.Span,
 		},
 		.Colour = Colour,
 		.Centered = Centered,
+		.Height = Height,
 	};
 	if (*Text) {
 		StringPrintSized(T->Text, ArrayCount(T->Text), Text);

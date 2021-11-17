@@ -6,17 +6,33 @@ global u64 GLWindowHeight;
 
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "stb_truetype.h"
+
 internal void 
 WriteText(plore_font *Font, render_text T) {
+	stbtt_bakedchar *Data = 0;
+	platform_texture_handle Handle = {0};
+	
+	// HACK(Evan): Font handling!
+	u64 Index = 0;
+	if (T.Height == 32.0f) {
+		Index = 0;
+	} else {
+		Index = 1;
+	}
+	
+	Data = Font->Fonts[Index].Data;
+	Handle = Font->Fonts[Index].Handle;
+	
+	
 	if (T.Centered) {
-		T.Rect.P.X -= StringLength(T.Text)/2.0f * Font->Data[0].xadvance;
+		T.Rect.P.X -= StringLength(T.Text)/2.0f * Data[0].xadvance;
 	}
 	
 	f32 X = T.Rect.P.X;
 	f32 Y = T.Rect.P.Y;// - Font->Height;
 	char *Text = T.Text;
 	
-	Assert(Font->Handle.Opaque);
+	Assert(Handle.Opaque);
 	//Y = GLWindowHeight - Y;
 	
 	// assume orthographic projection with units = screen pixels, origin at top left
@@ -24,7 +40,7 @@ WriteText(plore_font *Font, render_text T) {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glEnable(GL_TEXTURE_2D);
-	glBindTexture(GL_TEXTURE_2D, Font->Handle.Opaque);
+	glBindTexture(GL_TEXTURE_2D, Handle.Opaque);
 	glBegin(GL_QUADS);
 	
 	f32 StartX = X;
@@ -38,19 +54,19 @@ WriteText(plore_font *Font, render_text T) {
 	
 	f32 MaxWidth = T.Rect.Span.W;
 	f32 CurrentWidth = 0;
-	f32 FontWidth = Font->Data[0].xadvance;
+	f32 FontWidth = Data[0].xadvance;
 	{
 		while (*Text) {
 			if (*Text >= 32 && *Text < 128) {
 				stbtt_aligned_quad Q;
-				stbtt_GetBakedQuad(Font->Data, Font->Handle.Width, Font->Handle.Height, *Text-32, &X, &Y, &Q, 1);//1=opengl & d3d10+,0=d3d9
+				stbtt_GetBakedQuad(Data, Handle.Width, Handle.Height, *Text-32, &X, &Y, &Q, 1);//1=opengl & d3d10+,0=d3d9
 				glTexCoord2f(Q.s0, Q.t0); glVertex2f(Q.x0, Q.y0);
 				glTexCoord2f(Q.s1, Q.t0); glVertex2f(Q.x1, Q.y0);
 				glTexCoord2f(Q.s1, Q.t1); glVertex2f(Q.x1, Q.y1);
 				glTexCoord2f(Q.s0, Q.t1); glVertex2f(Q.x0, Q.y1);
 			}
 			++Text;
-			CurrentWidth += Font->Data[0].xadvance;
+			CurrentWidth += Data[0].xadvance;
 			if (CurrentWidth + 2 >= MaxWidth) break; 
 		}
 	}
