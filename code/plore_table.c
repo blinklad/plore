@@ -5,6 +5,7 @@ typedef struct plore_file_listing_insert_result {
 
 typedef struct plore_file_listing_desc {
 	plore_file_node Type;
+	plore_file_listing_metadata Meta;
 	char *AbsolutePath;
 	char *FilePart;
 } plore_file_listing_desc;
@@ -70,6 +71,33 @@ typedef struct plore_file_listing_get_or_insert_result {
 	b64 DidAlreadyExist;
 } plore_file_listing_get_or_insert_result;
 
+internal void
+RemoveListing(plore_file_context *Context, plore_file_listing *Listing) {
+	u64 Hash = HashString(Listing->File.AbsolutePath);
+	u64 Index = Hash % ArrayCount(Context->FileSlots);
+	plore_file_listing_slot *Slot = Context->FileSlots[Index];
+	
+	u64 SlotsChecked = 0;
+	if (Slot->Allocated && !CStringsAreEqual(Slot->Directory.File.AbsolutePath, Listing->File.AbsolutePath)) {
+		Assert(Context->FileCount < ArrayCount(Context->FileSlots));
+		for (;;) {
+			Index = (Index + 1) % ArrayCount(Context->FileSlots);
+			Slot = Context->FileSlots[Index];
+			SlotsChecked++;
+			if (Slot->Allocated) {
+				if (CStringsAreEqual(Slot->Directory.File.AbsolutePath, Listing->File.AbsolutePath)) { // Move along.
+					break;
+				}
+			}
+			
+			if (SlotsChecked == ArrayCount(Context->FileSlots)) return; // NOTE(Evan): Tried to delete something non-existent/unallocated.
+		}
+	}
+	
+	Slot->Directory = (plore_file_listing) {0};
+	Slot->Allocated = false;
+}
+
 internal plore_file_listing_get_or_insert_result
 GetOrInsertListing(plore_file_context *Context, plore_file_listing_desc Desc) {
 	plore_file_listing_get_or_insert_result Result = {
@@ -121,9 +149,32 @@ InsertListing(plore_file_context *Context, plore_file_listing_desc Desc) {
 		}
 		Result.Slot->Directory.Count = CurrentDirectory.Count;
 		Result.Slot->Allocated = true;
+		Result.Slot->Directory.Meta = Desc.Meta;
 	}
 	
 	if (Result.Slot) Assert(Result.Slot->Allocated);
 	return(Result);
 }
 
+internal b64
+UpdateListingName(plore_file_context *Context, plore_file OldFile, plore_file NewFile) {
+	b64 DidChange = false;
+	plore_file_listing *OldListing = GetListing(Context, OldFile.AbsolutePath);
+	if (OldListing) {
+		// TODO(Evan): Maybe we don't store the metadata with the file, and instead keep a list of yanked files?
+		plore_file_listing_metadata OldMeta = OldListing->Meta;
+		RemoveListing(Context, OldListing);
+		plore_file_listing_insert_result InsertResult = InsertListing(Context, (plore_file_listing_desc) {
+																				  .Type = NewFile.Type,
+																				  .AbsolutePath = NewFile.AbsolutePath,
+																				  .FilePart = NewFile.FilePart,
+																				  .Meta = OldMeta,
+																			  });
+		
+		if (Context->Current == OldListing) Context->Current = &InsertResult.Slot->Directory;
+	}
+		
+	// NOTE(Evan): Update the context's current if required.
+	// Unless the caller wants to?
+	return(DidChange);
+}

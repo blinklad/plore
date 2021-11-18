@@ -30,6 +30,15 @@ typedef struct plore_state {
 internal void
 PrintDirectory(plore_file_listing *Directory);
 
+typedef struct plore_current_directory_state {
+	plore_file_listing *Current;
+	plore_file_listing *Parent;
+	plore_file_listing *Cursor;
+} plore_current_directory_state;
+
+internal plore_current_directory_state
+SynchronizeCurrentDirectory(plore_state *State);
+
 #if defined(PLORE_INTERNAL)
 #include "plore_debug.c"
 #endif
@@ -139,7 +148,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		Platform->SetCurrentDirectory(Buffer);
 		
 	} else if (Input.LIsPressed) {
-		plore_file *CursorEntry = FileContext->Current->Entries + FileContext->Current->Cursor;
+		plore_file *CursorEntry = FileContext->Current->Entries + FileContext->Current->Meta.Cursor;
 		
 		if (CursorEntry->Type == PloreFileNode_Directory) {
 			PrintLine("Moving down a directory, from %s to %s", FileContext->Current->File.AbsolutePath, CursorEntry->AbsolutePath);
@@ -190,7 +199,9 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			WasYanked = false;
 			WasPasted = false;
 			DoYank = false;
+			DoPaste = false;
 			WasUndone = false;
+			
 			JCount++;
 		} else {
 			JCount = 0;
@@ -201,7 +212,9 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			WasYanked = false;
 			WasPasted = false;
 			DoYank = false;
+			DoPaste = false;
 			WasUndone = false;
+			
 			KCount++;
 		} else {
 			KCount = 0;
@@ -209,89 +222,70 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		
 		if (FileContext->Current->Count > 0) {
 			if (Input.JIsPressed || JCount > 20) {
-				FileContext->Current->Cursor = (FileContext->Current->Cursor + 1) % FileContext->Current->Count;
+				FileContext->Current->Meta.Cursor = (FileContext->Current->Meta.Cursor + 1) % FileContext->Current->Count;
 				if (JCount) JCount = 10;
 			} else if (Input.KIsPressed || KCount > 20) {
 				if (KCount) KCount = 10;
-				if (FileContext->Current->Cursor == 0) {
-					FileContext->Current->Cursor = FileContext->Current->Count-1;
+				if (FileContext->Current->Meta.Cursor == 0) {
+					FileContext->Current->Meta.Cursor = FileContext->Current->Count-1;
 				} else {
-					FileContext->Current->Cursor -= 1;
+					FileContext->Current->Meta.Cursor -= 1;
 				}
 			}
 		}
 	
 	}
 	
-	
-	
-	
-	{
-		char Buffer[PLORE_MAX_PATH];
-		plore_get_current_directory_result Result = Platform->GetCurrentDirectory(Buffer, PLORE_MAX_PATH);
-		FileContext->Current = GetOrInsertListing(FileContext, ListingFromDirectoryPath(Result.AbsolutePath, Result.FilePart)).Listing;
-		FileContext->InTopLevelDirectory = Platform->IsPathTopLevel(Buffer, PLORE_MAX_PATH);
-	}
-	
-	plore_file_listing *Cursor = 0;
-	if (FileContext->Current->Count != 0) {
-		plore_file *CursorEntry = FileContext->Current->Entries + FileContext->Current->Cursor;
-		
-		Cursor = GetOrInsertListing(FileContext, ListingFromFile(CursorEntry)).Listing;
-	}
-	
-	plore_file_listing *Parent = 0;
-	if (!FileContext->InTopLevelDirectory) { 
-		// CLEANUP(Evan): Doesn't need to copy twice!
-		plore_file_listing CurrentCopy = *FileContext->Current;
-		plore_pop_path_node_result Result = Platform->PopPathNode(CurrentCopy.File.AbsolutePath, ArrayCount(CurrentCopy.File.AbsolutePath), false);
-		
-		plore_file_listing_get_or_insert_result ParentResult = GetOrInsertListing(FileContext, ListingFromDirectoryPath(Result.AbsolutePath, Result.FilePart));
-		
-		// Make sure the parent's cursor is set to the current directory.
-		// The parent's row will be invalid on plore startup.
-		Parent = ParentResult.Listing;
-		if (!ParentResult.DidAlreadyExist) {
-			for (u64 Row = 0; Row < Parent->Count; Row++) {
-				plore_file *File = Parent->Entries + Row;
-				if (File->Type != PloreFileNode_Directory) continue;
-				
-				if (CStringsAreEqual(File->AbsolutePath, FileContext->Current->File.AbsolutePath)) {
-					DrawText("`%s`'s cursor has been set to %d (`%s`)", 
-							 Parent->File.FilePart,
-							 Row,
-							 File->AbsolutePath);
-					Parent->Cursor = Row;
-					break;
-				}
-			}
-														  
-		}
-		
-	}
-	
+	plore_current_directory_state DirectoryState = SynchronizeCurrentDirectory(State);
 	//
 	// NOTE(Evan): Vim command processing
 	//
 	if (DoYank) {
-		if (Cursor && !Cursor->IsYanked) {
-			if (Yanked) Yanked->IsYanked = false;
-			Yanked = Cursor;
-			Cursor->IsYanked = true;
-			DrawText("Yanked %s!", Cursor->File.FilePart);
+		if (DirectoryState.Cursor && !DirectoryState.Cursor->Meta.IsYanked) {
+			if (Yanked) Yanked->Meta.IsYanked = false;
+			Yanked = DirectoryState.Cursor;
+			DirectoryState.Cursor->Meta.IsYanked = true;
+			DrawText("Yanked %s!", DirectoryState.Cursor->File.FilePart);
 		}
 		DoYank = false;
 	} else if (UndoYank) {
 		if (Yanked) {
-			Yanked->IsYanked = false;
+			Yanked->Meta.IsYanked = false;
 			DrawText("Unyanked %s!", Yanked->File.FilePart);
 			Yanked = 0;
 		}
 		UndoYank = false;
+		// TODO(Evan): Invalidate the yankees' directory's cursor.
 	} else if (DoPaste) {
 		if (Yanked) {
-			Yanked->IsYanked = false;
-			DrawText("'Pasted' %s!", Yanked->File.FilePart);
+			Yanked->Meta.IsYanked = false;
+			
+			plore_file_listing YankedCopy = *Yanked;
+			Platform->PopPathNode(YankedCopy.File.AbsolutePath, ArrayCount(YankedCopy.File.AbsolutePath), false);
+			if (CStringsAreEqual(YankedCopy.File.AbsolutePath, FileContext->Current->File.AbsolutePath)) {
+				DrawText("Haven't changed directories - not pasting.");
+			} else {
+				// @Cleanup
+				char NewPath[PLORE_MAX_PATH] = {0};
+				u64 BytesWritten = CStringCopy(FileContext->Current->File.AbsolutePath, NewPath, PLORE_MAX_PATH);
+				NewPath[BytesWritten++] = '\\';
+				CStringCopy(YankedCopy.File.FilePart, NewPath + BytesWritten, PLORE_MAX_PATH);
+				
+				b64 DidMoveOk = Platform->MoveFile(Yanked->File.AbsolutePath, NewPath);
+				if (DidMoveOk) {
+					DrawText("'Pasted' %s!", Yanked->File.FilePart);
+					
+					plore_file_listing *YankedParent = GetListing(FileContext, YankedCopy.File.AbsolutePath);
+					RemoveListing(FileContext, FileContext->Current);
+					if (YankedParent) RemoveListing(FileContext, YankedParent);
+					
+					DirectoryState = SynchronizeCurrentDirectory(State);
+					
+				} else {
+					Debugger;
+				}
+			}
+			
 			Yanked = 0;
 		}
 		DoPaste = false;
@@ -322,14 +316,14 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	
 	plore_viewable_directory ViewDirectories[3] = {
 		[0] = {
-			.File = FileContext->InTopLevelDirectory ? 0 : Parent,
+			.File = FileContext->InTopLevelDirectory ? 0 : DirectoryState.Parent,
 		},
 		[1] = {
 			.File = FileContext->Current,
 			.Focus = true,
 		},
 		[2] = {
-			.File = Cursor,
+			.File = DirectoryState.Cursor,
 		},
 	};
 	
@@ -359,18 +353,18 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 				for (u64 Row = 0; Row < Listing->Count; Row++) {
 					v4 Colour = {0};
 					plore_file_listing *RowEntry = GetListing(FileContext, Listing->Entries[Row].AbsolutePath);
-					if (Listing->Cursor == Row) {
-						Colour = V4(0.4, 0.4, 0.4, 0.1);
-					} else if (RowEntry && RowEntry->IsYanked) {
+					if (RowEntry && RowEntry->Meta.IsYanked) {
 						Colour = V4(0.3, 0.3, 0.4, 0.45);
-					}
+					} else if (Listing->Meta.Cursor == Row) {
+						Colour = V4(0.4, 0.4, 0.4, 0.1);
+					} 
 					if (Button(State->VimguiContext, (vimgui_button_desc) {
 									   .Title = Listing->Entries[Row].FilePart,
 									   .FillWidth = true,
 									   .Centre = true,
 									   .Colour = Colour,
 								   })) {
-						Listing->Cursor = Row;
+						Listing->Meta.Cursor = Row;
 						PrintLine("Button %s was clicked!", Listing->Entries[Row].FilePart);
 						if (Listing->Entries[Row].Type == PloreFileNode_Directory) {
 							PrintLine("Changing Directory to %s", Listing->Entries[Row].AbsolutePath);
@@ -385,7 +379,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			X += W + PadX;
 		}
 		
-		if (Cursor) {
+		if (DirectoryState.Cursor) {
 			char CursorInfo[512] = {0};
 			if (WasYanked || DoYank) {
 				if (WasYanked) {
@@ -397,8 +391,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 				StringPrintSized(CursorInfo, 
 								 ArrayCount(CursorInfo),
 							     "[%s] %s 01-02-3", 
-							     (Cursor->File.Type == PloreFileNode_Directory) ? "DIR" : "FILE", 
-							     Cursor->File.FilePart);
+							     (DirectoryState.Cursor->File.Type == PloreFileNode_Directory) ? "DIR" : "FILE", 
+							     DirectoryState.Cursor->File.FilePart);
 			}
 			
 			if (Button(State->VimguiContext, (vimgui_button_desc) {
@@ -434,3 +428,48 @@ PrintDirectory(plore_file_listing *Directory) {
 	PrintLine("");
 }
 
+internal plore_current_directory_state
+SynchronizeCurrentDirectory(plore_state *State) {
+	plore_current_directory_state CurrentState = {0};
+	
+	plore_file_context *FileContext = State->FileContext;
+	char Buffer[PLORE_MAX_PATH];
+	plore_get_current_directory_result Result = Platform->GetCurrentDirectory(Buffer, PLORE_MAX_PATH);
+	FileContext->Current = GetOrInsertListing(FileContext, ListingFromDirectoryPath(Result.AbsolutePath, Result.FilePart)).Listing;
+	FileContext->InTopLevelDirectory = Platform->IsPathTopLevel(Buffer, PLORE_MAX_PATH);
+	
+	CurrentState.Cursor = 0;
+	if (FileContext->Current->Count != 0) {
+		plore_file *CursorEntry = FileContext->Current->Entries + FileContext->Current->Meta.Cursor;
+		
+		CurrentState.Cursor = GetOrInsertListing(FileContext, ListingFromFile(CursorEntry)).Listing;
+	}
+	
+	if (!FileContext->InTopLevelDirectory) { 
+		// CLEANUP(Evan): Doesn't need to copy twice!
+		plore_file_listing CurrentCopy = *FileContext->Current;
+		plore_pop_path_node_result Result = Platform->PopPathNode(CurrentCopy.File.AbsolutePath, ArrayCount(CurrentCopy.File.AbsolutePath), false);
+		
+		plore_file_listing_get_or_insert_result ParentResult = GetOrInsertListing(FileContext, ListingFromDirectoryPath(Result.AbsolutePath, Result.FilePart));
+		
+		// Make sure the parent's cursor is set to the current directory.
+		// The parent's row will be invalid on plore startup.
+		CurrentState.Parent = ParentResult.Listing;
+		if (!ParentResult.DidAlreadyExist) {
+			for (u64 Row = 0; Row < CurrentState.Parent->Count; Row++) {
+				plore_file *File = CurrentState.Parent->Entries + Row;
+				if (File->Type != PloreFileNode_Directory) continue;
+				
+				if (CStringsAreEqual(File->AbsolutePath, FileContext->Current->File.AbsolutePath)) {
+					CurrentState.Parent->Meta.Cursor = Row;
+					break;
+				}
+			}
+			
+		}
+		
+	}
+	
+	
+	return(CurrentState);
+}

@@ -56,7 +56,6 @@ FlushText(void) {
 			f32 Fade = 1.0f;
 			if (Text->T > 0.6f) {
 				Fade -= Lerp(0.0f, (Text->T - 0.6f) / 1.0f, 1.2f);
-				PrintLine("Fade %f", Fade);
 			}
 			v4 Colour = WHITE_V4;
 			Colour.A = Fade;
