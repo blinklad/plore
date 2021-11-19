@@ -5,7 +5,6 @@ typedef struct plore_file_listing_insert_result {
 
 typedef struct plore_file_listing_desc {
 	plore_file_node Type;
-	plore_file_listing_metadata Meta;
 	char *AbsolutePath;
 	char *FilePart;
 } plore_file_listing_desc;
@@ -149,7 +148,6 @@ InsertListing(plore_file_context *Context, plore_file_listing_desc Desc) {
 		}
 		Result.Slot->Directory.Count = CurrentDirectory.Count;
 		Result.Slot->Allocated = true;
-		Result.Slot->Directory.Meta = Desc.Meta;
 	}
 	
 	if (Result.Slot) Assert(Result.Slot->Allocated);
@@ -162,13 +160,11 @@ UpdateListingName(plore_file_context *Context, plore_file OldFile, plore_file Ne
 	plore_file_listing *OldListing = GetListing(Context, OldFile.AbsolutePath);
 	if (OldListing) {
 		// TODO(Evan): Maybe we don't store the metadata with the file, and instead keep a list of yanked files?
-		plore_file_listing_metadata OldMeta = OldListing->Meta;
 		RemoveListing(Context, OldListing);
 		plore_file_listing_insert_result InsertResult = InsertListing(Context, (plore_file_listing_desc) {
 																				  .Type = NewFile.Type,
 																				  .AbsolutePath = NewFile.AbsolutePath,
 																				  .FilePart = NewFile.FilePart,
-																				  .Meta = OldMeta,
 																			  });
 		
 		if (Context->Current == OldListing) Context->Current = &InsertResult.Slot->Directory;

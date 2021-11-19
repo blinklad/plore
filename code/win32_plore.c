@@ -263,8 +263,10 @@ PLATFORM_MOVE_FILE(WindowsMoveFile) {
 	// NOTE(Evan): MoveFile will delete the source file if this is set;
 	Assert(dAbsolutePath);
 	b64 Result = false;
+	DWORD LastError = 0;
 	if (dAbsolutePath) {
 		Result = MoveFileEx(sAbsolutePath, dAbsolutePath, 0);
+		LastError = GetLastError();
 	}
 	
 	return(Result);

@@ -30,6 +30,15 @@ typedef struct plore_state {
 internal void
 PrintDirectory(plore_file_listing *Directory);
 
+plore_inline b64
+IsYanked(plore_file_context *Context, plore_file_listing *Yankee);
+
+plore_inline b64
+IsSelected(plore_file_context *Context, plore_file_listing *Selectee);
+
+internal void
+ToggleSelected(plore_file_context *Context, plore_file_listing *Selectee);
+
 typedef struct plore_current_directory_state {
 	plore_file_listing *Current;
 	plore_file_listing *Parent;
@@ -56,8 +65,7 @@ u8 TempBitmap[512*512];
 
 // NOTE(Evan): This is hacked in here just so we can figure out what the program should do!
 internal plore_font * 
-FontInit(memory_arena *Arena, char *Path)
-{
+FontInit(memory_arena *Arena, char *Path) {
 	plore_font *Result = PushStruct(Arena, plore_font);
 	*Result = (plore_font) {
 		.Fonts = {
@@ -148,7 +156,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		Platform->SetCurrentDirectory(Buffer);
 		
 	} else if (Input.LIsPressed) {
-		plore_file *CursorEntry = FileContext->Current->Entries + FileContext->Current->Meta.Cursor;
+		plore_file *CursorEntry = FileContext->Current->Entries + FileContext->Current->Cursor;
 		
 		if (CursorEntry->Type == PloreFileNode_Directory) {
 			PrintLine("Moving down a directory, from %s to %s", FileContext->Current->File.AbsolutePath, CursorEntry->AbsolutePath);
@@ -160,6 +168,9 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		PrintLine("Slash pressed.");
 	}
 	
+	plore_current_directory_state DirectoryState = SynchronizeCurrentDirectory(State);
+	
+	
 	local b64 WasPasted = 0;
 	local b64 DoPaste = 0;
 	
@@ -168,7 +179,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	local b64 DoYank = 0;
 	local b64 UndoYank = 0;
 	
-	local plore_file_listing *Yanked = 0;
 	if (Input.YIsPressed) {
 		if (WasYanked) { // Yank
 			WasYanked = false;
@@ -192,6 +202,10 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			DoPaste = true;
 		} else {
 			WasPasted = true;
+		}
+	} else if (Input.SpaceIsPressed) { // Select
+		if (DirectoryState.Cursor) {
+			ToggleSelected(FileContext, DirectoryState.Cursor);
 		}
 	} else {
 		local u64 JCount = 0;
@@ -222,71 +236,84 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		
 		if (FileContext->Current->Count > 0) {
 			if (Input.JIsPressed || JCount > 20) {
-				FileContext->Current->Meta.Cursor = (FileContext->Current->Meta.Cursor + 1) % FileContext->Current->Count;
+				FileContext->Current->Cursor = (FileContext->Current->Cursor + 1) % FileContext->Current->Count;
 				if (JCount) JCount = 10;
 			} else if (Input.KIsPressed || KCount > 20) {
 				if (KCount) KCount = 10;
-				if (FileContext->Current->Meta.Cursor == 0) {
-					FileContext->Current->Meta.Cursor = FileContext->Current->Count-1;
+				if (FileContext->Current->Cursor == 0) {
+					FileContext->Current->Cursor = FileContext->Current->Count-1;
 				} else {
-					FileContext->Current->Meta.Cursor -= 1;
+					FileContext->Current->Cursor -= 1;
 				}
 			}
 		}
 	
 	}
 	
-	plore_current_directory_state DirectoryState = SynchronizeCurrentDirectory(State);
+	DirectoryState = SynchronizeCurrentDirectory(State);
 	//
 	// NOTE(Evan): Vim command processing
 	//
 	if (DoYank) {
-		if (DirectoryState.Cursor && !DirectoryState.Cursor->Meta.IsYanked) {
-			if (Yanked) Yanked->Meta.IsYanked = false;
-			Yanked = DirectoryState.Cursor;
-			DirectoryState.Cursor->Meta.IsYanked = true;
-			DrawText("Yanked %s!", DirectoryState.Cursor->File.FilePart);
+		if (FileContext->SelectedCount) { // Yank selection if there is any.
+			MemoryCopy(FileContext->Selected, FileContext->Yanked, ArrayCount(FileContext->Yanked));
+			FileContext->YankedCount = FileContext->SelectedCount;
+			DrawText("Yanked %d selected guys.", FileContext->YankedCount);
+		} else if (DirectoryState.Cursor && !IsYanked(FileContext, DirectoryState.Cursor)) { // Otherwise, yank cursor.
+			FileContext->Yanked[0] = DirectoryState.Cursor;
+			PrintLine("DirectoryState.Cursor : %d, Yanked[0] : %d", DirectoryState.Cursor, FileContext->Yanked[0]);
+			DrawText("Yanked %s!", FileContext->Yanked[0]->File.FilePart);
+			FileContext->YankedCount = 1;
 		}
 		DoYank = false;
 	} else if (UndoYank) {
-		if (Yanked) {
-			Yanked->Meta.IsYanked = false;
-			DrawText("Unyanked %s!", Yanked->File.FilePart);
-			Yanked = 0;
+		if (FileContext->YankedCount) {
+			DrawText("Unyanked %s!", FileContext->Yanked[0]->File.FilePart);
+			FileContext->YankedCount = 0;
 		}
 		UndoYank = false;
 		// TODO(Evan): Invalidate the yankees' directory's cursor.
 	} else if (DoPaste) {
-		if (Yanked) {
-			Yanked->Meta.IsYanked = false;
-			
-			plore_file_listing YankedCopy = *Yanked;
-			Platform->PopPathNode(YankedCopy.File.AbsolutePath, ArrayCount(YankedCopy.File.AbsolutePath), false);
-			if (CStringsAreEqual(YankedCopy.File.AbsolutePath, FileContext->Current->File.AbsolutePath)) {
-				DrawText("Haven't changed directories - not pasting.");
-			} else {
-				// @Cleanup
-				char NewPath[PLORE_MAX_PATH] = {0};
-				u64 BytesWritten = CStringCopy(FileContext->Current->File.AbsolutePath, NewPath, PLORE_MAX_PATH);
-				NewPath[BytesWritten++] = '\\';
-				CStringCopy(YankedCopy.File.FilePart, NewPath + BytesWritten, PLORE_MAX_PATH);
+		if (FileContext->YankedCount) { // @Cleanup
+			plore_file_listing *Current = DirectoryState.Current;
+			u64 WeAreTopLevel = Platform->IsPathTopLevel(Current->File.AbsolutePath, PLORE_MAX_PATH);
+			for (u64 M = 0; M < FileContext->YankedCount; M++) {
+				plore_file_listing *Movee = FileContext->Yanked[M];
 				
-				b64 DidMoveOk = Platform->MoveFile(Yanked->File.AbsolutePath, NewPath);
+				char NewPath[PLORE_MAX_PATH] = {0};
+				u64 BytesWritten = CStringCopy(Current->File.AbsolutePath, NewPath, PLORE_MAX_PATH);
+				Assert(BytesWritten < PLORE_MAX_PATH - 1);
+				if (!WeAreTopLevel) {
+					NewPath[BytesWritten++] = '\\';
+				}
+				CStringCopy(Movee->File.FilePart, NewPath + BytesWritten, PLORE_MAX_PATH);
+				
+				b64 DidMoveOk = Platform->MoveFile(Movee->File.AbsolutePath, NewPath);
 				if (DidMoveOk) {
-					DrawText("'Pasted' %s!", Yanked->File.FilePart);
+					char MoveeCopy[PLORE_MAX_PATH] = {0};
+					CStringCopy(Movee->File.AbsolutePath, MoveeCopy, PLORE_MAX_PATH);
 					
-					plore_file_listing *YankedParent = GetListing(FileContext, YankedCopy.File.AbsolutePath);
-					RemoveListing(FileContext, FileContext->Current);
-					if (YankedParent) RemoveListing(FileContext, YankedParent);
+					RemoveListing(FileContext, Movee);
 					
-					DirectoryState = SynchronizeCurrentDirectory(State);
+					if (!Platform->IsPathTopLevel(Movee->File.AbsolutePath, PLORE_MAX_PATH)) {
+						Platform->PopPathNode(MoveeCopy, PLORE_MAX_PATH, false);
+						plore_file_listing *Parent = GetListing(FileContext, MoveeCopy);
+						if (Parent) {
+							RemoveListing(FileContext, Parent);
+						}
+					}
 					
+					DrawText("Pasted `%s`!", MoveeCopy);
 				} else {
-					Debugger;
+					DrawText("Couldn't paste `%s`", Movee->File.FilePart);
 				}
 			}
 			
-			Yanked = 0;
+			if (DirectoryState.Current) RemoveListing(FileContext, DirectoryState.Current);
+			
+			DirectoryState = SynchronizeCurrentDirectory(State);
+			FileContext->YankedCount = 0;
+			FileContext->SelectedCount = 0;
 		}
 		DoPaste = false;
 	}
@@ -353,10 +380,14 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 				for (u64 Row = 0; Row < Listing->Count; Row++) {
 					v4 Colour = {0};
 					plore_file_listing *RowEntry = GetListing(FileContext, Listing->Entries[Row].AbsolutePath);
-					if (RowEntry && RowEntry->Meta.IsYanked) {
-						Colour = V4(0.3, 0.3, 0.4, 0.45);
-					} else if (Listing->Meta.Cursor == Row) {
-						Colour = V4(0.4, 0.4, 0.4, 0.1);
+					if (Listing->Cursor == Row) {
+						Colour = V4(0.5, 0.3, 0.3, 0.35);
+					} else if (RowEntry) {
+						if (IsYanked(FileContext, RowEntry)) {
+							Colour = V4(0.3, 0.3, 0.4, 0.45);
+						} else if (IsSelected(FileContext, RowEntry)) {
+							Colour = V4(0.35, 0.4, 0.4, 0.20);
+						}
 					} 
 					if (Button(State->VimguiContext, (vimgui_button_desc) {
 									   .Title = Listing->Entries[Row].FilePart,
@@ -364,7 +395,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 									   .Centre = true,
 									   .Colour = Colour,
 								   })) {
-						Listing->Meta.Cursor = Row;
+						Listing->Cursor = Row;
 						PrintLine("Button %s was clicked!", Listing->Entries[Row].FilePart);
 						if (Listing->Entries[Row].Type == PloreFileNode_Directory) {
 							PrintLine("Changing Directory to %s", Listing->Entries[Row].AbsolutePath);
@@ -418,16 +449,45 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	return(*State->VimguiContext->RenderList);
 }
 
-internal void
-PrintDirectory(plore_file_listing *Directory) {
-	PrintLine("%s", Directory->File.AbsolutePath);
-	for (u64 File = 0; File < Directory->Count; File++) {
-		plore_file *FileNode = Directory->Entries + File;
-		PrintLine("\t%s", FileNode->AbsolutePath);
+plore_inline b64
+IsYanked(plore_file_context *Context, plore_file_listing *Yankee) {
+	for (u64 Y = 0; Y < Context->YankedCount; Y++) {
+		plore_file_listing *It = Context->Yanked[Y];
+		if (It == Yankee) return(true);
 	}
-	PrintLine("");
+	
+	return(false);
 }
 
+plore_inline b64
+IsSelected(plore_file_context *Context, plore_file_listing *Selectee) {
+	for (u64 S = 0; S < Context->SelectedCount; S++) {
+		plore_file_listing *It = Context->Selected[S];
+		if (It == Selectee) return(true);
+	}
+	
+	return(false);
+}
+
+internal void
+ToggleSelected(plore_file_context *Context, plore_file_listing *Selectee) {
+	// NOTE(Evan): Toggle and return if its in the list.
+	for (u64 S = 0; S < Context->SelectedCount; S++) {
+		plore_file_listing *It = Context->Selected[S];
+		if (It == Selectee) {
+			Context->Selected[S] = Context->Selected[--Context->SelectedCount];
+			return;
+		}
+	}
+	
+	if (Context->SelectedCount == ArrayCount(Context->Selected) - 1) return;
+	
+	// NOTE(Evan): Otherwise, add it to the list.
+	Context->Selected[Context->SelectedCount++] = Selectee;
+}
+
+
+// TODO(Evan): Invalidate and update FileContext.
 internal plore_current_directory_state
 SynchronizeCurrentDirectory(plore_state *State) {
 	plore_current_directory_state CurrentState = {0};
@@ -437,10 +497,11 @@ SynchronizeCurrentDirectory(plore_state *State) {
 	plore_get_current_directory_result Result = Platform->GetCurrentDirectory(Buffer, PLORE_MAX_PATH);
 	FileContext->Current = GetOrInsertListing(FileContext, ListingFromDirectoryPath(Result.AbsolutePath, Result.FilePart)).Listing;
 	FileContext->InTopLevelDirectory = Platform->IsPathTopLevel(Buffer, PLORE_MAX_PATH);
+	CurrentState.Current = FileContext->Current;
 	
 	CurrentState.Cursor = 0;
 	if (FileContext->Current->Count != 0) {
-		plore_file *CursorEntry = FileContext->Current->Entries + FileContext->Current->Meta.Cursor;
+		plore_file *CursorEntry = FileContext->Current->Entries + FileContext->Current->Cursor;
 		
 		CurrentState.Cursor = GetOrInsertListing(FileContext, ListingFromFile(CursorEntry)).Listing;
 	}
@@ -461,7 +522,7 @@ SynchronizeCurrentDirectory(plore_state *State) {
 				if (File->Type != PloreFileNode_Directory) continue;
 				
 				if (CStringsAreEqual(File->AbsolutePath, FileContext->Current->File.AbsolutePath)) {
-					CurrentState.Parent->Meta.Cursor = Row;
+					CurrentState.Parent->Cursor = Row;
 					break;
 				}
 			}
@@ -472,4 +533,15 @@ SynchronizeCurrentDirectory(plore_state *State) {
 	
 	
 	return(CurrentState);
+}
+
+
+internal void
+PrintDirectory(plore_file_listing *Directory) {
+	PrintLine("%s", Directory->File.AbsolutePath);
+	for (u64 File = 0; File < Directory->Count; File++) {
+		plore_file *FileNode = Directory->Entries + File;
+		PrintLine("\t%s", FileNode->AbsolutePath);
+	}
+	PrintLine("");
 }

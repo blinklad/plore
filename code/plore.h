@@ -78,20 +78,13 @@ typedef struct plore_memory {
     memory_arena PermanentStorage;
 } plore_memory;
 
-typedef struct plore_file_listing_metadata {
-	u64 Cursor;
-	b64 IsYanked;
-	b64 IsSelected;
-} plore_file_listing_metadata;
-
 typedef struct plore_file_listing {
-	plore_file_listing_metadata Meta;
 	plore_file File;
 	plore_file Entries[256]; // NOTE(Evan): Directories only.
 	u64 Count;
+	u64 Cursor;
 } plore_file_listing;
 
-// TODO(Evan): Somewhere besides file listings, probably slots, should store state such as yank status, cursor, etc.
 typedef struct plore_file_listing_slot {
 	b64 Allocated;
 	plore_file_listing Directory;
@@ -99,8 +92,16 @@ typedef struct plore_file_listing_slot {
 
 typedef struct plore_file_context {
 	plore_file_listing *Current;
+	
+	plore_file_listing *Selected[32];
+	u64 SelectedCount;
+	
+	plore_file_listing *Yanked[32];
+	u64 YankedCount;
+	
 	plore_file_listing_slot *FileSlots[512];
 	u64 FileCount;
+	
 	b64 InTopLevelDirectory;
 } plore_file_context;
 
