@@ -170,6 +170,9 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	
 	plore_current_directory_state DirectoryState = SynchronizeCurrentDirectory(State);
 	
+	local char Commands[32] = {0};
+	local u64 CommandCount = 0;
+	local b64 AteCommands = 0;
 	
 	local b64 WasPasted = 0;
 	local b64 DoPaste = 0;
@@ -180,6 +183,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	local b64 UndoYank = 0;
 	
 	if (Input.YIsPressed) {
+		Commands[CommandCount++] = 'y';
 		if (WasYanked) { // Yank
 			WasYanked = false;
 			DoYank = true;
@@ -189,6 +193,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			WasYanked = true;
 		}
 	} else if (Input.UIsPressed) { // Undo
+		Commands[CommandCount++] = 'u';
 		if (WasUndone || WasYanked || WasPasted) {
 			WasUndone = false;
 			WasPasted = false;
@@ -197,6 +202,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			WasUndone = true;
 		}
 	} else if (Input.PIsPressed) { // Paste
+		Commands[CommandCount++] = 'p';
 		if (WasPasted) {
 			WasPasted = false;
 			DoPaste = true;
@@ -204,6 +210,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			WasPasted = true;
 		}
 	} else if (Input.SpaceIsPressed) { // Select
+		Commands[CommandCount++] = ' '; // TODO(Evan): Command tokens?
 		if (DirectoryState.Cursor) {
 			ToggleSelected(FileContext, DirectoryState.Cursor);
 		}
@@ -216,6 +223,9 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			DoPaste = false;
 			WasUndone = false;
 			
+			CommandCount = 0;
+			MemoryClear(Commands, ArrayCount(Commands));
+	
 			JCount++;
 		} else {
 			JCount = 0;
@@ -228,6 +238,9 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			DoYank = false;
 			DoPaste = false;
 			WasUndone = false;
+			
+			CommandCount = 0;
+			MemoryClear(Commands, ArrayCount(Commands));
 			
 			KCount++;
 		} else {
@@ -266,12 +279,16 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			FileContext->YankedCount = 1;
 		}
 		DoYank = false;
+		AteCommands = true;
+		
 	} else if (UndoYank) {
 		if (FileContext->YankedCount) {
 			DrawText("Unyanked %s!", FileContext->Yanked[0]->File.FilePart);
 			FileContext->YankedCount = 0;
 		}
 		UndoYank = false;
+		AteCommands = true;
+		
 		// TODO(Evan): Invalidate the yankees' directory's cursor.
 	} else if (DoPaste) {
 		if (FileContext->YankedCount) { // @Cleanup
@@ -316,6 +333,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			FileContext->SelectedCount = 0;
 		}
 		DoPaste = false;
+		AteCommands = true;
 	}
 	
 	
@@ -412,19 +430,12 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		
 		if (DirectoryState.Cursor) {
 			char CursorInfo[512] = {0};
-			if (WasYanked || DoYank) {
-				if (WasYanked) {
-					StringPrintSized(CursorInfo, 
-									 ArrayCount(CursorInfo),
-									 "y");
-				} 
-			} else {
-				StringPrintSized(CursorInfo, 
-								 ArrayCount(CursorInfo),
-							     "[%s] %s 01-02-3", 
-							     (DirectoryState.Cursor->File.Type == PloreFileNode_Directory) ? "DIR" : "FILE", 
-							     DirectoryState.Cursor->File.FilePart);
-			}
+			StringPrintSized(CursorInfo, 
+							 ArrayCount(CursorInfo),
+						     "[%s] %s 01-02-3 %s", 
+						     (DirectoryState.Cursor->File.Type == PloreFileNode_Directory) ? "DIR" : "FILE", 
+						     DirectoryState.Cursor->File.FilePart,
+							 Commands);
 			
 			if (Button(State->VimguiContext, (vimgui_button_desc) {
 						   .Title = CursorInfo,
@@ -433,9 +444,16 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 						   },
 					   })) {
 			}
+			
+			if (AteCommands) {
+				CommandCount = 0;
+				MemoryClear(Commands, ArrayCount(Commands));
+				AteCommands = false;
+			}
 		}
 		WindowEnd(State->VimguiContext);
 	}
+	
 	
 #if defined(PLORE_INTERNAL)
 	FlushText();
