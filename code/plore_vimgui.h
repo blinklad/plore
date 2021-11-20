@@ -15,6 +15,7 @@ typedef struct vimgui_window {
 	u64 RowCountLastFrame;
 	i64 Generation; // NOTE(Evan): When a window is "touched", this is incremented.
 	                // If the generation lags behind the global context, the window is deleted. 
+	b64 Hidden;
 } vimgui_window;
 
 typedef enum vimgui_widget_type {

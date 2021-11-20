@@ -139,6 +139,7 @@ typedef struct vimgui_button_desc {
 	b64 FillWidth;
 	b64 Centre;
 	char *Title;
+	u64 ID;
 	rectangle Rect;
 	v4 Colour;
 	v4 TextColour;
@@ -151,7 +152,13 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	Assert(Context->WindowWeAreLayingOut);
 	
 	b64 Result = false;
-	u64 MyID = (u64) Desc.Title;
+	u64 MyID; 
+	if (Desc.ID) {
+		MyID = Desc.ID;
+	} else {
+		Assert(Desc.Title);
+		MyID = (u64) Desc.Title;
+	}
 	
 	vimgui_window *Window = GetLayoutWindow(Context);
 	if (Window->RowCountThisFrame > Window->RowMax) {
@@ -222,16 +229,16 @@ typedef struct vimgui_window_desc {
 	rectangle Rect;
 	v4 Colour;
 	b64 ForceFocus;
-	b64 Centered;
+	b64 Hidden;
 } vimgui_window_desc;
 
 internal b64
 Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 	u64 MyID; 
-	if (!Desc.Title) {
-		Assert(Desc.ID);
+	if (Desc.ID) {
 		MyID = Desc.ID;
 	} else {
+		Assert(Desc.Title);
 		MyID = (u64) Desc.Title;
 	}
 	
@@ -250,19 +257,20 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 	
 	if (MaybeWindow) {
 		Assert(Context->ParentStackCount < ArrayCount(Context->ParentStack));
+		MaybeWindow->Generation++; // NOTE(Evan): Touch the window so it continues to live.
+		if (Desc.Hidden) {
+			MaybeWindow->Hidden = true;
+			return(false); 
+		}
+		
 		
 		u64 MyParentIndex = Context->ParentStackCount;
 		Context->ParentStack[Context->ParentStackCount++] = MaybeWindow->ID;
-		MaybeWindow->Generation++;
 		
 		// NOTE(Evan): Only check if the active window needs updating if focus wasn't stolen.
-		if (!Context->WindowFocusStolenThisFrame) {
-			b64 WeAreTheOnlyWindow = Context->WindowCount == 1;
-			if (WeAreTheOnlyWindow) {
-				Context->ActiveWindow = MyID;
+		if (!Context->WindowFocusStolenThisFrame || Desc.ForceFocus) {
+			if (IsWithinRectangleInclusive(Context->InputThisFrame.MouseP, Desc.Rect) && !Context->HotWindow) {
 				Context->HotWindow = MyID;
-			} else if (IsWithinRectangleInclusive(Context->InputThisFrame.MouseP, Desc.Rect) && !Context->HotWindow) {
-				Context->ActiveWindow = MyID;
 			} else if (Desc.ForceFocus) {
 				Context->ActiveWindow = MyID;
 				Context->WindowFocusStolenThisFrame = true;
@@ -270,7 +278,9 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 				
 		}
 		if (Context->ActiveWindow == MyID) {
-			Desc.Colour.RGB = MultiplyVec3f(Desc.Colour.RGB, 1.20f);
+			Desc.Colour.RGB = MultiplyVec3f(Desc.Colour.RGB, 1.40f);
+		} else if (Context->HotWindow == MyID) {
+			Desc.Colour.RGB = MultiplyVec3f(Desc.Colour.RGB, 1.10f);
 		}
 		
 		MaybeWindow->Rect = Desc.Rect;
@@ -301,7 +311,7 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 						   .A = 1.0f,
 					   },
 					   .Title = MaybeWindow->Title,
-					   .Centered = Desc.Centered, 
+					   .Centered = true, 
 				   });
 		
 	}

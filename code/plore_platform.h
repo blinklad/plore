@@ -105,8 +105,13 @@ typedef PLATFORM_MOVE_FILE(platform_move_file);
 
 // NOTE(Evan): Platform API
 typedef struct platform_api {
-    u64 WindowWidth;
-    u64 WindowHeight;
+	union {
+		v2 WindowDimensions;
+		struct {
+			f32 WindowWidth;
+			f32 WindowHeight;
+		};
+	};
 
 	platform_create_texture_handle  *CreateTextureHandle;
 	platform_destroy_texture_handle *DestroyTextureHandle;

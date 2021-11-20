@@ -33,10 +33,42 @@ typedef struct plore_font {
 // Check for redundancy in X's keysym message pump when this is ported?
 // We could probably map a symbolic name to a key.
 #define PLORE_KEYBOARD_AND_MOUSE \
-PLORE_X(W) \
 PLORE_X(A) \
-PLORE_X(S) \
+PLORE_X(B) \
+PLORE_X(C) \
 PLORE_X(D) \
+PLORE_X(E) \
+PLORE_X(F) \
+PLORE_X(G) \
+PLORE_X(H) \
+PLORE_X(I) \
+PLORE_X(J) \
+PLORE_X(K) \
+PLORE_X(L) \
+PLORE_X(M) \
+PLORE_X(N) \
+PLORE_X(O) \
+PLORE_X(P) \
+PLORE_X(Q) \
+PLORE_X(R) \
+PLORE_X(S) \
+PLORE_X(T) \
+PLORE_X(U) \
+PLORE_X(V) \
+PLORE_X(W) \
+PLORE_X(X) \
+PLORE_X(Y) \
+PLORE_X(Z) \
+PLORE_X(Zero) \
+PLORE_X(One) \
+PLORE_X(Two) \
+PLORE_X(Three) \
+PLORE_X(Four) \
+PLORE_X(Five) \
+PLORE_X(Six) \
+PLORE_X(Seven) \
+PLORE_X(Eight) \
+PLORE_X(Nine) \
 PLORE_X(Ctrl) \
 PLORE_X(Shift)\
 PLORE_X(Space) \
@@ -45,15 +77,7 @@ PLORE_X(MouseLeft) \
 PLORE_X(MouseRight) \
 PLORE_X(Plus) \
 PLORE_X(Minus) \
-PLORE_X(H) \
-PLORE_X(J) \
-PLORE_X(K) \
-PLORE_X(L) \
-PLORE_X(T) \
-PLORE_X(Y) \
-PLORE_X(U) \
-PLORE_X(P) \
-PLORE_X(Slash) \
+PLORE_X(Slash)
 
 #define PLORE_X(Name) b32 Name##IsPressed; b32 Name##IsDown; b32 Name##WasDown;
 typedef struct keyboard_and_mouse {
