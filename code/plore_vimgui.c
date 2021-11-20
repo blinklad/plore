@@ -33,11 +33,20 @@ VimguiEnd(plore_vimgui_context *Context) {
 	Assert(Context->GUIPassActive);
 	Context->GUIPassActive = false;
 	
+	vimgui_window *Window = GetActiveWindow(Context);
+	PrintLine("Active window is `%s`. ", Window->Title);
 	
 	// TODO(Evan): When we buffer widgets, build the render list here, so we can associate
 	// e.g. bitmaps, z-ordering, etc with draw commands, rather then just quads + text.
 	for (u64 W = 0; W < Context->WidgetCount;  W++) {
 		vimgui_widget *Widget = Context->Widgets + W;
+		
+		if (Context->ActiveWindow == Widget->ID) {
+			Widget->Colour = V4(0.10, 0.10, 0.10, 1.0f);
+		} else if (Context->HotWindow == Widget->ID) {
+			Widget->Colour.RGB = MultiplyVec3f(Widget->Colour.RGB, 1.10f);
+		}
+		
 		PushRenderQuad(Context->RenderList, Widget->Rect, Widget->Colour);
 		
 		PushRenderText(Context->RenderList, 
@@ -277,12 +286,6 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 			}
 				
 		}
-		if (Context->ActiveWindow == MyID) {
-			Desc.Colour.RGB = MultiplyVec3f(Desc.Colour.RGB, 1.40f);
-		} else if (Context->HotWindow == MyID) {
-			Desc.Colour.RGB = MultiplyVec3f(Desc.Colour.RGB, 1.10f);
-		}
-		
 		MaybeWindow->Rect = Desc.Rect;
 		
 		// NOTE(Evan): If index is 0, then we are the top-level window, and shouldn't offset ourselves

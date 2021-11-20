@@ -471,7 +471,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			X += W + PadX;
 		}
 		
-		b64 Hidden = false;
+		local b64 Hidden = false;
 		if (Window(State->VimguiContext, (vimgui_window_desc) {
 						   .Title      = "Command History",
 						   .Rect       = { DivideVec2f(PlatformAPI->WindowDimensions, 2), V2(400, 400) }, 
