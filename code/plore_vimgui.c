@@ -34,7 +34,6 @@ VimguiEnd(plore_vimgui_context *Context) {
 	Context->GUIPassActive = false;
 	
 	vimgui_window *Window = GetActiveWindow(Context);
-	PrintLine("Active window is `%s`. ", Window->Title);
 	
 	// TODO(Evan): When we buffer widgets, build the render list here, so we can associate
 	// e.g. bitmaps, z-ordering, etc with draw commands, rather then just quads + text.

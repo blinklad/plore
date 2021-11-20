@@ -47,6 +47,7 @@ typedef struct vim_command {
 typedef struct plore_vim_context {
 	vim_command VimCommands[10];
 	u64 VimCommandCount;
+	u64 Cursor;
 } plore_vim_context;
 
 

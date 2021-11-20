@@ -12,6 +12,7 @@
 global plore_input GlobalPloreInput;
 global windows_timer GlobalWindowsTimer;      // TODO(Evan): Timing!
 global windows_context *GlobalWindowsContext;
+global b64 GlobalRunning = true;
 
 
 // NOTE(Evan): Platform layer implementation.
@@ -540,103 +541,119 @@ name = (PFN_ ## name) GetProcAddress(opengl32_dll, #name);\
     return WindowsContext;
 }
 
+internal void
+WindowsProcessMessages(windows_context *Context, keyboard_and_mouse *LastFrame, keyboard_and_mouse *ThisFrame) {
+	MSG Message = {0};
+	
+	while (PeekMessageA(&Message, 0, 0, 0, PM_REMOVE)) {
+		#define PROCESS_KEY_CASE(SymbolicName, Name) \
+		case SymbolicName: {\
+		ThisFrame->##Name##IsDown = IsDown; \
+		ThisFrame->##Name##WasDown = LastFrame->##Name##IsDown; \
+		ThisFrame->##Name##IsPressed = (ThisFrame->##Name##IsDown) && !(ThisFrame->##Name##WasDown); \
+		WindowsDebugPrint("" #Name " is %s", ThisFrame->##Name##IsDown ? "down, " : "not down, "); \
+		WindowsDebugPrint("" #Name " was %s", ThisFrame->##Name##WasDown ? "down, " : "not down, "); \
+		if (ThisFrame->##Name##IsPressed) WindowsDebugPrint("" #Name " is pressed!"); \
+		if (LastFrame->##Name##IsPressed) WindowsDebugPrint("" #Name " was pressed last frame, so it shouldn't be pressed now!");\
+		} break;
+		
+	    switch (Message.message) {
+	        case WM_KEYDOWN: 
+	        case WM_KEYUP:
+	        {
+	            bool32 IsDown = Message.message == WM_KEYDOWN;
+				
+	            if (Message.wParam == VK_ESCAPE) {
+					GlobalRunning = false;
+	                WindowsDebugPrintLine("Escape pressed");
+	                PostQuitMessage(0);
+	            } else if (IsDown && (u32) Message.wParam == VK_F1) {
+					WindowsToggleFullscreen();
+				} else {
+	                switch (Message.wParam) {
+	                    PROCESS_KEY_CASE('A', A);
+	                    PROCESS_KEY_CASE('B', B);
+	                    PROCESS_KEY_CASE('C', C);
+	                    PROCESS_KEY_CASE('D', D);
+	                    PROCESS_KEY_CASE('E', E);
+	                    PROCESS_KEY_CASE('F', F);
+	                    PROCESS_KEY_CASE('G', G);
+	                    PROCESS_KEY_CASE('H', H);
+	                    PROCESS_KEY_CASE('I', I);
+	                    PROCESS_KEY_CASE('J', J);
+	                    PROCESS_KEY_CASE('K', K);
+	                    PROCESS_KEY_CASE('L', L);
+	                    PROCESS_KEY_CASE('M', M);
+	                    PROCESS_KEY_CASE('N', N);
+	                    PROCESS_KEY_CASE('O', O);
+	                    PROCESS_KEY_CASE('P', P);
+	                    PROCESS_KEY_CASE('Q', Q);
+	                    PROCESS_KEY_CASE('R', R);
+	                    PROCESS_KEY_CASE('S', S);
+	                    PROCESS_KEY_CASE('T', T);
+	                    PROCESS_KEY_CASE('U', U);
+	                    PROCESS_KEY_CASE('V', V);
+	                    PROCESS_KEY_CASE('W', W);
+	                    PROCESS_KEY_CASE('X', X);
+	                    PROCESS_KEY_CASE('Y', Y);
+	                    PROCESS_KEY_CASE('Z', Z);
+	                    PROCESS_KEY_CASE(VK_OEM_2, Slash);
+	                    PROCESS_KEY_CASE(VK_RETURN, Return);
+	                    PROCESS_KEY_CASE(VK_SPACE, Space);
+	                    PROCESS_KEY_CASE(VK_CONTROL, Ctrl);
+	                    PROCESS_KEY_CASE(VK_SHIFT, Shift);
+	                    PROCESS_KEY_CASE(VK_OEM_MINUS, Minus);
+	                    PROCESS_KEY_CASE(VK_OEM_PLUS, Plus);
+	                    default:
+	                    WindowsDebugPrint("...but not recorded!");
+	                }
+	            }
+	            WindowsDebugPrintLine("");
+	            
+	        } break;
+	        
+			case WM_LBUTTONDOWN: 
+			case WM_LBUTTONUP: 
+			{
+				b32 IsDown = Message.message == WM_LBUTTONDOWN;
+				switch (Message.message) {
+					PROCESS_KEY_CASE(WM_LBUTTONDOWN, MouseLeft);
+					PROCESS_KEY_CASE(WM_LBUTTONUP, MouseLeft);
+				}
+	            WindowsDebugPrintLine("");
+			} break;
+			
+			case WM_RBUTTONDOWN:
+			case WM_RBUTTONUP: 
+			{
+				b32 IsDown = Message.message == WM_RBUTTONDOWN;
+				switch (Message.message) {
+					PROCESS_KEY_CASE(WM_RBUTTONDOWN, MouseRight);
+					PROCESS_KEY_CASE(WM_RBUTTONUP, MouseRight);
+				}
+	            WindowsDebugPrintLine("");
+			} break;
+			
+	        // TODO(Evan): Mouse wheel!
+	        case WM_MOUSEMOVE: {
+	            ThisFrame->MouseP = (v2) {
+					.X = GET_X_LPARAM(Message.lParam),
+					.Y = GET_Y_LPARAM(Message.lParam),
+				};
+	            
+	        } break;
+			
+			default: {
+				TranslateMessage(&Message);
+				DispatchMessage(&Message);
+			} break;	
+		}
+	}
+}
 
 LRESULT CALLBACK WindowsMessagePumpCallback(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-#define PROCESS_KEY_CASE(SymbolicName, Name) \
-case SymbolicName: {\
-	ThisFrame->##Name##IsDown = IsDown; \
-	ThisFrame->##Name##WasDown = LastFrame->##Name##IsDown; \
-	ThisFrame->##Name##IsPressed = (ThisFrame->##Name##IsDown) && !(ThisFrame->##Name##WasDown); \
-	WindowsDebugPrint("" #Name " is %s", ThisFrame->##Name##IsDown ? "down, " : "not down, "); \
-	WindowsDebugPrint("" #Name " was %s", ThisFrame->##Name##WasDown ? "down, " : "not down, "); \
-	if (ThisFrame->##Name##IsPressed) WindowsDebugPrint("" #Name " is pressed!"); \
-	if (LastFrame->##Name##IsPressed) WindowsDebugPrint("" #Name " was pressed last frame, so it shouldn't be pressed now!");\
-} break;
-	
-	keyboard_and_mouse *ThisFrame = &GlobalPloreInput.ThisFrame;
-	keyboard_and_mouse *LastFrame = &GlobalPloreInput.LastFrame;
-    switch (uMsg)
-    {
-        case WM_KEYDOWN: 
-        case WM_KEYUP:
-        {
-            bool32 IsDown = uMsg == WM_KEYDOWN;
-
-            if (wParam == VK_ESCAPE) {
-                WindowsDebugPrintLine("Escape pressed");
-                PostQuitMessage(0);
-            } else if (IsDown && (u32) wParam == VK_F1) {
-				WindowsToggleFullscreen();
-			} else {
-                switch (wParam) {
-                    PROCESS_KEY_CASE('A', A);
-                    PROCESS_KEY_CASE('D', D);
-                    PROCESS_KEY_CASE('W', W);
-                    PROCESS_KEY_CASE('S', S);
-                    PROCESS_KEY_CASE('H', H);
-                    PROCESS_KEY_CASE('J', J);
-                    PROCESS_KEY_CASE('K', K);
-                    PROCESS_KEY_CASE('L', L);
-                    PROCESS_KEY_CASE('Y', Y);
-                    PROCESS_KEY_CASE('T', T);
-                    PROCESS_KEY_CASE('U', U);
-                    PROCESS_KEY_CASE('P', P);
-                    PROCESS_KEY_CASE(VK_OEM_2, Slash);
-                    PROCESS_KEY_CASE(VK_RETURN, Return);
-                    PROCESS_KEY_CASE(VK_SPACE, Space);
-                    PROCESS_KEY_CASE(VK_CONTROL, Ctrl);
-                    PROCESS_KEY_CASE(VK_SHIFT, Shift);
-                    PROCESS_KEY_CASE(VK_OEM_MINUS, Minus);
-                    PROCESS_KEY_CASE(VK_OEM_PLUS, Plus);
-                    default:
-                    WindowsDebugPrint("...but not recorded!");
-                }
-            }
-            WindowsDebugPrintLine("");
-            
-        } break;
-        
-		case WM_LBUTTONDOWN: 
-		case WM_LBUTTONUP: 
-		{
-			b32 IsDown = uMsg == WM_LBUTTONDOWN;
-			switch (uMsg) {
-				PROCESS_KEY_CASE(WM_LBUTTONDOWN, MouseLeft);
-				PROCESS_KEY_CASE(WM_LBUTTONUP, MouseLeft);
-			}
-            WindowsDebugPrintLine("");
-		} break;
-		
-		case WM_RBUTTONDOWN:
-		case WM_RBUTTONUP: 
-		{
-			b32 IsDown = uMsg == WM_RBUTTONDOWN;
-			switch (uMsg) {
-				PROCESS_KEY_CASE(WM_RBUTTONDOWN, MouseRight);
-				PROCESS_KEY_CASE(WM_RBUTTONUP, MouseRight);
-			}
-            WindowsDebugPrintLine("");
-		} break;
-		
-		
-        case WM_QUIT:
-        case WM_CLOSE: 
-        { 
-            WindowsDebugPrint("Closing!");
-        }
-        break;
-        
-        // TODO(Evan): Mouse wheel!
-        case WM_MOUSEMOVE: {
-            ThisFrame->MouseP = (v2) {
-				.X = GET_X_LPARAM(lParam),
-				.Y = GET_Y_LPARAM(lParam),
-			};
-            
-        } break;
-
-		
+	switch (uMsg) {
 		case WM_SIZE: {
 			// NOTE(Evan): "Window Size" throughout the codebase really means "client rectangle", as in, the drawable area.
 			DWORD Style = GetWindowLongPtr(hwnd, GWL_STYLE );
@@ -655,6 +672,11 @@ case SymbolicName: {\
 				GlobalWindowsContext->Width = NewWidth;
 				GlobalWindowsContext->Height = NewHeight;
 			}
+		} break;
+		
+		case WM_CLOSE: {
+			WindowsDebugPrintLine("WM_CLOSE");
+			GlobalRunning = false;
 		}
         default:  
         {
@@ -831,28 +853,18 @@ int WinMain (
     windows_context WindowsContext = WindowsCreateAndShowOpenGLWindow(Instance);
 	GlobalWindowsContext = &WindowsContext;
 	
-    BOOL ReceivedQuitMessage = false;
-    
 	windows_timer PreviousTimer = WindowsGetTime();
 	f64 TimePreviousInSeconds = 0;
 	
 	
-    while (!ReceivedQuitMessage) {
+    while (GlobalRunning) {
 		WindowsPlatformAPI.WindowWidth = GlobalWindowsContext->Width;
 		WindowsPlatformAPI.WindowHeight = GlobalWindowsContext->Height;
 		
         /* Grab any new keyboard / mouse / window events from message queue. */
         MSG WindowMessage = {0};
-        while (PeekMessage(&WindowMessage, NULL, 0, 0, PM_REMOVE)) {
-            TranslateMessage(&WindowMessage);
-            DispatchMessage(&WindowMessage);
-
-            if (WindowMessage.message == WM_QUIT) {
-                WindowsDebugPrint("Quit message!");
-                ReceivedQuitMessage = true;
-                break;
-            }
-        }
+		
+		WindowsProcessMessages(GlobalWindowsContext, &GlobalPloreInput.LastFrame, &GlobalPloreInput.ThisFrame);
 		
 		// Mouse input!
 		// TODO(Evan): A more systematic way of handling our window messages vs input?
@@ -867,7 +879,6 @@ int WinMain (
 			GlobalPloreInput.ThisFrame.MouseLeftIsDown    = GetKeyState(VK_LBUTTON) & (1 << 15);
 			GlobalPloreInput.ThisFrame.MouseLeftIsPressed = GlobalPloreInput.ThisFrame.MouseLeftIsDown && !(GlobalPloreInput.LastFrame.MouseLeftIsDown);
 		}		
-        if (ReceivedQuitMessage) break;
 
 		windows_timer CurrentTimer = WindowsGetTime();
         f64 TimeNowInSeconds = ((f64) (CurrentTimer.TicksNow - PreviousTimer.TicksNow) / CurrentTimer.Frequency);
@@ -921,6 +932,8 @@ int WinMain (
 		fflush(stdout);
 		fflush(stderr);
     }
+	
+	WindowsDebugPrintLine("EXITED MAIN LOOP.");
 
 	WindowsUnloadPloreCode(PloreCode);
     // TODO: Other cleanup!
