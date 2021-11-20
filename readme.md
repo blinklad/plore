@@ -38,3 +38,7 @@ Further, there are some cases that it will probably *never* handle to keep it as
    - Global font scale.
    - Everything could look a lot nicer.
 * ... Many more ...
+
+### Building
+Currently, only supports Windows. 
+Assuming you have Visual Studio 2019;s `vcvarsall.bat` installed at `C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat`, just run `build.bat`, and everything should just work.
