@@ -180,10 +180,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	// NOTE(Evan): Buffered input.
 	local u64 JCount = 0;
 	local u64 KCount = 0;
-	if (Input.ShiftIsPressed) {
-		if (Input.CIsDown) {
-			State->InteractState = ToggleFlag(State->InteractState, InteractState_CommandHistory);
-		}
+	if (Input.OIsPressed) {
+		State->InteractState = ToggleFlag(State->InteractState, InteractState_CommandHistory);
 	}
 	
 	if (Input.JIsDown) JCount++;
@@ -495,7 +493,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			X += W + PadX;
 		}
 		
-		local b64 Hidden = false;
+		b64 Hidden = State->InteractState != InteractState_CommandHistory;
 		if (Window(State->VimguiContext, (vimgui_window_desc) {
 						   .Title      = "Command History",
 						   .Rect       = { DivideVec2f(PlatformAPI->WindowDimensions, 2), V2(400, 400) }, 

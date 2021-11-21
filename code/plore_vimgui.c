@@ -41,7 +41,7 @@ VimguiEnd(plore_vimgui_context *Context) {
 		vimgui_widget *Widget = Context->Widgets + W;
 		
 		if (Context->ActiveWindow == Widget->ID) {
-			Widget->Colour = V4(0.10, 0.10, 0.10, 1.0f);
+			Widget->Colour = V4(0.15, 0.15, 0.15, 1.0f);
 		} else if (Context->HotWindow == Widget->ID) {
 			Widget->Colour.RGB = MultiplyVec3f(Widget->Colour.RGB, 1.10f);
 		}
