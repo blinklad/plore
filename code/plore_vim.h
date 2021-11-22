@@ -61,6 +61,7 @@ internal vim_command
 MakeCommand(plore_vim_context *Context) {
 	vim_command Result = {0};
 	
+	if (!Context->CommandKeyCount) return(Result);
 	local plore_key YankCommand[] =      { PloreKey_Y, PloreKey_Y, };
 	local plore_key PasteCommand[] =     { PloreKey_P, PloreKey_P, };
 	local plore_key ClearYankCommand[] = { PloreKey_U, PloreKey_Y, };
@@ -72,25 +73,25 @@ MakeCommand(plore_vim_context *Context) {
 	
 	
 	plore_key *C = Context->CommandKeys;
-	if (MemoryCompare(C, SelectCommand, ArrayCount(SelectCommand)) == 0) {
+	if (MemoryCompare(C, SelectCommand, sizeof(SelectCommand)) == 0) {
 		Result.Type = VimCommandType_Select;
-	} else if (MemoryCompare(C, MoveLeftCommand, ArrayCount(MoveLeftCommand)) == 0)  {
+	} else if (MemoryCompare(C, MoveLeftCommand, sizeof(MoveLeftCommand)) == 0)  {
 		Result.Type = VimCommandType_Movement;
 		Result.Movement.Direction = Left;
-	} else if (MemoryCompare(C, MoveRightCommand, ArrayCount(MoveRightCommand)) == 0) {
+	} else if (MemoryCompare(C, MoveRightCommand, sizeof(MoveRightCommand)) == 0) {
 		Result.Type = VimCommandType_Movement;
 		Result.Movement.Direction = Right;
-	} else if (MemoryCompare(C, MoveUpCommand, ArrayCount(MoveUpCommand)) == 0) {
+	} else if (MemoryCompare(C, MoveUpCommand, sizeof(MoveUpCommand)) == 0) {
 		Result.Type = VimCommandType_Movement;
 		Result.Movement.Direction = Up;
-	} else if (MemoryCompare(C, MoveDownCommand, ArrayCount(MoveDownCommand)) == 0) {
+	} else if (MemoryCompare(C, MoveDownCommand, sizeof(MoveDownCommand)) == 0) {
 		Result.Type = VimCommandType_Movement;
 		Result.Movement.Direction = Down;
-	} else if (MemoryCompare(C, YankCommand, ArrayCount(YankCommand)) == 0) {
+	} else if (MemoryCompare(C, YankCommand, sizeof(YankCommand)) == 0) {
 		Result.Type = VimCommandType_Yank;
-	} else if (MemoryCompare(C, PasteCommand, ArrayCount(PasteCommand)) == 0) {
+	} else if (MemoryCompare(C, PasteCommand, sizeof(PasteCommand)) == 0) {
 		Result.Type = VimCommandType_Paste;
-	} else if (MemoryCompare(C, ClearYankCommand, ArrayCount(ClearYankCommand)) == 0) {
+	} else if (MemoryCompare(C, ClearYankCommand, sizeof(ClearYankCommand)) == 0) {
 		Result.Type = VimCommandType_ClearYank;
 	}
 	

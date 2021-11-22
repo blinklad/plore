@@ -40,7 +40,7 @@ DrawText(char *Format, ...) {
 	// Text is unique.
 	debug_text *Text = DebugText + DebugTextCount++;
 	*Text = (debug_text) {0};
-	MemoryCopy(Buffer, Text->Buffer, ArrayCount(Text->Buffer));
+	MemoryCopy(Buffer, Text->Buffer, sizeof(Text->Buffer));
 }
 
 internal void

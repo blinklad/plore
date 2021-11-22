@@ -550,7 +550,8 @@ WindowsProcessMessages(windows_context *Context, keyboard_and_mouse *ThisFrame) 
 		ThisFrame->##Name##IsDown = IsDown;                                                          \
 		ThisFrame->##Name##WasDown = Message.lParam & (1 << 30);                                     \
 		ThisFrame->##Name##IsPressed = (ThisFrame->##Name##IsDown) && !(ThisFrame->##Name##WasDown); \
-	ThisFrame->pKeys[PloreKey_##Name] = ThisFrame->##Name##IsPressed;                                \
+		ThisFrame->pKeys[PloreKey_##Name] = ThisFrame->##Name##IsPressed;                            \
+		WindowsDebugPrintLine("Pressed " #Name);                                                     \
 	} break;
 	
 	while (PeekMessageA(&Message, 0, 0, 0, PM_REMOVE)) {
