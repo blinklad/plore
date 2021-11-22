@@ -158,9 +158,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	// CLEANUP(Evan): We Begin() here as the render list is shared for debug draw purposes right now.
 	VimguiBegin(State->VimguiContext, BufferedInput, PlatformAPI->WindowDimensions);
 	
+	// TODO(Evan): File watching so this function doesn't need to be called eagerly.
 	plore_current_directory_state DirectoryState = SynchronizeCurrentDirectory(State);
-	
-	
 	
 	if (BufferedInput.OIsPressed) {
 		State->InteractState = ToggleFlag(State->InteractState, InteractState_CommandHistory);
@@ -210,7 +209,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	local plore_key LastCommand[32] = {0};
 	local u64 LastCommandCount = 0;
 	if (DidInput) {
-		MemoryCopy(State->VimContext->CommandKeys, LastCommand, ArrayCount(LastCommand));
+		MemoryCopy(State->VimContext->CommandKeys, LastCommand, sizeof(LastCommand));
 		LastCommandCount = State->VimContext->CommandKeyCount;
 	}
 	vim_command Command = MakeCommand(State->VimContext);
@@ -225,19 +224,19 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			case (InteractState_FileExplorer): {
 				switch (Command.Type) {
 					case VimCommandType_Yank: {
-					if (FileContext->SelectedCount) { // Yank selection if there is any.
-						MemoryCopy(FileContext->Selected, FileContext->Yanked, ArrayCount(FileContext->Yanked));
-						FileContext->YankedCount = FileContext->SelectedCount;
-						DrawText("Yanked %d guys.", FileContext->YankedCount);
-							
-						PushVimCommand(State->VimContext, (vim_command) {
-										   .State = InteractState_FileExplorer,
-										   .Type = VimCommandType_Yank,
-										   .Yank = {
-											   .YankeeCount = FileContext->YankedCount,
-										   },
-									   });
-					} 
+						if (FileContext->SelectedCount) { // Yank selection if there is any.
+							MemoryCopy(FileContext->Selected, FileContext->Yanked, sizeof(FileContext->Yanked));
+							FileContext->YankedCount = FileContext->SelectedCount;
+							DrawText("Yanked %d guys.", FileContext->YankedCount);
+								
+							PushVimCommand(State->VimContext, (vim_command) {
+											   .State = InteractState_FileExplorer,
+											   .Type = VimCommandType_Yank,
+											   .Yank = {
+												   .YankeeCount = FileContext->YankedCount,
+											   },
+										   });
+						} 
 					
 					} break;
 					case VimCommandType_ClearYank: {
@@ -302,12 +301,11 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 											   },
 										   });
 							
-							DirectoryState = SynchronizeCurrentDirectory(State);
 							FileContext->YankedCount = 0;
-							MemoryClear(FileContext->Yanked, ArrayCount(FileContext->Yanked));
+							MemoryClear(FileContext->Yanked, sizeof(FileContext->Yanked));
 							
 							FileContext->SelectedCount = 0;
-							MemoryClear(FileContext->Selected, ArrayCount(FileContext->Selected));
+							MemoryClear(FileContext->Selected, sizeof(FileContext->Selected));
 						}
 					} break;
 					case VimCommandType_Movement: {
@@ -585,9 +583,12 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	}
 	
 	if (AteCommands) {
-		State->VimContext->CommandKeyCount = 0;
-		MemoryClear(State->VimContext->CommandKeys, ArrayCount(State->VimContext->CommandKeys));
 		AteCommands = false;
+		
+		State->VimContext->CommandKeyCount = 0;
+		LastCommandCount = 0;
+		MemoryClear(State->VimContext->CommandKeys, sizeof(State->VimContext->CommandKeys));
+		MemoryClear(LastCommand, sizeof(LastCommand));
 	}
 	
 #if defined(PLORE_INTERNAL)
@@ -642,8 +643,6 @@ ToggleSelected(plore_file_context *Context, plore_file_listing *Selectee) {
 	DrawText("There are now %d selected items.", Context->SelectedCount);
 }
 
-
-// TODO(Evan): Invalidate and update FileContext.
 internal plore_current_directory_state
 SynchronizeCurrentDirectory(plore_state *State) {
 	plore_current_directory_state CurrentState = {0};
