@@ -31,7 +31,7 @@ SubArena(memory_arena *Arena, uint64 Size, u64 Alignment) {
     
     memory_arena Result = {
         .Memory = (u8 *) Arena->Memory + Arena->BytesUsed,
-        .Size = Size,
+        .Size = EffectiveSize,
     };
     
     Arena->BytesUsed += EffectiveSize;
