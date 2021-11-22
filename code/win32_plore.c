@@ -542,21 +542,18 @@ name = (PFN_ ## name) GetProcAddress(opengl32_dll, #name);\
 }
 
 internal void
-WindowsProcessMessages(windows_context *Context, keyboard_and_mouse *LastFrame, keyboard_and_mouse *ThisFrame) {
+WindowsProcessMessages(windows_context *Context, keyboard_and_mouse *ThisFrame) {
 	MSG Message = {0};
 	
-	while (PeekMessageA(&Message, 0, 0, 0, PM_REMOVE)) {
-		#define PROCESS_KEY_CASE(SymbolicName, Name) \
-		case SymbolicName: {\
-		ThisFrame->##Name##IsDown = IsDown; \
-		ThisFrame->##Name##WasDown = LastFrame->##Name##IsDown; \
+	#define PROCESS_KEY(SymbolicName, Name)                                                          \
+	case SymbolicName: {                                                                             \
+		ThisFrame->##Name##IsDown = IsDown;                                                          \
+		ThisFrame->##Name##WasDown = Message.lParam & (1 << 30);                                     \
 		ThisFrame->##Name##IsPressed = (ThisFrame->##Name##IsDown) && !(ThisFrame->##Name##WasDown); \
-		WindowsDebugPrint("" #Name " is %s", ThisFrame->##Name##IsDown ? "down, " : "not down, "); \
-		WindowsDebugPrint("" #Name " was %s", ThisFrame->##Name##WasDown ? "down, " : "not down, "); \
-		if (ThisFrame->##Name##IsPressed) WindowsDebugPrint("" #Name " is pressed!"); \
-		if (LastFrame->##Name##IsPressed) WindowsDebugPrint("" #Name " was pressed last frame, so it shouldn't be pressed now!");\
-		} break;
-		
+	ThisFrame->pKeys[PloreKey_##Name] = ThisFrame->##Name##IsPressed;                                \
+	} break;
+	
+	while (PeekMessageA(&Message, 0, 0, 0, PM_REMOVE)) {
 	    switch (Message.message) {
 	        case WM_KEYDOWN: 
 	        case WM_KEYUP:
@@ -565,50 +562,49 @@ WindowsProcessMessages(windows_context *Context, keyboard_and_mouse *LastFrame, 
 				
 	            if (Message.wParam == VK_ESCAPE) {
 					GlobalRunning = false;
-	                WindowsDebugPrintLine("Escape pressed");
+	                WindowsDebugPrintLine("Exiting");
 	                PostQuitMessage(0);
 	            } else if (IsDown && (u32) Message.wParam == VK_F1) {
 					WindowsToggleFullscreen();
 				} else {
 	                switch (Message.wParam) {
-	                    PROCESS_KEY_CASE('A', A);
-	                    PROCESS_KEY_CASE('B', B);
-	                    PROCESS_KEY_CASE('C', C);
-	                    PROCESS_KEY_CASE('D', D);
-	                    PROCESS_KEY_CASE('E', E);
-	                    PROCESS_KEY_CASE('F', F);
-	                    PROCESS_KEY_CASE('G', G);
-	                    PROCESS_KEY_CASE('H', H);
-	                    PROCESS_KEY_CASE('I', I);
-	                    PROCESS_KEY_CASE('J', J);
-	                    PROCESS_KEY_CASE('K', K);
-	                    PROCESS_KEY_CASE('L', L);
-	                    PROCESS_KEY_CASE('M', M);
-	                    PROCESS_KEY_CASE('N', N);
-	                    PROCESS_KEY_CASE('O', O);
-	                    PROCESS_KEY_CASE('P', P);
-	                    PROCESS_KEY_CASE('Q', Q);
-	                    PROCESS_KEY_CASE('R', R);
-	                    PROCESS_KEY_CASE('S', S);
-	                    PROCESS_KEY_CASE('T', T);
-	                    PROCESS_KEY_CASE('U', U);
-	                    PROCESS_KEY_CASE('V', V);
-	                    PROCESS_KEY_CASE('W', W);
-	                    PROCESS_KEY_CASE('X', X);
-	                    PROCESS_KEY_CASE('Y', Y);
-	                    PROCESS_KEY_CASE('Z', Z);
-	                    PROCESS_KEY_CASE(VK_OEM_2, Slash);
-	                    PROCESS_KEY_CASE(VK_RETURN, Return);
-	                    PROCESS_KEY_CASE(VK_SPACE, Space);
-	                    PROCESS_KEY_CASE(VK_CONTROL, Ctrl);
-	                    PROCESS_KEY_CASE(VK_SHIFT, Shift);
-	                    PROCESS_KEY_CASE(VK_OEM_MINUS, Minus);
-	                    PROCESS_KEY_CASE(VK_OEM_PLUS, Plus);
+	                    PROCESS_KEY('A', A);
+	                    PROCESS_KEY('B', B);
+	                    PROCESS_KEY('C', C);
+	                    PROCESS_KEY('D', D);
+	                    PROCESS_KEY('E', E);
+	                    PROCESS_KEY('F', F);
+	                    PROCESS_KEY('G', G);
+	                    PROCESS_KEY('H', H);
+	                    PROCESS_KEY('I', I);
+	                    PROCESS_KEY('J', J);
+	                    PROCESS_KEY('K', K);
+	                    PROCESS_KEY('L', L);
+	                    PROCESS_KEY('M', M);
+	                    PROCESS_KEY('N', N);
+	                    PROCESS_KEY('O', O);
+	                    PROCESS_KEY('P', P);
+	                    PROCESS_KEY('Q', Q);
+	                    PROCESS_KEY('R', R);
+	                    PROCESS_KEY('S', S);
+	                    PROCESS_KEY('T', T);
+	                    PROCESS_KEY('U', U);
+	                    PROCESS_KEY('V', V);
+	                    PROCESS_KEY('W', W);
+	                    PROCESS_KEY('X', X);
+	                    PROCESS_KEY('Y', Y);
+	                    PROCESS_KEY('Z', Z);
+	                    PROCESS_KEY(VK_OEM_2, Slash);
+	                    PROCESS_KEY(VK_RETURN, Return);
+	                    PROCESS_KEY(VK_SPACE, Space);
+	                    PROCESS_KEY(VK_CONTROL, Ctrl);
+	                    PROCESS_KEY(VK_SHIFT, Shift);
+	                    PROCESS_KEY(VK_OEM_MINUS, Minus);
+	                    PROCESS_KEY(VK_OEM_PLUS, Plus);
 	                    default:
-	                    WindowsDebugPrint("...but not recorded!");
+	                    WindowsDebugPrint("Key not recorded.");
 	                }
 	            }
-	            WindowsDebugPrintLine("");
 	            
 	        } break;
 	        
@@ -617,10 +613,9 @@ WindowsProcessMessages(windows_context *Context, keyboard_and_mouse *LastFrame, 
 			{
 				b32 IsDown = Message.message == WM_LBUTTONDOWN;
 				switch (Message.message) {
-					PROCESS_KEY_CASE(WM_LBUTTONDOWN, MouseLeft);
-					PROCESS_KEY_CASE(WM_LBUTTONUP, MouseLeft);
+					PROCESS_KEY(WM_LBUTTONDOWN, MouseLeft);
+					PROCESS_KEY(WM_LBUTTONUP, MouseLeft);
 				}
-	            WindowsDebugPrintLine("");
 			} break;
 			
 			case WM_RBUTTONDOWN:
@@ -628,10 +623,9 @@ WindowsProcessMessages(windows_context *Context, keyboard_and_mouse *LastFrame, 
 			{
 				b32 IsDown = Message.message == WM_RBUTTONDOWN;
 				switch (Message.message) {
-					PROCESS_KEY_CASE(WM_RBUTTONDOWN, MouseRight);
-					PROCESS_KEY_CASE(WM_RBUTTONUP, MouseRight);
+					PROCESS_KEY(WM_RBUTTONDOWN, MouseRight);
+					PROCESS_KEY(WM_RBUTTONUP, MouseRight);
 				}
-	            WindowsDebugPrintLine("");
 			} break;
 			
 	        // TODO(Evan): Mouse wheel!
@@ -864,7 +858,7 @@ int WinMain (
         /* Grab any new keyboard / mouse / window events from message queue. */
         MSG WindowMessage = {0};
 		
-		WindowsProcessMessages(GlobalWindowsContext, &GlobalPloreInput.LastFrame, &GlobalPloreInput.ThisFrame);
+		WindowsProcessMessages(GlobalWindowsContext, &GlobalPloreInput.ThisFrame);
 		
 		// Mouse input!
 		// TODO(Evan): A more systematic way of handling our window messages vs input?
@@ -924,7 +918,8 @@ int WinMain (
 		}
 		
 		GlobalPloreInput.LastFrame = GlobalPloreInput.ThisFrame;
-#define PLORE_X(Name) GlobalPloreInput.ThisFrame.##Name##IsDown = GlobalPloreInput.LastFrame.##Name##IsDown || GlobalPloreInput.ThisFrame.##Name##IsPressed;
+#define PLORE_X(Name, _Ignored) \
+GlobalPloreInput.ThisFrame.##Name##IsDown = GlobalPloreInput.LastFrame.##Name##IsDown || GlobalPloreInput.ThisFrame.##Name##IsPressed;
 		GlobalPloreInput.ThisFrame = (keyboard_and_mouse) {0};
 		PLORE_KEYBOARD_AND_MOUSE;
 #undef PLORE_X

@@ -29,63 +29,88 @@ typedef struct plore_font {
 	} Fonts[2];
 } plore_font;
 
-// NOTE(Evan):
-// Check for redundancy in X's keysym message pump when this is ported?
-// We could probably map a symbolic name to a key.
-#define PLORE_KEYBOARD_AND_MOUSE \
-PLORE_X(A) \
-PLORE_X(B) \
-PLORE_X(C) \
-PLORE_X(D) \
-PLORE_X(E) \
-PLORE_X(F) \
-PLORE_X(G) \
-PLORE_X(H) \
-PLORE_X(I) \
-PLORE_X(J) \
-PLORE_X(K) \
-PLORE_X(L) \
-PLORE_X(M) \
-PLORE_X(N) \
-PLORE_X(O) \
-PLORE_X(P) \
-PLORE_X(Q) \
-PLORE_X(R) \
-PLORE_X(S) \
-PLORE_X(T) \
-PLORE_X(U) \
-PLORE_X(V) \
-PLORE_X(W) \
-PLORE_X(X) \
-PLORE_X(Y) \
-PLORE_X(Z) \
-PLORE_X(Zero) \
-PLORE_X(One) \
-PLORE_X(Two) \
-PLORE_X(Three) \
-PLORE_X(Four) \
-PLORE_X(Five) \
-PLORE_X(Six) \
-PLORE_X(Seven) \
-PLORE_X(Eight) \
-PLORE_X(Nine) \
-PLORE_X(Ctrl) \
-PLORE_X(Shift)\
-PLORE_X(Space) \
-PLORE_X(Return) \
-PLORE_X(MouseLeft) \
-PLORE_X(MouseRight) \
-PLORE_X(Plus) \
-PLORE_X(Minus) \
-PLORE_X(Slash)
 
-#define PLORE_X(Name) b32 Name##IsPressed; b32 Name##IsDown; b32 Name##WasDown;
+typedef enum interact_state {
+	InteractState_FileExplorer,
+	InteractState_CommandHistory,
+	
+	_InteractState_ForceU64 = 0xFFFFFFFF,
+} interact_state;
+
+#define PLORE_KEYBOARD_AND_MOUSE \
+PLORE_X(A,                "a")                  \
+PLORE_X(B,                "b")                  \
+PLORE_X(C,                "c")                  \
+PLORE_X(D,                "d")                  \
+PLORE_X(E,                "e")                  \
+PLORE_X(F,                "f")                  \
+PLORE_X(G,                "g")                  \
+PLORE_X(H,                "h")                  \
+PLORE_X(I,                "i")                  \
+PLORE_X(J,                "j")                  \
+PLORE_X(K,                "k")                  \
+PLORE_X(L,                "l")                  \
+PLORE_X(M,                "m")                  \
+PLORE_X(N,                "n")                  \
+PLORE_X(O,                "o")                  \
+PLORE_X(P,                "p")                  \
+PLORE_X(Q,                "q")                  \
+PLORE_X(R,                "r")                  \
+PLORE_X(S,                "s")                  \
+PLORE_X(T,                "t")                  \
+PLORE_X(U,                "u")                  \
+PLORE_X(V,                "v")                  \
+PLORE_X(W,                "w")                  \
+PLORE_X(X,                "x")                  \
+PLORE_X(Y,                "y")                  \
+PLORE_X(Z,                "z")                  \
+PLORE_X(Zero,             "0")                  \
+PLORE_X(One,              "1")                  \
+PLORE_X(Two,              "2")                  \
+PLORE_X(Three,            "3")                  \
+PLORE_X(Four,             "4")                  \
+PLORE_X(Five,             "5")                  \
+PLORE_X(Six,              "6")                  \
+PLORE_X(Seven,            "7")                  \
+PLORE_X(Eight,            "8")                  \
+PLORE_X(Nine,             "9")                  \
+PLORE_X(Plus,             "+")                  \
+PLORE_X(Minus,            "-")                  \
+PLORE_X(Slash,            "/")                  \
+PLORE_X(Space,            "<space>")            \
+PLORE_X(Return,           "<ret>")              \
+PLORE_X(Ctrl,             "<ctrl>")             \
+PLORE_X(Shift,            "<shift>")            \
+PLORE_X(MouseLeft,        "<m-l>")              \
+PLORE_X(MouseRight,       "<m-r>")   
+// MAINTENANCE(Evan): None of the symbolic strings should be larger then 8 bytes, including the null terminator.
+
+#define PLORE_X(_Ignored, String) \
+String,
+char *PloreKeyStrings[] = {
+	PLORE_KEYBOARD_AND_MOUSE
+};
+#undef PLORE_X
+
+#define PLORE_X(Name, _Ignored) \
+PloreKey_##Name,
+typedef enum plore_key {
+	PLORE_KEYBOARD_AND_MOUSE
+	PloreKey_Count,
+	_PloreKey_ForceU64 = 0xFFFFFFFF,
+} plore_key;
+#undef PLORE_X
+
+#define PLORE_X(Name, _Ignored) \
+	b32 Name##IsPressed;  \
+	b32 Name##IsDown;     \
+	b32 Name##WasDown;
 typedef struct keyboard_and_mouse {
 	PLORE_KEYBOARD_AND_MOUSE
 		
+	b64 pKeys[PloreKey_Count];
 	v2 MouseP;
     uint32 MouseWheel;
-	
 	b32 CursorIsShowing;
 } keyboard_and_mouse;
 #undef PLORE_X
@@ -148,5 +173,6 @@ enum {
     DEFAULT_WINDOW_WIDTH = 1920,
     DEFAULT_WINDOW_HEIGHT = 1080,
 };
+
 
 #endif
