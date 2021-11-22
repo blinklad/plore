@@ -140,37 +140,18 @@ InsertListing(plore_file_context *Context, plore_file_listing_desc Desc) {
 		Result.Slot->Directory.File.Type = Desc.Type;
 		CStringCopy(Desc.AbsolutePath, Result.Slot->Directory.File.AbsolutePath, PLORE_MAX_PATH);
 		CStringCopy(Desc.FilePart, Result.Slot->Directory.File.FilePart, PLORE_MAX_PATH);
-		directory_entry_result CurrentDirectory = Platform->GetDirectoryEntries(Result.Slot->Directory.File.AbsolutePath, 
-																				Result.Slot->Directory.Entries, 
-																				ArrayCount(Result.Slot->Directory.Entries));
-		if (!CurrentDirectory.Succeeded) {
-			PrintLine("Could not get current directory.");
+		if (Desc.Type == PloreFileNode_Directory) {
+			directory_entry_result CurrentDirectory = Platform->GetDirectoryEntries(Result.Slot->Directory.File.AbsolutePath, 
+																					Result.Slot->Directory.Entries, 
+																					ArrayCount(Result.Slot->Directory.Entries));
+			if (!CurrentDirectory.Succeeded) {
+				PrintLine("Could not get current directory.");
+			}
+			Result.Slot->Directory.Count = CurrentDirectory.Count;
 		}
-		Result.Slot->Directory.Count = CurrentDirectory.Count;
 		Result.Slot->Allocated = true;
 	}
 	
 	if (Result.Slot) Assert(Result.Slot->Allocated);
 	return(Result);
-}
-
-internal b64
-UpdateListingName(plore_file_context *Context, plore_file OldFile, plore_file NewFile) {
-	b64 DidChange = false;
-	plore_file_listing *OldListing = GetListing(Context, OldFile.AbsolutePath);
-	if (OldListing) {
-		// TODO(Evan): Maybe we don't store the metadata with the file, and instead keep a list of yanked files?
-		RemoveListing(Context, OldListing);
-		plore_file_listing_insert_result InsertResult = InsertListing(Context, (plore_file_listing_desc) {
-																				  .Type = NewFile.Type,
-																				  .AbsolutePath = NewFile.AbsolutePath,
-																				  .FilePart = NewFile.FilePart,
-																			  });
-		
-		if (Context->Current == OldListing) Context->Current = &InsertResult.Slot->Directory;
-	}
-		
-	// NOTE(Evan): Update the context's current if required.
-	// Unless the caller wants to?
-	return(DidChange);
 }
