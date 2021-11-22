@@ -11,12 +11,7 @@ global platform_debug_print *Print;
 #define STB_TRUETYPE_IMPLEMENTATION  // force following include to generate implementation
 #include "stb_truetype.h"
 
-typedef enum interact_state {
-	InteractState_FileExplorer,
-	InteractState_CommandHistory,
-	
-	_InteractState_ForceU64 = 0xFFFFFFFF,
-} interact_state;
+
 typedef struct plore_state {
 	b64 Initialized;
 	f64 DT;
@@ -50,6 +45,8 @@ IsSelected(plore_file_context *Context, plore_file_listing *Selectee);
 internal void
 ToggleSelected(plore_file_context *Context, plore_file_listing *Selectee);
 
+internal char *
+PloreKeysToString(memory_arena *Arena, plore_key *Keys, u64 KeyCount);
 
 typedef struct plore_current_directory_state {
 	plore_file_listing *Current;
@@ -105,17 +102,18 @@ FontInit(memory_arena *Arena, char *Path) {
 }
 
 PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
-	memory_arena *Arena = &PloreMemory->PermanentStorage;
-	plore_state *State = (plore_state *)Arena->Memory;
+	plore_state *State = (plore_state *)PloreMemory->PermanentStorage.Memory;
 	
 	if (!State->Initialized) {
 		PlatformInit(PlatformAPI);
+		State = PushStruct(&PloreMemory->PermanentStorage, plore_state);
 		
-		State = PushStruct(Arena, plore_state);
 		State->Initialized = true;
 		State->Memory = PloreMemory;
+		State->FrameArena = SubArena(&State->Memory->PermanentStorage, Megabytes(32), 16);
+		
+		// MAINTENANCE(Evan): Don't copy the main arena by value until we've allocated the frame arena.
 		State->Arena = PloreMemory->PermanentStorage;
-		State->FrameArena = SubArena(Arena, Megabytes(32), 16);
 		
 		State->FileContext = PushStruct(&State->Arena, plore_file_context);
 		State->FileContext->Current = PushStruct(&State->Arena, plore_file_listing);
@@ -130,13 +128,14 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 #endif
 		
 		State->VimContext = PushStruct(&State->Arena, plore_vim_context);
+		State->VimContext->MaxCommandCount = 2; // @Hack
 		
 		State->RenderList = PushStruct(&State->Arena, plore_render_list);
 		State->RenderList->Font = State->Font;
 		
 		State->VimguiContext = PushStruct(&State->Arena, plore_vimgui_context);
 		VimguiInit(State->VimguiContext, State->RenderList);
-			
+		
 	}
 	
 	
@@ -150,249 +149,262 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 #endif
 	
 	plore_file_context *FileContext = State->FileContext;
-	keyboard_and_mouse Input = PloreInput->ThisFrame;
+	keyboard_and_mouse BufferedInput = PloreInput->ThisFrame;
 	
 	local f32 LastTime;
 	State->DT = PloreInput->Time - LastTime;
 	LastTime = PloreInput->Time;
 	
 	// CLEANUP(Evan): We Begin() here as the render list is shared for debug draw purposes right now.
-	VimguiBegin(State->VimguiContext, Input, PlatformAPI->WindowDimensions);
+	VimguiBegin(State->VimguiContext, BufferedInput, PlatformAPI->WindowDimensions);
 	
 	plore_current_directory_state DirectoryState = SynchronizeCurrentDirectory(State);
 	
-	local char Commands[32] = {0};
-	local char YankCommand[] = { 'y', 'y', };
-	local char PasteCommand[] = { 'p', 'p', };
-	local char ClearYankCommand[] = { 'u', 'y', };
-	local char MoveLeftCommand[] = { 'h' };
-	local char MoveRightCommand[] = { 'l' };
-	local char MoveUpCommand[] = { 'k' };
-	local char MoveDownCommand[] = { 'j' };
-	local char SelectCommand[] = { ' ' };
-	
-	local u64 MaxCommandCount = 2;
-	local u64 CommandCount = 0;
-	
-	local b64 AteCommands = 0;
 	
 	
-	// NOTE(Evan): Buffered input.
-	local u64 JCount = 0;
-	local u64 KCount = 0;
-	if (Input.OIsPressed) {
+	if (BufferedInput.OIsPressed) {
 		State->InteractState = ToggleFlag(State->InteractState, InteractState_CommandHistory);
 	}
 	
-	if (Input.JIsDown) JCount++;
-	else JCount = 0;
-	if (JCount > 20) JCount = 10;
+	//ThisFrame->InputChar = SymbolicName + (ThisFrame->ShiftIsDown ? 32 : 0); \
+	// NOTE(Evan): Buffered input.
+#define PLORE_X(Key, _Ignored) local u64 Key##Count = 0;
+	PLORE_KEYBOARD_AND_MOUSE
+#undef PLORE_X
 	
-	if (Input.KIsDown) KCount++;
-	else KCount = 0;
-	if (KCount > 20) KCount = 10;
-	
-	
-	
-	b64 DidInput = true;
-	if (Input.YIsPressed) {
-		Commands[CommandCount++] = 'y';
-	} else if (Input.UIsPressed) { // Undo
-		Commands[CommandCount++] = 'u';
-	} else if (Input.PIsPressed) { // Paste
-		Commands[CommandCount++] = 'p';
-	} else if (Input.SpaceIsPressed) { // Select
-		Commands[CommandCount++] = ' '; // TODO(Evan): Command tokens?
-	} else if (Input.JIsPressed || JCount == 20) {
-		Commands[CommandCount++] = 'j';
-	} else if (Input.KIsPressed || KCount == 20) {
-		Commands[CommandCount++] = 'k';
-	} else if (Input.HIsPressed) {
-		Commands[CommandCount++] = 'h';
-	} else if (Input.LIsPressed) {
-		Commands[CommandCount++] = 'l';
-	} else {
-		DidInput = false;
+#define PLORE_X(Key, _Ignored) \
+	if (BufferedInput.##Key##IsDown) Key##Count++;                    \
+	else Key##Count = 0;                                              \
+	if (Key##Count > 20) { Key##Count = 10; }                         \
+	else if (Key##Count == 20) {                                      \
+		BufferedInput.##Key##IsPressed = true;                        \
+		BufferedInput.pKeys[PloreKey_##Key##] = true;                 \
 	}
 	
-	b64 DoSelect = MemoryCompare(Commands, SelectCommand, ArrayCount(SelectCommand)) == 0;
-	b64 DoMoveLeft = MemoryCompare(Commands, MoveLeftCommand, ArrayCount(MoveLeftCommand)) == 0;
-	b64 DoMoveRight = MemoryCompare(Commands, MoveRightCommand, ArrayCount(MoveRightCommand)) == 0;
-	b64 DoMoveUp = MemoryCompare(Commands, MoveUpCommand, ArrayCount(MoveUpCommand)) == 0;
-	b64 DoMoveDown = MemoryCompare(Commands, MoveDownCommand, ArrayCount(MoveDownCommand)) == 0;
-	b64 DoYank = MemoryCompare(Commands, YankCommand, ArrayCount(YankCommand)) == 0;
-	b64 DoPaste = MemoryCompare(Commands, PasteCommand, ArrayCount(PasteCommand)) == 0;
-	b64 ClearYank = MemoryCompare(Commands, ClearYankCommand, ArrayCount(ClearYankCommand)) == 0;
-	b64 HasCommand = DoSelect || DoYank || DoPaste || ClearYank || DoMoveLeft || DoMoveRight || DoMoveUp || DoMoveDown;
+	PLORE_KEYBOARD_AND_MOUSE
+#undef PLORE_X
 	
 	
+	local plore_key RegisteredKeys[] = { 
+		PloreKey_Y,
+		PloreKey_U,
+		PloreKey_P,
+		PloreKey_Space,
+		PloreKey_J,
+		PloreKey_K,
+		PloreKey_H,
+		PloreKey_L,
+	};
+	
+	b64 DidInput = false;
+	if (State->VimContext->CommandKeyCount < ArrayCount(State->VimContext->CommandKeys)) {
+		for (u64 K = 0; K < ArrayCount(RegisteredKeys); K++) {
+			if (BufferedInput.pKeys[RegisteredKeys[K]]) {
+				State->VimContext->CommandKeys[State->VimContext->CommandKeyCount++] = RegisteredKeys[K];
+				DidInput = true;
+				break;
+			}
+		}
+	}
+	
+	local plore_key LastCommand[32] = {0};
+	local u64 LastCommandCount = 0;
+	if (DidInput) {
+		MemoryCopy(State->VimContext->CommandKeys, LastCommand, ArrayCount(LastCommand));
+		LastCommandCount = State->VimContext->CommandKeyCount;
+	}
+	vim_command Command = MakeCommand(State->VimContext);
+	
+	
+	local b64 AteCommands = 0;
 	//
 	// NOTE(Evan): Vim command processing
 	//
-	if (HasCommand) {
+	if (Command.Type != VimCommandType_None) {
 		switch (State->InteractState) {
 			case (InteractState_FileExplorer): {
-				if (DoYank) {
-					u64 YankeeCount = 0;
+				switch (Command.Type) {
+					case VimCommandType_Yank: {
 					if (FileContext->SelectedCount) { // Yank selection if there is any.
 						MemoryCopy(FileContext->Selected, FileContext->Yanked, ArrayCount(FileContext->Yanked));
 						FileContext->YankedCount = FileContext->SelectedCount;
-						DrawText("Yanked %d selected guys.", FileContext->YankedCount);
-						YankeeCount = FileContext->SelectedCount;
-					} else if (DirectoryState.Cursor && !IsYanked(FileContext, DirectoryState.Cursor)) { // Otherwise, yank cursor.
-						FileContext->Yanked[0] = DirectoryState.Cursor;
-						PrintLine("DirectoryState.Cursor : %d, Yanked[0] : %d", DirectoryState.Cursor, FileContext->Yanked[0]);
-						DrawText("Yanked %s!", FileContext->Yanked[0]->File.FilePart);
-						FileContext->YankedCount = 1;
-						YankeeCount = 1;
-					}
-					
-					PushVimCommand(State->VimContext, (vim_command) {
-						.Type = VimCommandType_Yank,
-						.Yank = {
-							.YankeeCount = YankeeCount,
-						},
-				   });
-					
-				} else if (ClearYank) {
-					if (FileContext->YankedCount) {
-						DrawText("Unyanked %s!", FileContext->Yanked[0]->File.FilePart);
-						FileContext->YankedCount = 0;
+						DrawText("Yanked %d guys.", FileContext->YankedCount);
+							
 						PushVimCommand(State->VimContext, (vim_command) {
-							.Type = VimCommandType_ClearYank,
-							.ClearYank = {
-								.YankeeCount = FileContext->YankedCount,
-							},
-					   });
-					}
-					// TODO(Evan): Invalidate the yankees' directory's cursor.
-				} else if (DoPaste) {
-					if (FileContext->YankedCount) { // @Cleanup
-						u64 PastedCount = 0;
-						plore_file_listing *Current = DirectoryState.Current;
-						u64 WeAreTopLevel = Platform->IsPathTopLevel(Current->File.AbsolutePath, PLORE_MAX_PATH);
-						for (u64 M = 0; M < FileContext->YankedCount; M++) {
-							plore_file_listing *Movee = FileContext->Yanked[M];
-							
-							char NewPath[PLORE_MAX_PATH] = {0};
-							u64 BytesWritten = CStringCopy(Current->File.AbsolutePath, NewPath, PLORE_MAX_PATH);
-							Assert(BytesWritten < PLORE_MAX_PATH - 1);
-							if (!WeAreTopLevel) {
-								NewPath[BytesWritten++] = '\\';
-							}
-							CStringCopy(Movee->File.FilePart, NewPath + BytesWritten, PLORE_MAX_PATH);
-							
-							b64 DidMoveOk = Platform->MoveFile(Movee->File.AbsolutePath, NewPath);
-							if (DidMoveOk) {
-								char MoveeCopy[PLORE_MAX_PATH] = {0};
-								CStringCopy(Movee->File.AbsolutePath, MoveeCopy, PLORE_MAX_PATH);
-								
-								RemoveListing(FileContext, Movee);
-								
-								if (!Platform->IsPathTopLevel(Movee->File.AbsolutePath, PLORE_MAX_PATH)) {
-									Platform->PopPathNode(MoveeCopy, PLORE_MAX_PATH, false);
-									plore_file_listing *Parent = GetListing(FileContext, MoveeCopy);
-									if (Parent) {
-										RemoveListing(FileContext, Parent);
-									}
-								}
-								
-								PastedCount++;
-							} else {
-								DrawText("Couldn't paste `%s`", Movee->File.FilePart);
-							}
+										   .State = InteractState_FileExplorer,
+										   .Type = VimCommandType_Yank,
+										   .Yank = {
+											   .YankeeCount = FileContext->YankedCount,
+										   },
+									   });
+					} 
+					
+					} break;
+					case VimCommandType_ClearYank: {
+						if (FileContext->YankedCount) {
+							DrawText("Unyanked %s!", FileContext->Yanked[0]->File.FilePart);
+							FileContext->YankedCount = 0;
+							PushVimCommand(State->VimContext, (vim_command) {
+											   .State = InteractState_FileExplorer,
+											   .Type = VimCommandType_ClearYank,
+											   .ClearYank = {
+												   .YankeeCount = FileContext->YankedCount,
+											   },
+										   });
 						}
-						DrawText("Pasted %d items!", PastedCount);
-						
-						if (DirectoryState.Current) RemoveListing(FileContext, DirectoryState.Current);
-						
-						PushVimCommand(State->VimContext, (vim_command) {
-							.Type = VimCommandType_Paste,
-							.Paste = {
-								.PasteeCount = PastedCount,
-							},
-						});
-						
-						DirectoryState = SynchronizeCurrentDirectory(State);
-						FileContext->YankedCount = 0;
-						FileContext->SelectedCount = 0;
-						
-					}
-				} else if (DoMoveLeft) {
-					char Buffer[PLORE_MAX_PATH] = {0};
-					Platform->GetCurrentDirectory(Buffer, PLORE_MAX_PATH);
+						// TODO(Evan): Invalidate the yankees' directory's cursor.
+					} break;
+					case VimCommandType_Paste: {
+						if (FileContext->YankedCount) { // @Cleanup
+							u64 PastedCount = 0;
+							plore_file_listing *Current = DirectoryState.Current;
+							u64 WeAreTopLevel = Platform->IsPathTopLevel(Current->File.AbsolutePath, PLORE_MAX_PATH);
+							for (u64 M = 0; M < FileContext->YankedCount; M++) {
+								plore_file_listing *Movee = FileContext->Yanked[M];
+								
+								char NewPath[PLORE_MAX_PATH] = {0};
+								u64 BytesWritten = CStringCopy(Current->File.AbsolutePath, NewPath, PLORE_MAX_PATH);
+								Assert(BytesWritten < PLORE_MAX_PATH - 1);
+								if (!WeAreTopLevel) {
+									NewPath[BytesWritten++] = '\\';
+								}
+								CStringCopy(Movee->File.FilePart, NewPath + BytesWritten, PLORE_MAX_PATH);
+								
+								b64 DidMoveOk = Platform->MoveFile(Movee->File.AbsolutePath, NewPath);
+								if (DidMoveOk) {
+									char MoveeCopy[PLORE_MAX_PATH] = {0};
+									CStringCopy(Movee->File.AbsolutePath, MoveeCopy, PLORE_MAX_PATH);
+									
+									RemoveListing(FileContext, Movee);
+									
+									if (!Platform->IsPathTopLevel(Movee->File.AbsolutePath, PLORE_MAX_PATH)) {
+										Platform->PopPathNode(MoveeCopy, PLORE_MAX_PATH, false);
+										plore_file_listing *Parent = GetListing(FileContext, MoveeCopy);
+										if (Parent) {
+											RemoveListing(FileContext, Parent);
+										}
+									}
+									
+									PastedCount++;
+								} else {
+									DrawText("Couldn't paste `%s`", Movee->File.FilePart);
+								}
+							}
+							DrawText("Pasted %d items!", PastedCount);
+							
+							if (DirectoryState.Current) RemoveListing(FileContext, DirectoryState.Current);
+							
+							PushVimCommand(State->VimContext, (vim_command) {
+											   .State = InteractState_FileExplorer,
+											   .Type = VimCommandType_Paste,
+											   .Paste = {
+												   .PasteeCount = PastedCount,
+											   },
+										   });
+							
+							DirectoryState = SynchronizeCurrentDirectory(State);
+							FileContext->YankedCount = 0;
+							MemoryClear(FileContext->Yanked, ArrayCount(FileContext->Yanked));
+							
+							FileContext->SelectedCount = 0;
+							MemoryClear(FileContext->Selected, ArrayCount(FileContext->Selected));
+						}
+					} break;
+					case VimCommandType_Movement: {
+						switch (Command.Movement.Direction) {
+							case Left: {
+								char Buffer[PLORE_MAX_PATH] = {0};
+								Platform->GetCurrentDirectory(Buffer, PLORE_MAX_PATH);
+								
+								Print("Moving up a directory, from %s ", Buffer);
+								Platform->PopPathNode(Buffer, PLORE_MAX_PATH, false);
+								PrintLine("to %s", Buffer);
+								
+								Platform->SetCurrentDirectory(Buffer);
+								
+								PushVimCommand(State->VimContext, (vim_command) {
+												   .State = InteractState_FileExplorer,
+												   .Type = VimCommandType_Movement,
+												   .Movement = {
+													   .Direction = Left,
+												   },
+											   });
+							} break;
+							case Right: {
+								// move right
+								plore_file *CursorEntry = FileContext->Current->Entries + FileContext->Current->Cursor;
+							
+								if (CursorEntry->Type == PloreFileNode_Directory) {
+									PrintLine("Moving down a directory, from %s to %s", FileContext->Current->File.AbsolutePath, CursorEntry->AbsolutePath);
+									Platform->SetCurrentDirectory(CursorEntry->AbsolutePath);
+									
+									PushVimCommand(State->VimContext, (vim_command) {
+													   .State = InteractState_FileExplorer,
+													   .Type = VimCommandType_Movement,
+													   .Movement = {
+														   .Direction = Right,
+													   },
+												   });
+								}
+							} break;
+							
+							case Up: {
+								if (FileContext->Current->Count) {
+									if (FileContext->Current->Cursor == 0) {
+										FileContext->Current->Cursor = FileContext->Current->Count-1;
+									} else {
+										FileContext->Current->Cursor -= 1;
+									}
+									
+									PushVimCommand(State->VimContext, (vim_command) {
+													   .State = InteractState_FileExplorer,
+													   .Type = VimCommandType_Movement,
+													   .Movement = {
+														   .Direction = Up,
+													   },
+												   });
+								}
+							} break;
+							
+							case Down: {
+									FileContext->Current->Cursor = (FileContext->Current->Cursor + 1) % FileContext->Current->Count;
+									PushVimCommand(State->VimContext, (vim_command) {
+													   .State = InteractState_FileExplorer,
+													   .Type = VimCommandType_Movement,
+													   .Movement = {
+														   .Direction = Down,
+													   },
+												   });
+							} break;
+						} break;
+					} break;
 					
-					Print("Moving up a directory, from %s ...", Buffer);
-					Platform->PopPathNode(Buffer, PLORE_MAX_PATH, false);
-					PrintLine("to %s ...", Buffer);
-					
-					Platform->SetCurrentDirectory(Buffer);
-					
-					PushVimCommand(State->VimContext, (vim_command) {
-						.Type = VimCommandType_Movement,
-						.Movement = {
-							.Direction = Left,
-						},
-				   });
-				} else if (DoMoveRight) {
-					plore_file *CursorEntry = FileContext->Current->Entries + FileContext->Current->Cursor;
-					
-					if (CursorEntry->Type == PloreFileNode_Directory) {
-						PrintLine("Moving down a directory, from %s to %s", FileContext->Current->File.AbsolutePath, CursorEntry->AbsolutePath);
-						Platform->SetCurrentDirectory(CursorEntry->AbsolutePath);
-						
-						PushVimCommand(State->VimContext, (vim_command) {
-							.Type = VimCommandType_Movement,
-							.Movement = {
-								.Direction = Right,
-							},
-					   });
-					}
-					
-				} else if (DoMoveUp && FileContext->Current->Count) {
-					if (FileContext->Current->Cursor == 0) {
-						FileContext->Current->Cursor = FileContext->Current->Count-1;
-					} else {
-						FileContext->Current->Cursor -= 1;
-					}
-					
-					PushVimCommand(State->VimContext, (vim_command) {
-						.Type = VimCommandType_Movement,
-						.Movement = {
-							.Direction = Up,
-						},
-				   });
-				} else if (DoMoveDown && FileContext->Current->Count) {
-					FileContext->Current->Cursor = (FileContext->Current->Cursor + 1) % FileContext->Current->Count;
-					PushVimCommand(State->VimContext, (vim_command) {
-						.Type = VimCommandType_Movement,
-						.Movement = {
-							.Direction = Down,
-						},
-				   });
-				} else if (DoSelect) {
-					if (DirectoryState.Cursor) {
-						ToggleSelected(FileContext, DirectoryState.Cursor);
-						
-						PushVimCommand(State->VimContext, (vim_command) {
-							.Type = VimCommandType_Select,
-							.Select = {
-								.SelectCount = 1,
-							},
-					   });
-					}
-				}
+					case VimCommandType_Select: {
+						if (DirectoryState.Cursor) {
+							ToggleSelected(FileContext, DirectoryState.Cursor);
+							
+							PushVimCommand(State->VimContext, (vim_command) {
+											   .State = InteractState_FileExplorer,
+											   .Type = VimCommandType_Select,
+											   .Select = {
+												   .SelectCount = 1,
+											   },
+										   });
+						}
+					} break;
 			
-				AteCommands = true;
-			} break;
-			case InteractState_CommandHistory: {
-				PrintLine("Command history mode.");
-			} break;
-			
-			default: {
-			} break;
+				default: {
+				} break;
 		}
-	} else if (CommandCount == MaxCommandCount) {
+			
+		AteCommands = true;
+		} break;
+		case InteractState_CommandHistory: {
+			PrintLine("Command history mode.");
+		} break;
+			
+		}
+	} else if (State->VimContext->CommandKeyCount == State->VimContext->MaxCommandCount) {
 		AteCommands = true;
 	}
 	
@@ -433,16 +445,12 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		},
 	};
 	
-	local char LastCommand[32] = {0};
-	if (DidInput) {
-		MemoryCopy(Commands, LastCommand, ArrayCount(LastCommand));
-	}
 	
 	if (Window(State->VimguiContext, (vimgui_window_desc) {
-					   .Title = FileContext->Current->File.AbsolutePath,
-					   .Rect = { .P = V2(0, 0), .Span = { PlatformAPI->WindowDimensions.X, PlatformAPI->WindowDimensions.Y - FooterHeight } },
-					   .Colour = V4(0.10, 0.1, 0.1, 1.0f),
-				   })) {
+				   .Title = FileContext->Current->File.AbsolutePath,
+				   .Rect = { .P = V2(0, 0), .Span = { PlatformAPI->WindowDimensions.X, PlatformAPI->WindowDimensions.Y - FooterHeight } },
+				   .Colour = V4(0.10, 0.1, 0.1, 1.0f),
+			   })) {
 		
 		for (u64 Col = 0; Col < Cols; Col++) {
 			v2 P      = V2(X, 0);
@@ -455,10 +463,10 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			
 			char *Title = Listing->File.FilePart;
 			if (Window(State->VimguiContext, (vimgui_window_desc) {
-							   .Title      = Title,
-							   .Rect       = {P, Span}, 
-							   .Colour     = Colour,
-						       .ForceFocus = Directory->Focus })) { // TODO(Evan): Does this do anything?
+						   .Title      = Title,
+						   .Rect       = {P, Span}, 
+						   .Colour     = Colour,
+						   .ForceFocus = Directory->Focus })) { // TODO(Evan): Does this do anything?
 				
 				for (u64 Row = 0; Row < Listing->Count; Row++) {
 					v4 Colour = {0};
@@ -466,18 +474,19 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 					if (Listing->Cursor == Row) {
 						Colour = V4(0.5, 0.3, 0.3, 0.35);
 					} else if (RowEntry) {
-						if (IsYanked(FileContext, RowEntry)) {
-							Colour = V4(0.3, 0.3, 0.4, 0.45);
-						} else if (IsSelected(FileContext, RowEntry)) {
+						if (IsSelected(FileContext, RowEntry)) {
 							Colour = V4(0.35, 0.4, 0.4, 0.20);
 						}
+						if (IsYanked(FileContext, RowEntry)) {
+							Colour = V4(0.3, 0.3, 0.4, 0.45);
+						} 
 					} 
 					if (Button(State->VimguiContext, (vimgui_button_desc) {
-									   .Title = Listing->Entries[Row].FilePart,
-									   .FillWidth = true,
-									   .Centre = true,
-									   .Colour = Colour,
-								   })) {
+								   .Title = Listing->Entries[Row].FilePart,
+								   .FillWidth = true,
+								   .Centre = true,
+								   .Colour = Colour,
+							   })) {
 						Listing->Cursor = Row;
 						PrintLine("Button %s was clicked!", Listing->Entries[Row].FilePart);
 						if (Listing->Entries[Row].Type == PloreFileNode_Directory) {
@@ -495,11 +504,11 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		
 		b64 Hidden = State->InteractState != InteractState_CommandHistory;
 		if (Window(State->VimguiContext, (vimgui_window_desc) {
-						   .Title      = "Command History",
-						   .Rect       = { DivideVec2f(PlatformAPI->WindowDimensions, 2), V2(400, 400) }, 
-						   .Colour     = V4(1, 1, 1, 0.1),
-						   .Hidden = Hidden,
-						   .ForceFocus = !Hidden})) {
+					   .Title      = "Command History",
+					   .Rect       = { DivideVec2f(PlatformAPI->WindowDimensions, 2), V2(400, 400) }, 
+					   .Colour     = V4(1, 1, 1, 0.1),
+					   .Hidden = Hidden,
+					   .ForceFocus = !Hidden})) {
 			for (u64 C = 0; C < State->VimContext->VimCommandCount; C++) {
 				if (C == 10) break;
 				vim_command *Command = State->VimContext->VimCommands + C;
@@ -539,17 +548,18 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 					
 				}
 				if (Button(State->VimguiContext, (vimgui_button_desc) {
-								   .Title = Title,
-								   .ID = (u64) Command,
-								   .FillWidth = true,
-								   .Centre = true,
-							   })) {
+							   .Title = Title,
+							   .ID = (u64) Command,
+							   .FillWidth = true,
+							   .Centre = true,
+						   })) {
 				}
 			}
 			
 			WindowEnd(State->VimguiContext);
 		}
 		
+#if 1
 		if (DirectoryState.Cursor) {
 			char CursorInfo[512] = {0};
 			StringPrintSized(CursorInfo, 
@@ -557,23 +567,26 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 						     "[%s] %s 01-02-3 %s", 
 						     (DirectoryState.Cursor->File.Type == PloreFileNode_Directory) ? "DIR" : "FILE", 
 						     DirectoryState.Cursor->File.FilePart,
-							 LastCommand);
+							 PloreKeysToString(&State->FrameArena, LastCommand, LastCommandCount));
 			
 			if (Button(State->VimguiContext, (vimgui_button_desc) {
 						   .Title = CursorInfo,
 						   .Rect = { 
-							   .P = V2(0, PlatformAPI->WindowDimensions.X + FooterHeight), .Span = V2(PlatformAPI->WindowDimensions.X, FooterHeight + PadY)
+								   .P = V2(0, PlatformAPI->WindowDimensions.X + FooterHeight), 
+								   .Span = V2(PlatformAPI->WindowDimensions.X, FooterHeight + PadY)
 						   },
 					   })) {
 			}
 			
 		}
+#endif
+		
 		WindowEnd(State->VimguiContext);
 	}
 	
 	if (AteCommands) {
-		CommandCount = 0;
-		MemoryClear(Commands, ArrayCount(Commands));
+		State->VimContext->CommandKeyCount = 0;
+		MemoryClear(State->VimContext->CommandKeys, ArrayCount(State->VimContext->CommandKeys));
 		AteCommands = false;
 	}
 	
@@ -611,6 +624,8 @@ IsSelected(plore_file_context *Context, plore_file_listing *Selectee) {
 
 internal void
 ToggleSelected(plore_file_context *Context, plore_file_listing *Selectee) {
+	Assert(Selectee);
+	
 	// NOTE(Evan): Toggle and return if its in the list.
 	for (u64 S = 0; S < Context->SelectedCount; S++) {
 		plore_file_listing *It = Context->Selected[S];
@@ -624,6 +639,7 @@ ToggleSelected(plore_file_context *Context, plore_file_listing *Selectee) {
 	
 	// NOTE(Evan): Otherwise, add it to the list.
 	Context->Selected[Context->SelectedCount++] = Selectee;
+	DrawText("There are now %d selected items.", Context->SelectedCount);
 }
 
 
@@ -685,3 +701,22 @@ PrintDirectory(plore_file_listing *Directory) {
 	}
 	PrintLine("");
 }
+
+
+internal char *
+PloreKeysToString(memory_arena *Arena, plore_key *Keys, u64 KeyCount) {
+	u64 Size = KeyCount*8+1;
+	u64 Count = 0;
+	if (!KeyCount || !Keys) return("");
+	
+	char *Result = PushBytes(Arena, Size);
+	char *Buffer = Result; 
+	
+	for (u64 K = 0; K < KeyCount; K++) {
+		Count += CStringCopy(PloreKeyStrings[Keys[K]], Buffer, Size - Count);
+		Buffer += Count;
+	}
+	
+	return(Result);
+}
+	
