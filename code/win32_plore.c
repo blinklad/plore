@@ -238,7 +238,9 @@ PLATFORM_GET_DIRECTORY_ENTRIES(WindowsGetDirectoryEntries) {
 				File->Type = PloreFileNode_Directory;
 			} else { // NOTE(Evan): Assume a 'normal' file.
 				File->Type = PloreFileNode_File;
+				File->Extension = GetFileExtension(FindData.cFileName).Extension;
 			} 
+			
 			
 			u64 BytesWritten = CStringCopy(DirectoryName, File->AbsolutePath, ArrayCount(File->AbsolutePath));
 			Assert(BytesWritten < ArrayCount(File->AbsolutePath) - 2); // NOTE(Evan): For trailing '\';
@@ -411,16 +413,14 @@ WindowsCreateAndShowOpenGLWindow(HINSTANCE Instance) {
 		
         HMODULE opengl32_dll = LoadLibraryA("opengl32.dll");
 		
-#define PLORE_X(name, ret, args) \
-name = (PFN_ ## name) wglGetProcAddress(#name);\
-if (!name) { \
-name = (PFN_ ## name) GetProcAddress(opengl32_dll, #name);\
-}\
-		
-        PLORE_GL_FUNCS
-#undef PLORE_X
-		
-		
+		#define PLORE_X(Name, Return, Args) \
+		Name = (PFN_ ## Name) wglGetProcAddress(#Name);\
+		if (!Name) { \
+		Name = (PFN_ ## Name) GetProcAddress(opengl32_dll, #Name);\
+		}\
+				
+		        PLORE_GL_FUNCS
+		#undef PLORE_X
 		
         wglMakeCurrent(WindowsContext.DeviceContext, 0);
         wglDeleteContext(WindowsContext.OpenGLContext);
