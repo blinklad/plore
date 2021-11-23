@@ -1,23 +1,11 @@
 #ifndef PLORE_PLATFORM
 #define PLORE_PLATFORM
 
-typedef enum plore_file_node { 
-	PloreFileNode_File, 
-	PloreFileNode_Directory 
-} plore_file_node;
-#define PLORE_MAX_PATH 256
-
-typedef struct plore_file {
-	char AbsolutePath[PLORE_MAX_PATH];
-	char FilePart[PLORE_MAX_PATH];
-	plore_file_node Type;
-} plore_file;
-
-
+#include "plore_file.h"
 typedef struct platform_readable_file {
     void *Opaque;
-    uint64 FileSize;
-    bool32 OpenedSuccessfully;
+    u64 FileSize;
+    b64 OpenedSuccessfully;
 } platform_readable_file;
 
 
@@ -29,8 +17,8 @@ typedef PLATFORM_DEBUG_CLOSE_FILE(platform_debug_close_file);
 
 typedef struct platform_read_file_result {
     void *Buffer;
-    uint64 BytesRead;
-    bool32 ReadSuccessfully;
+    u64 BytesRead;
+    b64 ReadSuccessfully;
 } platform_read_file_result;
 #define PLATFORM_DEBUG_READ_ENTIRE_FILE(name) platform_read_file_result name(platform_readable_file File, void *Buffer, uint64 BufferSize)
 typedef PLATFORM_DEBUG_READ_ENTIRE_FILE(platform_debug_read_entire_file);
