@@ -21,8 +21,6 @@ typedef char GLchar;
 #define OPENGL_DEBUG_CALLBACK(name) void APIENTRY name (GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, const void *userParam)
 typedef OPENGL_DEBUG_CALLBACK(opengl_debug_callback);
 
-// wgl extensions
-// defining prototypes works too, but it might be useful to define only the functions we need.
 #define PLORE_GL_FUNCS \
     PLORE_X(wglCreateContextAttribsARB,        HGLRC, (HDC hDC, HGLRC hshareContext, const int *attribList)) \
     PLORE_X(wglChoosePixelFormatARB,           BOOL,  (HDC hDC, const int *piAttribIList, const float *pfAttribFList, UINT nMaxFormats, int *piFormats, UINT *nNumFormats)) \
@@ -32,14 +30,12 @@ typedef OPENGL_DEBUG_CALLBACK(opengl_debug_callback);
 #pragma warning(push) 
 #pragma warning(disable : 4028) // C4028 'formal parameter 3 different from declaration'
 
-// generate GL function pointer typedefs
-#define PLORE_X(name, ret, args) typedef ret (WINAPI *PFN_ ## name) args;
+#define PLORE_X(Name, Return, Args) typedef Return (WINAPI *PFN_ ## Name) Args;
 PLORE_GL_FUNCS
 #undef PLORE_X
 
 
-// generate GL function pointers
-#define PLORE_X(name, ret, args) static PFN_ ## name name;
+#define PLORE_X(Name, Ret, Args) static PFN_ ## Name Name;
 PLORE_GL_FUNCS
 #undef PLORE_X
 
