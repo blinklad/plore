@@ -140,15 +140,24 @@ PLATFORM_TOGGLE_FULLSCREEN(WindowsToggleFullscreen) {
 
 PLATFORM_GET_CURRENT_DIRECTORY(WindowsGetCurrentDirectory) {
 	plore_get_current_directory_result Result = {
-		.AbsolutePath = Buffer,
+		.Absolute = Buffer,
 	};
 	
-	GetCurrentDirectory(BufferSize, Result.AbsolutePath);
-	Result.FilePart = PathFindFileName(Result.AbsolutePath);
+	GetCurrentDirectory(BufferSize, Result.Absolute);
+	Result.FilePart = PathFindFileName(Result.Absolute);
 	
 	return(Result);
 }
 
+PLATFORM_GET_CURRENT_DIRECTORY_PATH(WindowsGetCurrentDirectoryPath) {
+	plore_path Result = {0};
+	
+	GetCurrentDirectory(ArrayCount(Result.Absolute), Result.Absolute);
+	char *FilePart = PathFindFileName(Result.Absolute);
+	CStringCopy(FilePart, Result.FilePart, ArrayCount(Result.FilePart));
+	
+	return(Result);
+}
 PLATFORM_SET_CURRENT_DIRECTORY(WindowsSetCurrentDirectory) {
 	b64 Result = SetCurrentDirectory(Name);
 	
@@ -239,17 +248,19 @@ PLATFORM_GET_DIRECTORY_ENTRIES(WindowsGetDirectoryEntries) {
 			} else { // NOTE(Evan): Assume a 'normal' file.
 				File->Type = PloreFileNode_File;
 				File->Extension = GetFileExtension(FindData.cFileName).Extension;
+				if (File->Extension == PloreFileExtension_BAT) {
+				}
 			} 
 			
 			
-			u64 BytesWritten = CStringCopy(DirectoryName, File->AbsolutePath, ArrayCount(File->AbsolutePath));
-			Assert(BytesWritten < ArrayCount(File->AbsolutePath) - 2); // NOTE(Evan): For trailing '\';
+			u64 BytesWritten = CStringCopy(DirectoryName, File->Path.Absolute, ArrayCount(File->Path.Absolute));
+			Assert(BytesWritten < ArrayCount(File->Path.Absolute) - 2); // NOTE(Evan): For trailing '\';
 			
-			if (!IsDirectoryRoot) File->AbsolutePath[BytesWritten++] = '\\';
+			if (!IsDirectoryRoot) File->Path.Absolute[BytesWritten++] = '\\';
 			
 			// @Cleanup
-			CStringCopy(FindData.cFileName, File->AbsolutePath + BytesWritten, ArrayCount(File->AbsolutePath) - BytesWritten);
-			CStringCopy(FindData.cFileName, File->FilePart, ArrayCount(File->AbsolutePath));
+			CStringCopy(FindData.cFileName, File->Path.Absolute + BytesWritten, ArrayCount(File->Path.Absolute) - BytesWritten);
+			CStringCopy(FindData.cFileName, File->Path.FilePart, ArrayCount(File->Path.Absolute));
 			
 			Result.Count++;
 			
@@ -827,18 +838,17 @@ int WinMain (
 		.ShowCursor = WindowsShowCursor,
 		.ToggleFullscreen = WindowsToggleFullscreen,
 		
-		
 #undef GetCurrentDirectory // @Hack
 #undef SetCurrentDirectory // @Hack
-		.GetDirectoryEntries = WindowsGetDirectoryEntries,
-		.GetCurrentDirectory = WindowsGetCurrentDirectory,
-		.SetCurrentDirectory = WindowsSetCurrentDirectory,
-		.PopPathNode         = WindowsPopPathNode,
-		.IsPathDirectory     = WindowsIsPathDirectory,
-		.IsPathTopLevel      = WindowsIsPathTopLevel,
-		
-#undef MoveFile
-		.MoveFile            = WindowsMoveFile,
+#undef MoveFile            // @Hack
+		.GetDirectoryEntries     = WindowsGetDirectoryEntries,
+		.GetCurrentDirectory     = WindowsGetCurrentDirectory,
+		.GetCurrentDirectoryPath = WindowsGetCurrentDirectoryPath,
+		.SetCurrentDirectory     = WindowsSetCurrentDirectory,
+		.PopPathNode             = WindowsPopPathNode,
+		.IsPathDirectory         = WindowsIsPathDirectory,
+		.IsPathTopLevel          = WindowsIsPathTopLevel,
+		.MoveFile                = WindowsMoveFile,
     };
     
     PloreMemory.PermanentStorage.Memory = VirtualAlloc(0, PloreMemory.PermanentStorage.Size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);

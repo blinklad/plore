@@ -11,6 +11,13 @@ typedef enum plore_file_node {
 	_PloreFileNode_ForceU64 = 0xFFFFFFFF,
 } plore_file_node;
 
+// TODO(Evan): Separate extensions vs actual encoding. These are more like encoding hints.
+// NOTE(Evan): Maybe we have a list of "decodable" file extensions, like PNG and .PDF, and assume anything else is UTF-8 encoded text.
+// This depends entirely on how we want file open handlers vs file preview handlers to work!
+// We could lean on the platform-specific file openers, but..
+// * Linux doesn't have a great story with file opening (xdg-open is not particularly standard)
+// * Windows has some exotic ideas for sane install paths
+
 #define PLORE_FILE_EXTENSIONS    \
 PLORE_X(Unknown, "", "unknown")  \
 PLORE_X(BMP, ".bmp", "bitmap")   \
@@ -41,9 +48,14 @@ char *PloreFileExtensionLongStrings[] = {
 #undef PLORE_X
 
 #define PLORE_MAX_PATH 256
-typedef struct plore_file {
-	char AbsolutePath[PLORE_MAX_PATH];
+
+typedef struct plore_path {
+	char Absolute[PLORE_MAX_PATH];
 	char FilePart[PLORE_MAX_PATH];
+} plore_path;
+
+typedef struct plore_file {
+	plore_path Path;
 	plore_file_node Type;
 	plore_file_extension Extension;
 } plore_file;

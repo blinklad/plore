@@ -49,12 +49,15 @@ typedef PLATFORM_SHOW_CURSOR(platform_show_cursor);
 typedef PLATFORM_TOGGLE_FULLSCREEN(platform_toggle_fullscreen);
 
 typedef struct plore_get_current_directory_result {
-	char *AbsolutePath;
+	char *Absolute;
 	char *FilePart;
 } plore_get_current_directory_result;
 
 #define PLATFORM_GET_CURRENT_DIRECTORY(name) plore_get_current_directory_result name(char *Buffer, u64 BufferSize)
 typedef PLATFORM_GET_CURRENT_DIRECTORY(platform_get_current_directory);
+
+#define PLATFORM_GET_CURRENT_DIRECTORY_PATH(name) plore_path name()
+typedef PLATFORM_GET_CURRENT_DIRECTORY_PATH(platform_get_current_directory_path);
 
 #define PLATFORM_SET_CURRENT_DIRECTORY(name) b64 name(char *Name)
 typedef PLATFORM_SET_CURRENT_DIRECTORY(platform_set_current_directory);
@@ -101,26 +104,27 @@ typedef struct platform_api {
 		};
 	};
 
-	platform_create_texture_handle  *CreateTextureHandle;
-	platform_destroy_texture_handle *DestroyTextureHandle;
+	platform_create_texture_handle       *CreateTextureHandle;
+	platform_destroy_texture_handle      *DestroyTextureHandle;
+	    
+	platform_show_cursor                 *ShowCursor;
+	platform_toggle_fullscreen           *ToggleFullscreen;
+	    
+    platform_debug_open_file             *DebugOpenFile;
+    platform_debug_read_entire_file      *DebugReadEntireFile;
+	platform_debug_close_file            *DebugCloseFile;
+    platform_debug_print_line            *DebugPrintLine;
+    platform_debug_print                 *DebugPrint;
 	
-	platform_show_cursor            *ShowCursor;
-	platform_toggle_fullscreen      *ToggleFullscreen;
+	platform_get_directory_entries       *GetDirectoryEntries;
+	platform_get_current_directory       *GetCurrentDirectory;
+	platform_get_current_directory_path  *GetCurrentDirectoryPath;
+	platform_set_current_directory       *SetCurrentDirectory;
+	platform_pop_path_node               *PopPathNode;
+	platform_is_path_directory           *IsPathDirectory;
+	platform_is_path_top_level           *IsPathTopLevel;
 	
-    platform_debug_open_file        *DebugOpenFile;
-    platform_debug_read_entire_file *DebugReadEntireFile;
-	platform_debug_close_file       *DebugCloseFile;
-    platform_debug_print_line       *DebugPrintLine;
-    platform_debug_print            *DebugPrint;
-	
-	platform_get_directory_entries  *GetDirectoryEntries;
-	platform_get_current_directory  *GetCurrentDirectory;
-	platform_set_current_directory  *SetCurrentDirectory;
-	platform_pop_path_node          *PopPathNode;
-	platform_is_path_directory      *IsPathDirectory;
-	platform_is_path_top_level      *IsPathTopLevel;
-	
-	platform_move_file              *MoveFile;
+	platform_move_file                   *MoveFile;
 } platform_api;
 
 #endif

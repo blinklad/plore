@@ -241,7 +241,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 					} break;
 					case VimCommandType_ClearYank: {
 						if (FileContext->YankedCount) {
-							DrawText("Unyanked %s!", FileContext->Yanked[0]->File.FilePart);
+							DrawText("Unyanked %s!", FileContext->Yanked[0]->File.Path.FilePart);
 							FileContext->YankedCount = 0;
 							PushVimCommand(State->VimContext, (vim_command) {
 											   .State = InteractState_FileExplorer,
@@ -257,26 +257,26 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 						if (FileContext->YankedCount) { // @Cleanup
 							u64 PastedCount = 0;
 							plore_file_listing *Current = DirectoryState.Current;
-							u64 WeAreTopLevel = Platform->IsPathTopLevel(Current->File.AbsolutePath, PLORE_MAX_PATH);
+							u64 WeAreTopLevel = Platform->IsPathTopLevel(Current->File.Path.Absolute, PLORE_MAX_PATH);
 							for (u64 M = 0; M < FileContext->YankedCount; M++) {
 								plore_file_listing *Movee = FileContext->Yanked[M];
 								
 								char NewPath[PLORE_MAX_PATH] = {0};
-								u64 BytesWritten = CStringCopy(Current->File.AbsolutePath, NewPath, PLORE_MAX_PATH);
+								u64 BytesWritten = CStringCopy(Current->File.Path.Absolute, NewPath, PLORE_MAX_PATH);
 								Assert(BytesWritten < PLORE_MAX_PATH - 1);
 								if (!WeAreTopLevel) {
 									NewPath[BytesWritten++] = '\\';
 								}
-								CStringCopy(Movee->File.FilePart, NewPath + BytesWritten, PLORE_MAX_PATH);
+								CStringCopy(Movee->File.Path.FilePart, NewPath + BytesWritten, PLORE_MAX_PATH);
 								
-								b64 DidMoveOk = Platform->MoveFile(Movee->File.AbsolutePath, NewPath);
+								b64 DidMoveOk = Platform->MoveFile(Movee->File.Path.Absolute, NewPath);
 								if (DidMoveOk) {
 									char MoveeCopy[PLORE_MAX_PATH] = {0};
-									CStringCopy(Movee->File.AbsolutePath, MoveeCopy, PLORE_MAX_PATH);
+									CStringCopy(Movee->File.Path.Absolute, MoveeCopy, PLORE_MAX_PATH);
 									
 									RemoveListing(FileContext, Movee);
 									
-									if (!Platform->IsPathTopLevel(Movee->File.AbsolutePath, PLORE_MAX_PATH)) {
+									if (!Platform->IsPathTopLevel(Movee->File.Path.Absolute, PLORE_MAX_PATH)) {
 										Platform->PopPathNode(MoveeCopy, PLORE_MAX_PATH, false);
 										plore_file_listing *Parent = GetListing(FileContext, MoveeCopy);
 										if (Parent) {
@@ -286,7 +286,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 									
 									PastedCount++;
 								} else {
-									DrawText("Couldn't paste `%s`", Movee->File.FilePart);
+									DrawText("Couldn't paste `%s`", Movee->File.Path.FilePart);
 								}
 							}
 							DrawText("Pasted %d items!", PastedCount);
@@ -333,8 +333,10 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								plore_file *CursorEntry = FileContext->Current->Entries + FileContext->Current->Cursor;
 							
 								if (CursorEntry->Type == PloreFileNode_Directory) {
-									PrintLine("Moving down a directory, from %s to %s", FileContext->Current->File.AbsolutePath, CursorEntry->AbsolutePath);
-									Platform->SetCurrentDirectory(CursorEntry->AbsolutePath);
+									PrintLine("Moving down a directory, from %s to %s", 
+											  FileContext->Current->File.Path.Absolute, 
+											  CursorEntry->Path.Absolute);
+									Platform->SetCurrentDirectory(CursorEntry->Path.Absolute);
 									
 									PushVimCommand(State->VimContext, (vim_command) {
 													   .State = InteractState_FileExplorer,
@@ -445,7 +447,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	
 	
 	if (Window(State->VimguiContext, (vimgui_window_desc) {
-				   .Title = FileContext->Current->File.AbsolutePath,
+				   .Title = FileContext->Current->File.Path.Absolute,
 				   .Rect = { .P = V2(0, 0), .Span = { PlatformAPI->WindowDimensions.X, PlatformAPI->WindowDimensions.Y - FooterHeight } },
 				   .Colour = V4(0.10, 0.1, 0.1, 1.0f),
 			   })) {
@@ -459,7 +461,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			plore_file_listing *Listing = Directory->File;
 			if (!Listing) continue; /* Parent can be null, if we are currently looking at a top-level directory. */
 			
-			char *Title = Listing->File.FilePart;
+			char *Title = Listing->File.Path.FilePart;
 			if (Window(State->VimguiContext, (vimgui_window_desc) {
 						   .Title      = Title,
 						   .Rect       = {P, Span}, 
@@ -468,7 +470,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 				
 				for (u64 Row = 0; Row < Listing->Count; Row++) {
 					v4 Colour = {0};
-					plore_file_listing *RowEntry = GetListing(FileContext, Listing->Entries[Row].AbsolutePath);
+					plore_file_listing *RowEntry = GetOrInsertListing(FileContext, ListingFromFile(&Listing->Entries[Row])).Listing;
 					if (Listing->Cursor == Row) {
 						Colour = V4(0.5, 0.3, 0.3, 0.35);
 					} else if (RowEntry) {
@@ -477,19 +479,22 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 						}
 						if (IsYanked(FileContext, RowEntry)) {
 							Colour = V4(0.3, 0.3, 0.4, 0.45);
-						} 
+						}
+						if (RowEntry->File.Extension == PloreFileExtension_BAT) {
+							Colour = V4(1, 0, 0, 0.4);
+						}
 					} 
 					if (Button(State->VimguiContext, (vimgui_button_desc) {
-								   .Title = Listing->Entries[Row].FilePart,
+								   .Title = Listing->Entries[Row].Path.FilePart,
 								   .FillWidth = true,
 								   .Centre = true,
 								   .Colour = Colour,
 							   })) {
 						Listing->Cursor = Row;
-						PrintLine("Button %s was clicked!", Listing->Entries[Row].FilePart);
+						PrintLine("Button %s was clicked!", Listing->Entries[Row].Path.FilePart);
 						if (Listing->Entries[Row].Type == PloreFileNode_Directory) {
-							PrintLine("Changing Directory to %s", Listing->Entries[Row].AbsolutePath);
-							Platform->SetCurrentDirectory(Listing->Entries[Row].AbsolutePath);
+							PrintLine("Changing Directory to %s", Listing->Entries[Row].Path.Absolute);
+							Platform->SetCurrentDirectory(Listing->Entries[Row].Path.Absolute);
 						}
 					}
 				}
@@ -564,7 +569,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							 ArrayCount(CursorInfo),
 						     "[%s] %s 01-02-3 %s", 
 						     (DirectoryState.Cursor->File.Type == PloreFileNode_Directory) ? "DIR" : "FILE", 
-						     DirectoryState.Cursor->File.FilePart,
+						     DirectoryState.Cursor->File.Path.FilePart,
 							 PloreKeysToString(&State->FrameArena, LastCommand, LastCommandCount));
 			
 			if (Button(State->VimguiContext, (vimgui_button_desc) {
@@ -648,14 +653,13 @@ SynchronizeCurrentDirectory(plore_state *State) {
 	plore_current_directory_state CurrentState = {0};
 	
 	plore_file_context *FileContext = State->FileContext;
-	char Buffer[PLORE_MAX_PATH];
-	plore_get_current_directory_result Result = Platform->GetCurrentDirectory(Buffer, PLORE_MAX_PATH);
-	FileContext->Current = GetOrInsertListing(FileContext, ListingFromDirectoryPath(Result.AbsolutePath, Result.FilePart)).Listing;
-	FileContext->InTopLevelDirectory = Platform->IsPathTopLevel(Buffer, PLORE_MAX_PATH);
+	plore_path CurrentDir = Platform->GetCurrentDirectoryPath();
+	
+	FileContext->Current = GetOrInsertListing(FileContext, ListingFromDirectoryPath(&CurrentDir)).Listing;
+	FileContext->InTopLevelDirectory = Platform->IsPathTopLevel(CurrentDir.Absolute, PLORE_MAX_PATH);
 	CurrentState.Current = FileContext->Current;
 	
-	CurrentState.Cursor = 0;
-	if (FileContext->Current->Count != 0) {
+	if (FileContext->Current->Count) {
 		plore_file *CursorEntry = FileContext->Current->Entries + FileContext->Current->Cursor;
 		
 		CurrentState.Cursor = GetOrInsertListing(FileContext, ListingFromFile(CursorEntry)).Listing;
@@ -664,9 +668,9 @@ SynchronizeCurrentDirectory(plore_state *State) {
 	if (!FileContext->InTopLevelDirectory) { 
 		// CLEANUP(Evan): Doesn't need to copy twice!
 		plore_file_listing CurrentCopy = *FileContext->Current;
-		plore_pop_path_node_result Result = Platform->PopPathNode(CurrentCopy.File.AbsolutePath, ArrayCount(CurrentCopy.File.AbsolutePath), false);
+		Platform->PopPathNode(CurrentCopy.File.Path.Absolute, ArrayCount(CurrentCopy.File.Path.Absolute), false);
 		
-		plore_file_listing_get_or_insert_result ParentResult = GetOrInsertListing(FileContext, ListingFromDirectoryPath(Result.AbsolutePath, Result.FilePart));
+		plore_file_listing_get_or_insert_result ParentResult = GetOrInsertListing(FileContext, ListingFromDirectoryPath(&CurrentCopy.File.Path));
 		
 		// Make sure the parent's cursor is set to the current directory.
 		// The parent's row will be invalid on plore startup.
@@ -676,7 +680,7 @@ SynchronizeCurrentDirectory(plore_state *State) {
 				plore_file *File = CurrentState.Parent->Entries + Row;
 				if (File->Type != PloreFileNode_Directory) continue;
 				
-				if (CStringsAreEqual(File->AbsolutePath, FileContext->Current->File.AbsolutePath)) {
+				if (CStringsAreEqual(File->Path.Absolute, FileContext->Current->File.Path.Absolute)) {
 					CurrentState.Parent->Cursor = Row;
 					break;
 				}
@@ -689,18 +693,6 @@ SynchronizeCurrentDirectory(plore_state *State) {
 	
 	return(CurrentState);
 }
-
-
-internal void
-PrintDirectory(plore_file_listing *Directory) {
-	PrintLine("%s", Directory->File.AbsolutePath);
-	for (u64 File = 0; File < Directory->Count; File++) {
-		plore_file *FileNode = Directory->Entries + File;
-		PrintLine("\t%s", FileNode->AbsolutePath);
-	}
-	PrintLine("");
-}
-
 
 internal char *
 PloreKeysToString(memory_arena *Arena, plore_key *Keys, u64 KeyCount) {

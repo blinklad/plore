@@ -130,13 +130,14 @@ typedef struct plore_memory {
 typedef struct plore_file_listing {
 	plore_file File;
 	plore_file Entries[256]; // NOTE(Evan): Directories only.
+	
 	u64 Count;
 	u64 Cursor;
 } plore_file_listing;
 
 typedef struct plore_file_listing_slot {
 	b64 Allocated;
-	plore_file_listing Directory;
+	plore_file_listing Listing;
 } plore_file_listing_slot;
 
 typedef struct plore_file_context {
