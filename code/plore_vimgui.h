@@ -31,6 +31,7 @@ typedef struct vimgui_widget {
 	rectangle Rect;
 	v4 BackgroundColour;
 	v4 TextColour;
+	v2 TextPad;
 	char *Title;
 	b64 Centered;
 } vimgui_widget;
@@ -72,8 +73,18 @@ VimguiEnd(plore_vimgui_context *Context);
 internal void
 PushWidget(plore_vimgui_context *Context, vimgui_window *Parent, vimgui_widget Widget);
 	
+
+typedef struct vimgui_render_text_desc {
+	rectangle Rect; 
+	v4 TextColour; 
+	char *Text; 
+	b64 Centered; 
+	f32 Height;
+	v2 TextPad;
+} vimgui_render_text_desc;
+
 internal void
-PushRenderText(plore_render_list *RenderList, rectangle Rect, v4 Colour, char *Text, b64 Centered, f32 Height);
+PushRenderText(plore_render_list *RenderList, vimgui_render_text_desc Desc);
 
 internal void
 PushRenderQuad(plore_render_list *RenderList, rectangle Rect, v4 Colour);

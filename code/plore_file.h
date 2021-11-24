@@ -18,16 +18,27 @@ typedef enum plore_file_node {
 // * Linux doesn't have a great story with file opening (xdg-open is not particularly standard)
 // * Windows has some exotic ideas for sane install paths
 
-#define PLORE_FILE_EXTENSIONS    \
-PLORE_X(Unknown, "", "unknown")  \
-PLORE_X(BMP, ".bmp", "bitmap")   \
-PLORE_X(PNG, ".png", "png")      \
-PLORE_X(JPG, ".jpg", "jpeg")     \
-PLORE_X(TXT, ".txt", "text")     \
-PLORE_X(BAT, ".bat", "batch")  
+#if defined(PLORE_WINDOWS)
+#define PLORE_PHOTO_HANDLER "start"
+#define PLORE_TEXT_HANDLER "c:\\tools\\4coder\\4ed.exe"
+#elif defined(PLORE_LINUX)
+#define PLORE_PHOTO_HANDLER "feh --fullscreen"
+#define PLORE_TEXT_HANDLER "nvim"
+#else
+#error Unsupported platform.
+#endif
+
+
+#define PLORE_FILE_EXTENSIONS                         \
+PLORE_X(Unknown, "", "unknown", "")                   \
+PLORE_X(BMP, ".bmp", "bitmap", PLORE_PHOTO_HANDLER)   \
+PLORE_X(PNG, ".png", "png",    PLORE_PHOTO_HANDLER)   \
+PLORE_X(JPG, ".jpg", "jpeg",   PLORE_PHOTO_HANDLER)   \
+PLORE_X(TXT, ".txt", "text",   PLORE_TEXT_HANDLER)    \
+PLORE_X(BAT, ".bat", "batch",  PLORE_TEXT_HANDLER)  
 
 typedef enum plore_file_extension {
-#define PLORE_X(Name, _Ignored1, _Ignored2) PloreFileExtension_##Name##,
+#define PLORE_X(Name, _Ignored1, _Ignored2, _Ignored3) PloreFileExtension_##Name##,
 	PLORE_FILE_EXTENSIONS
 #undef PLORE_X
 	PloreFileExtension_Count,
@@ -35,13 +46,13 @@ typedef enum plore_file_extension {
 } plore_file_extension;
 
 
-#define PLORE_X(Name, _Ignored, ShortString) ShortString
+#define PLORE_X(Name, _Ignored1, ShortString, _Ignored2) ShortString
 char *PloreFileExtensionShortStrings[] = {
 	PLORE_FILE_EXTENSIONS,
 };
 #undef PLORE_X
 
-#define PLORE_X(Name, LongString, _Ignored) LongString
+#define PLORE_X(Name, LongString, _Ignored1, _Ignored2) LongString
 char *PloreFileExtensionLongStrings[] = {
 	PLORE_FILE_EXTENSIONS,
 };
@@ -83,7 +94,7 @@ GetFileExtension(char *FilePart) {
 	}
 	if (*S) {
 		Result.ExtensionPart = S;
-		#define PLORE_X(Name, E, _Ignored)                                  \
+		#define PLORE_X(Name, E, _Ignored1, _Ignored2)                      \
 		if (!Result.FoundOkay && CStringsAreEqual(E, S)) {                  \
 			Result.Extension = PloreFileExtension_##Name;                   \
 			Result.FoundOkay = true;                                        \

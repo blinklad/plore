@@ -241,8 +241,9 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 					} break;
 					case VimCommandType_ClearYank: {
 						if (FileContext->YankedCount) {
-							DrawText("Unyanked %s!", FileContext->Yanked[0]->File.Path.FilePart);
+							DrawText("Unyanked %d guys", FileContext->YankedCount);
 							FileContext->YankedCount = 0;
+							FileContext->SelectedCount = 0;
 							PushVimCommand(State->VimContext, (vim_command) {
 											   .State = InteractState_FileExplorer,
 											   .Type = VimCommandType_ClearYank,
@@ -345,6 +346,10 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 														   .Direction = Right,
 													   },
 												   });
+								} else if (CursorEntry->Extension != PloreFileExtension_Unknown) {
+									DrawText("Opening %s", CursorEntry->Path.FilePart);
+								} else {
+									DrawText("Unknown extension - specify a handler", CursorEntry->Path.FilePart);
 								}
 							} break;
 							
@@ -422,9 +427,9 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	f32 PadY = 10.0f;
 	f32 W = ((PlatformAPI->WindowDimensions.X  - 0)            - (fCols + 1) * PadX) / fCols;
 	f32 H = ((PlatformAPI->WindowDimensions.Y - FooterHeight)  - (1     + 1) * PadY) / 1;
-	
-	f32 X = 0;
+	f32 X = 10;
 	f32 Y = 0;
+	
 	
 	
 	typedef struct plore_viewable_directory {
@@ -449,13 +454,12 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	if (Window(State->VimguiContext, (vimgui_window_desc) {
 				   .Title = FileContext->Current->File.Path.Absolute,
 				   .Rect = { .P = V2(0, 0), .Span = { PlatformAPI->WindowDimensions.X, PlatformAPI->WindowDimensions.Y - FooterHeight } },
-				   .Colour = V4(0.10, 0.1, 0.1, 1.0f),
+				   .BackgroundColour = V4(0.0, 0.0, 0.0, 1.0f),
 			   })) {
 		
 		for (u64 Col = 0; Col < Cols; Col++) {
 			v2 P      = V2(X, 0);
-			v2 Span   = V2(W, H-22);
-			v4 Colour = V4(0.2f, 0.2f, 0.2f, 1.0f);
+			v2 Span   = V2(W-3, H-22);
 			
 			plore_viewable_directory *Directory = ViewDirectories + Col;
 			plore_file_listing *Listing = Directory->File;
@@ -463,32 +467,36 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			
 			char *Title = Listing->File.Path.FilePart;
 			if (Window(State->VimguiContext, (vimgui_window_desc) {
-						   .Title      = Title,
-						   .Rect       = {P, Span}, 
-						   .Colour     = Colour,
-						   .ForceFocus = Directory->Focus })) { // TODO(Evan): Does this do anything?
+						   .Title                = Title,
+						   .Rect                 = {P, Span}, 
+						   .ForceFocus           = Directory->Focus })) {
 				
 				for (u64 Row = 0; Row < Listing->Count; Row++) {
-					v4 Colour = {0};
+					v4 BackgroundColour = {0};
+					v4 TextColour = {0};
+					
 					plore_file_listing *RowEntry = GetOrInsertListing(FileContext, ListingFromFile(&Listing->Entries[Row])).Listing;
 					if (Listing->Cursor == Row) {
-						Colour = V4(0.5, 0.3, 0.3, 0.35);
-					} else if (RowEntry) {
-						if (IsSelected(FileContext, RowEntry)) {
-							Colour = V4(0.35, 0.4, 0.4, 0.20);
-						}
-						if (IsYanked(FileContext, RowEntry)) {
-							Colour = V4(0.3, 0.3, 0.4, 0.45);
-						}
-						if (RowEntry->File.Extension == PloreFileExtension_BAT) {
-							Colour = V4(1, 0, 0, 0.4);
-						}
+						BackgroundColour = V4(0.5, 0.3, 0.3, 0.35);
+					} else if (IsYanked(FileContext, RowEntry)) {
+						BackgroundColour = V4(0.5, 0.4, 0.4, 0.45);
+					} else if (IsSelected(FileContext, RowEntry)) {
+						BackgroundColour = V4(0.40, 0.5, 0.4, 0.35);
 					} 
+					
+					if (RowEntry->File.Type == PloreFileNode_Directory) {
+						TextColour = V4(0.4, 0.5, 0.6, 1);
+					} else {
+						TextColour = V4(0.9, 0.85, 0.80, 1);
+					}
+					
 					if (Button(State->VimguiContext, (vimgui_button_desc) {
 								   .Title = Listing->Entries[Row].Path.FilePart,
 								   .FillWidth = true,
 								   .Centre = true,
-								   .Colour = Colour,
+								   .BackgroundColour = BackgroundColour,
+								   .TextColour = TextColour,
+								   .TextPad = V2(4, 0),
 							   })) {
 						Listing->Cursor = Row;
 						PrintLine("Button %s was clicked!", Listing->Entries[Row].Path.FilePart);
@@ -507,11 +515,11 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		
 		b64 Hidden = State->InteractState != InteractState_CommandHistory;
 		if (Window(State->VimguiContext, (vimgui_window_desc) {
-					   .Title      = "Command History",
-					   .Rect       = { DivideVec2f(PlatformAPI->WindowDimensions, 2), V2(400, 400) }, 
-					   .Colour     = V4(1, 1, 1, 0.1),
-					   .Hidden = Hidden,
-					   .ForceFocus = !Hidden})) {
+					   .Title              = "Command History",
+					   .Rect               = { DivideVec2f(PlatformAPI->WindowDimensions, 2), V2(400, 400) }, 
+					   .BackgroundColour   = V4(1, 1, 1, 0.1),
+					   .Hidden             = Hidden,
+					   .ForceFocus         = !Hidden})) {
 			for (u64 C = 0; C < State->VimContext->VimCommandCount; C++) {
 				if (C == 10) break;
 				vim_command *Command = State->VimContext->VimCommands + C;

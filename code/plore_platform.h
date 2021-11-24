@@ -94,6 +94,10 @@ typedef PLATFORM_GET_DIRECTORY_ENTRIES(platform_get_directory_entries);
 #define PLATFORM_MOVE_FILE(name) b64 name(char *sAbsolutePath, char *dAbsolutePath)
 typedef PLATFORM_MOVE_FILE(platform_move_file);
 
+
+#define PLATFORM_RUN_SHELL(name) b64 name(char *Command)
+typedef PLATFORM_RUN_SHELL(platform_run_shell);
+
 // NOTE(Evan): Platform API
 typedef struct platform_api {
 	union {
@@ -125,6 +129,7 @@ typedef struct platform_api {
 	platform_is_path_top_level           *IsPathTopLevel;
 	
 	platform_move_file                   *MoveFile;
+	platform_run_shell                   *RunShell;
 } platform_api;
 
 #endif

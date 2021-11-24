@@ -49,11 +49,15 @@ VimguiEnd(plore_vimgui_context *Context) {
 		PushRenderQuad(Context->RenderList, Widget->Rect, Widget->BackgroundColour);
 		
 		PushRenderText(Context->RenderList, 
-					   Widget->Rect,
-					   Widget->TextColour,
-					   Widget->Title, 
-					   Widget->Centered, 
-					   32.0f);
+					   (vimgui_render_text_desc) {
+					       .Rect = Widget->Rect,
+					       .TextColour = Widget->TextColour,
+					       .Text = Widget->Title, 
+					       .Centered = Widget->Centered, 
+						   .Height = 32.0f,
+					       .TextPad = Widget->TextPad,
+					   }
+					   );
 	}
 	
 	
@@ -151,6 +155,7 @@ typedef struct vimgui_button_desc {
 	rectangle Rect;
 	v4 BackgroundColour;
 	v4 TextColour;
+	v2 TextPad;
 } vimgui_button_desc;
 
 internal b64
@@ -175,7 +180,7 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	
 	// NOTE(Evan): Default args.
 	if (MemoryCompare(&Desc.BackgroundColour, &(v4){0}, sizeof(v4)) == 0) {
-		Desc.BackgroundColour = V4(1, 1, 1, 0.1);
+		Desc.BackgroundColour = V4(0.65, 0.65, 0.65, 0.1);
 	}
 	
 	if (MemoryCompare(&Desc.TextColour, &(v4){0}, sizeof(v4)) == 0) {
@@ -224,6 +229,7 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 				   .Rect = Desc.Rect,
 				   .BackgroundColour = Desc.BackgroundColour,
 				   .TextColour = Desc.TextColour,
+				   .TextPad = Desc.TextPad,
 				   .Title = Desc.Title,
 			   });
 	
@@ -252,7 +258,7 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 	}
 	
 	// NOTE(Evan): Default args.
-	if (MemoryCompare(&Desc.TextColour, &(v4){0}, sizeof(v4)) == 0) {
+	if (MemoryCompare(&Desc.BackgroundColour, &(v4){0}, sizeof(v4)) == 0) {
 		Desc.BackgroundColour = V4(1, 1, 1, 0.1);
 	}
 	
@@ -319,7 +325,6 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 					   .Rect = MaybeWindow->Rect,
 					   .Title = MaybeWindow->Title,
 					   .Centered = true, 
-					   //.BackgroundColour = MaybeWindow->BackgroundColour,
 					   .BackgroundColour = Desc.BackgroundColour,
 					   .TextColour = Desc.TextColour,
 					   
@@ -364,29 +369,28 @@ PushWidget(plore_vimgui_context *Context, vimgui_window *Parent, vimgui_widget W
 	Context->Widgets[Context->WidgetCount++] = Widget;
 }
 
-
 internal void
-PushRenderText(plore_render_list *RenderList, rectangle Rect, v4 Colour, char *Text, b64 Centered, f32 Height) {
+PushRenderText(plore_render_list *RenderList, vimgui_render_text_desc Desc) {
 	Assert(RenderList && RenderList->TextCount < ArrayCount(RenderList->Text));
 	render_text *T = RenderList->Text + RenderList->TextCount++;
 	
 	
 	v2 TextP = {
-		.X = Rect.P.X + (Centered ? Rect.Span.W/2.0f : 0),
-		.Y = Rect.P.Y + 26.0f,                            // TODO(Evan): Move font metric handling to Vimgui.
+		.X = Desc.TextPad.X + Desc.Rect.P.X + (Desc.Centered ? Desc.Rect.Span.W/2.0f : 0),
+		.Y = Desc.TextPad.Y + Desc.Rect.P.Y + 26.0f,                            // TODO(Evan): Move font metric handling to Vimgui.
 	};
 	
 	*T = (render_text) {
 		.Rect = {
 			.P = TextP,
-			.Span = Rect.Span,
+			.Span = Desc.Rect.Span,
 		},
-		.Colour = Colour,
-		.Centered = Centered,
-		.Height = Height,
+		.Colour = Desc.TextColour,
+		.Centered = Desc.Centered,
+		.Height = Desc.Height,
 	};
-	if (*Text) {
-		StringPrintSized(T->Text, ArrayCount(T->Text), Text);
+	if (*Desc.Text) {
+		StringPrintSized(T->Text, ArrayCount(T->Text), Desc.Text);
 	}
 }
 

@@ -63,22 +63,26 @@ FlushText(void) {
 			Text->T += GlobalState->DT;
 			
 			PushRenderText(GlobalState->RenderList,
-						   (rectangle) { 
-							   .P = {
-								   0,
-								   StartY - T * 100,
+						   (vimgui_render_text_desc) {
+							   .Rect =  { 
+								   .P = {
+									   0,
+									   StartY - T * 100,
+								   },
+								   .Span = { 
+									   W, 100 
+								   },
 							   },
-							   .Span = { 
-								   W, 100 
-							   },
-						   },
-						   V4(0, 0, 0, Fade),
-						   Text->Buffer, 
-						   true,
-						   64.0f);
+							   .TextColour = V4(0, 0, 0, Fade),
+							   .Text = Text->Buffer, 
+							   .Centered = true,
+							   .Height = 64.0f,
+						   }
+						   );
 			
 			PushRenderText(GlobalState->RenderList,
-						   (rectangle) { 
+						   (vimgui_render_text_desc) {
+						   .Rect = { 
 							   .P = {
 								   0,
 								   StartY - T * 100,
@@ -87,10 +91,11 @@ FlushText(void) {
 								   W, 100 
 							   },
 						   },
-						   Colour,
-						   Text->Buffer, 
-						   true,
-						   64.0f);
+						   .TextColour = Colour,
+						   .Text = Text->Buffer, 
+						   .Centered = true,
+						   .Height = 64.0f
+						   });
 		}
 	}
 }
