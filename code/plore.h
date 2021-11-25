@@ -108,7 +108,8 @@ typedef enum plore_key {
 typedef struct keyboard_and_mouse {
 	PLORE_KEYBOARD_AND_MOUSE
 		
-	b64 pKeys[PloreKey_Count];
+	b64 pKeys[PloreKey_Count]; // Presses this frame.
+	b64 bKeys[PloreKey_Count]; // Buffered presses this frame.
 	v2 MouseP;
     uint32 MouseWheel;
 	b32 CursorIsShowing;

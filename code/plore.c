@@ -178,28 +178,37 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	else if (Key##Count == 20) {                                      \
 		BufferedInput.##Key##IsPressed = true;                        \
 		BufferedInput.pKeys[PloreKey_##Key##] = true;                 \
+		BufferedInput.bKeys[PloreKey_##Key##] = true;                 \
 	}
 	
 	PLORE_KEYBOARD_AND_MOUSE
 #undef PLORE_X
 	
 	
-	local plore_key RegisteredKeys[] = { 
-		PloreKey_Y,
-		PloreKey_U,
-		PloreKey_P,
-		PloreKey_Space,
-		PloreKey_J,
-		PloreKey_K,
-		PloreKey_H,
-		PloreKey_L,
+	typedef struct vim_key {
+		plore_key Input;
+		b64 DisableBufferedMove;
+	} vim_key;
+	
+	vim_key RegisteredKeys[] = { 
+		{ PloreKey_Y,                              },
+		{ PloreKey_U,                              },
+		{ PloreKey_P,                              },
+		{ PloreKey_Space,                          },
+		{ PloreKey_J,                              },
+		{ PloreKey_K,                              },
+		{ PloreKey_H,                              },
+		{ PloreKey_L,  .DisableBufferedMove = true },
 	};
 	
 	b64 DidInput = false;
 	if (State->VimContext->CommandKeyCount < ArrayCount(State->VimContext->CommandKeys)) {
 		for (u64 K = 0; K < ArrayCount(RegisteredKeys); K++) {
-			if (BufferedInput.pKeys[RegisteredKeys[K]]) {
-				State->VimContext->CommandKeys[State->VimContext->CommandKeyCount++] = RegisteredKeys[K];
+			vim_key *TheKey = RegisteredKeys + K;
+			if (BufferedInput.pKeys[TheKey->Input]) {
+				if (BufferedInput.bKeys[TheKey->Input] && TheKey->DisableBufferedMove) continue;
+				
+				State->VimContext->CommandKeys[State->VimContext->CommandKeyCount++] = TheKey->Input;
 				DidInput = true;
 				break;
 			}
