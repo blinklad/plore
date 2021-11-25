@@ -8,6 +8,8 @@
 #include <shlwapi.h> // PathRemoveFileSpecA, PathRemoveBackslash
 #include <shellapi.h> // ShellExecuteA
 #include <fcntl.h> // stdin, stdout, _O_TEXT
+#include <synchapi.h> // CRITICAL_SECTION, (Initialise|Enter|Leave)CriticalSection
+
 
 #if defined(PLORE_INTERNAL)
 #include <stdio.h>

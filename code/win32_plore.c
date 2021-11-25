@@ -288,31 +288,118 @@ PLATFORM_MOVE_FILE(WindowsMoveFile) {
 	return(Result);
 }
 
+internal void CALLBACK
+CleanupProcessHandle(void *Context, BOOLEAN WasTimedOut);
+
+global CRITICAL_SECTION ProcessHandleTableGuard;
+typedef struct process_handle {
+	PROCESS_INFORMATION ProcessInfo;
+	HANDLE WaitHandle;
+	b64 NeedsCallbackCleanup;
+	b64 IsRunning;
+} process_handle;
+
+global process_handle ProcessHandles[4];
+global u64 ProcessHandleCursor;
+
 PLATFORM_RUN_SHELL(WindowsRunShell) {
+	b64 Result = false;
+	
+	local b64 Initialised = false;
+	if (!Initialised) {
+		Initialised = true;
+		InitializeCriticalSection(&ProcessHandleTableGuard);
+	}
+	
 	char Buffer[PLORE_MAX_PATH] = {0};
 	StringPrintSized(Buffer, PLORE_MAX_PATH, "%s %s", Command, FileTarget);
 	
-	// @Leak
-	// We will need a process + thread handle table, process exit callbacks, and some synchronization to enable this.
-	STARTUPINFOA StartupInfo = {
-		.cb = sizeof(STARTUPINFOA),
-	};
-	PROCESS_INFORMATION ProcessInfo = {0};
+	EnterCriticalSection(&ProcessHandleTableGuard);
 	
-	b64 Result = CreateProcessA(NULL,
-								Buffer,
-								NULL,
-								NULL,
-								false,
-								DETACHED_PROCESS,
-								NULL,
-								NULL,
-								&StartupInfo,
-								&ProcessInfo);
+	process_handle *MyProcess = ProcessHandles + ProcessHandleCursor;
+	ProcessHandleCursor = (ProcessHandleCursor + 1) % ArrayCount(ProcessHandles);
 	
+	// NOTE(Evan): If we have wrapped around and this process is not finished, we should clean it up first.
+	if (MyProcess->IsRunning) {
+		WindowsDebugPrintLine("Cleaned up process prematurely.");
+		
+		CloseHandle(MyProcess->ProcessInfo.hThread);
+		
+		DWORD MaybeExitCode = 0;
+		if (GetExitCodeProcess(MyProcess->ProcessInfo.hProcess, &MaybeExitCode)) {
+			if (MaybeExitCode == STILL_ACTIVE) {
+				TerminateProcess(MyProcess->ProcessInfo.hProcess, 1);
+			}
+		}
+		CloseHandle(MyProcess->ProcessInfo.hProcess);
+		
+		MyProcess->NeedsCallbackCleanup = true;
+		MyProcess->IsRunning = false;
+	}
+	
+	// NOTE(Evan): We cleanup the callback here because we aren't allowed to call UnregisterWaitEx() inside the
+	// callback itself.
+	// NOTE(Evan): Param indicates we want to wait for pending callbacks.	
+	if (MyProcess->NeedsCallbackCleanup) {
+		UnregisterWaitEx(MyProcess->WaitHandle, INVALID_HANDLE_VALUE); 
+	}
+	
+	
+	Result = CreateProcessA(NULL,
+							Buffer,
+							NULL,
+							NULL,
+							false,
+							DETACHED_PROCESS,
+							NULL,
+							NULL,
+							&(STARTUPINFOA) { .cb = sizeof(STARTUPINFOA) },
+							&MyProcess->ProcessInfo);
+	
+	b64 DidRegisterCleanup = RegisterWaitForSingleObject(&MyProcess->WaitHandle, 
+														 MyProcess->ProcessInfo.hProcess, 
+														 CleanupProcessHandle,
+														 MyProcess,
+														 INFINITE,
+														 WT_EXECUTEONLYONCE);
+														 
+	if (!DidRegisterCleanup) {
+		WindowsDebugPrintLine("Couldn't register %s for cleanup.", FileTarget);
+	}
+	
+	MyProcess->IsRunning = true;
 	WindowsDebugPrintLine("%s to run command %s", Result ? "succeeded in " : "failed to ", Buffer);
+	
+	LeaveCriticalSection(&ProcessHandleTableGuard);
+	
 	return(Result);
 }
+
+
+internal void CALLBACK
+CleanupProcessHandle(void *Context, BOOLEAN WasTimedOut) {
+	EnterCriticalSection(&ProcessHandleTableGuard);
+	
+	process_handle *MyProcess = Context;
+	if (MyProcess->IsRunning) {
+		CloseHandle(MyProcess->ProcessInfo.hThread);
+		
+		DWORD MaybeExitCode = 0;
+		if (GetExitCodeProcess(MyProcess->ProcessInfo.hProcess, &MaybeExitCode)) {
+			if (MaybeExitCode == STILL_ACTIVE) {
+				TerminateProcess(MyProcess->ProcessInfo.hProcess, 1);
+			}
+		}
+		CloseHandle(MyProcess->ProcessInfo.hProcess);
+		WindowsDebugPrintLine("Cleaned up process successfully.");
+		
+		MyProcess->NeedsCallbackCleanup = true;
+		MyProcess->IsRunning = false;
+	}
+	
+	LeaveCriticalSection(&ProcessHandleTableGuard);
+}
+
 
 // 
 // NOTE(Evan): Internal API definitions.
