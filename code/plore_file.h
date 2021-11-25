@@ -19,7 +19,7 @@ typedef enum plore_file_node {
 // * Windows has some exotic ideas for sane install paths
 
 #if defined(PLORE_WINDOWS)
-#define PLORE_PHOTO_HANDLER "start"
+#define PLORE_PHOTO_HANDLER "rundll32.exe \"C:\\Program Files\\Windows Photo Viewer\\PhotoViewer.dll\", ImageView_Fullscreen"
 #define PLORE_TEXT_HANDLER "c:\\tools\\4coder\\4ed.exe"
 #elif defined(PLORE_LINUX)
 #define PLORE_PHOTO_HANDLER "feh --fullscreen"
@@ -30,7 +30,7 @@ typedef enum plore_file_node {
 
 
 #define PLORE_FILE_EXTENSIONS                         \
-PLORE_X(Unknown, "", "unknown", "")                   \
+PLORE_X(Unknown, "", "unknown", "unknown")            \
 PLORE_X(BMP, ".bmp", "bitmap", PLORE_PHOTO_HANDLER)   \
 PLORE_X(PNG, ".png", "png",    PLORE_PHOTO_HANDLER)   \
 PLORE_X(JPG, ".jpg", "jpeg",   PLORE_PHOTO_HANDLER)   \
@@ -58,8 +58,15 @@ char *PloreFileExtensionLongStrings[] = {
 };
 #undef PLORE_X
 
-#define PLORE_MAX_PATH 256
+#define PLORE_X(Name, _Ignored1, _Ignored2, Handler)  Handler,
+char *PloreFileExtensionHandlers[] = {
+	PLORE_FILE_EXTENSIONS
+};
+#undef PLORE_X
 
+
+
+#define PLORE_MAX_PATH 256
 typedef struct plore_path {
 	char Absolute[PLORE_MAX_PATH];
 	char FilePart[PLORE_MAX_PATH];
