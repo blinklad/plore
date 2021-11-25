@@ -225,7 +225,10 @@ PLATFORM_GET_DIRECTORY_ENTRIES(WindowsGetDirectoryEntries) {
 	u64 IgnoredCount = 0;
 	if (FindHandle != INVALID_HANDLE_VALUE) {
 		do {
-			Assert(Result.Count < Result.Size);
+			if (Result.Count >= Result.Size) {
+				WindowsDebugPrintLine("Directory entry capacity reached when querying %s", SearchableDirectoryName);
+				break; // @Hack
+			}
 			
 			char *FileName = FindData.cFileName;
 			if (FileName[0] == '.' || FileName[0] == '$') continue;
@@ -248,8 +251,6 @@ PLATFORM_GET_DIRECTORY_ENTRIES(WindowsGetDirectoryEntries) {
 			} else { // NOTE(Evan): Assume a 'normal' file.
 				File->Type = PloreFileNode_File;
 				File->Extension = GetFileExtension(FindData.cFileName).Extension;
-				if (File->Extension == PloreFileExtension_BAT) {
-				}
 			} 
 			
 			
@@ -258,9 +259,10 @@ PLATFORM_GET_DIRECTORY_ENTRIES(WindowsGetDirectoryEntries) {
 			
 			if (!IsDirectoryRoot) File->Path.Absolute[BytesWritten++] = '\\';
 			
-			// @Cleanup
+			// @Cleanup, use PathFindFileName();
 			CStringCopy(FindData.cFileName, File->Path.Absolute + BytesWritten, ArrayCount(File->Path.Absolute) - BytesWritten);
 			CStringCopy(FindData.cFileName, File->Path.FilePart, ArrayCount(File->Path.Absolute));
+			
 			
 			Result.Count++;
 			
@@ -286,6 +288,31 @@ PLATFORM_MOVE_FILE(WindowsMoveFile) {
 	return(Result);
 }
 
+PLATFORM_RUN_SHELL(WindowsRunShell) {
+	char Buffer[PLORE_MAX_PATH] = {0};
+	StringPrintSized(Buffer, PLORE_MAX_PATH, "%s %s", Command, FileTarget);
+	
+	// @Leak
+	// We will need a process + thread handle table, process exit callbacks, and some synchronization to enable this.
+	STARTUPINFOA StartupInfo = {
+		.cb = sizeof(STARTUPINFOA),
+	};
+	PROCESS_INFORMATION ProcessInfo = {0};
+	
+	b64 Result = CreateProcessA(NULL,
+								Buffer,
+								NULL,
+								NULL,
+								false,
+								DETACHED_PROCESS,
+								NULL,
+								NULL,
+								&StartupInfo,
+								&ProcessInfo);
+	
+	WindowsDebugPrintLine("%s to run command %s", Result ? "succeeded in " : "failed to ", Buffer);
+	return(Result);
+}
 
 // 
 // NOTE(Evan): Internal API definitions.
@@ -849,6 +876,7 @@ int WinMain (
 		.IsPathDirectory         = WindowsIsPathDirectory,
 		.IsPathTopLevel          = WindowsIsPathTopLevel,
 		.MoveFile                = WindowsMoveFile,
+		.RunShell                = WindowsRunShell,
     };
     
     PloreMemory.PermanentStorage.Memory = VirtualAlloc(0, PloreMemory.PermanentStorage.Size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);

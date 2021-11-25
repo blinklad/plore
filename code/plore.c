@@ -355,10 +355,13 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 														   .Direction = Right,
 													   },
 												   });
-								} else if (CursorEntry->Extension != PloreFileExtension_Unknown) {
-									DrawText("Opening %s", CursorEntry->Path.FilePart);
 								} else {
-									DrawText("Unknown extension - specify a handler", CursorEntry->Path.FilePart);
+									if (CursorEntry->Extension != PloreFileExtension_Unknown) {
+										DrawText("Opening %s", CursorEntry->Path.FilePart);
+										Platform->RunShell(PloreFileExtensionHandlers[CursorEntry->Extension], CursorEntry->Path.Absolute);
+									} else {
+										DrawText("Unknown extension - specify a handler", CursorEntry->Path.FilePart);
+									}
 								}
 							} break;
 							
