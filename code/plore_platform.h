@@ -36,7 +36,17 @@ typedef struct platform_texture_handle {
 	f32 Height;
 } platform_texture_handle;
 
-#define PLATFORM_CREATE_TEXTURE_HANDLE(name) platform_texture_handle name(void *Pixels, u64 Width, u64 Height)
+typedef enum pixel_format { PixelFormat_RGBA8, PixelFormat_BGRA8, PixelFormat_ALPHA } pixel_format;
+typedef struct platform_texture_handle_desc {
+	void *Pixels;
+	u64 Width;
+	u64 Height;
+	pixel_format ProvidedPixelFormat;
+	pixel_format TargetPixelFormat;
+	enum { FilterMode_Nearest, FilterMode_Linear } FilterMode;
+} platform_texture_handle_desc;
+
+#define PLATFORM_CREATE_TEXTURE_HANDLE(name) platform_texture_handle name(platform_texture_handle_desc Desc)
 typedef PLATFORM_CREATE_TEXTURE_HANDLE(platform_create_texture_handle);
 
 #define PLATFORM_DESTROY_TEXTURE_HANDLE(name) void name(platform_texture_handle Texture)
