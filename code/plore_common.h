@@ -76,7 +76,7 @@ ToggleFlag(b64 Flags, b64 Flag) {
 
 #define InvalidCodePath Assert(0)
 // NOTE(Evan): Plore intrinsics
-#define InvalidDefaultCase Assert(!"Invalid default case reached.");
+#define InvalidDefaultCase default: Assert(!"Invalid default case reached.");
 
 #if defined(PLORE_INTERNAL)
 	#if defined(PLORE_WINDOWS)
