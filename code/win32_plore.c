@@ -6,6 +6,12 @@
 #include "win32_plore.h"
 #include "win32_gl_loader.c"
 
+// NOTE(Evan): For GL bits!
+PLATFORM_DEBUG_PRINT_LINE(WindowsDebugPrintLine);
+PLATFORM_DEBUG_PRINT(WindowsDebugPrint);
+#define PrintLine WindowsDebugPrintLine
+#define Print WindowsDebugPrint
+
 #include "plore_string.h"
 #include "plore_gl.c"
 
@@ -75,18 +81,71 @@ PLATFORM_DEBUG_READ_ENTIRE_FILE(WindowsDebugReadEntireFile) {
 
 PLATFORM_CREATE_TEXTURE_HANDLE(WindowsGLCreateTextureHandle) {
 	platform_texture_handle Result = {
-		.Width = Width,
-		.Height = Height,
+		.Width = Desc.Width,
+		.Height = Desc.Height,
 	};
+	
+	glEnable(GL_TEXTURE_2D);
+	
+	GLenum GLProvidedPixelFormat = 0;
+	GLenum GLTargetPixelFormat = 0;
+	GLenum GLFilterMode = 0;
+	switch (Desc.TargetPixelFormat) {
+		case PixelFormat_RGBA8: {
+			GLTargetPixelFormat = GL_RGBA8;
+		} break;
+		
+		case PixelFormat_ALPHA: {
+			GLTargetPixelFormat = GL_ALPHA;
+		} break;
+		
+		case PixelFormat_BGRA8: {
+			GLTargetPixelFormat = GL_BGRA;
+		} break;
+		
+		InvalidDefaultCase;
+	}
+	switch (Desc.ProvidedPixelFormat) {
+		case PixelFormat_RGBA8: {
+			GLProvidedPixelFormat = GL_RGBA8;
+		} break;
+		
+		case PixelFormat_ALPHA: {
+			GLProvidedPixelFormat = GL_ALPHA;
+		} break;
+		
+		case PixelFormat_BGRA8: {
+			GLProvidedPixelFormat = GL_BGRA;
+		} break;
+		
+		InvalidDefaultCase;
+	}
+	
+	switch (Desc.FilterMode) {
+		case FilterMode_Linear: {
+			GLFilterMode = GL_LINEAR;
+		} break;
+		
+		case FilterMode_Nearest: {
+			GLFilterMode = GL_NEAREST;
+		} break;
+		
+		InvalidDefaultCase;
+	}
 	
 	GLuint Handle;
 	glGenTextures(1, &Handle);
 	Result.Opaque = Handle;
 	glBindTexture(GL_TEXTURE_2D, Result.Opaque);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, Result.Width, Result.Height, 0, GL_ALPHA, GL_UNSIGNED_BYTE, Pixels);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	
-	// NOTE(Evan): Can free 'pixels' at this point.
+	glTexImage2D(GL_TEXTURE_2D, 0, GLTargetPixelFormat, Result.Width, Result.Height, 0, GLProvidedPixelFormat, GL_UNSIGNED_BYTE, Desc.Pixels);
+	
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);	
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GLFilterMode);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GLFilterMode);	
+	
+	
 	return(Result);
 }
 
