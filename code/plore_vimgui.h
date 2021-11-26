@@ -22,6 +22,7 @@ typedef struct vimgui_window {
 typedef enum vimgui_widget_type {
 	VimguiWidgetType_Window,
 	VimguiWidgetType_Button,
+	VimguiWidgetType_Image,
 	_VimguiWidgetType_ForceU64 = 0xFFFFFFFF,
 } vimgui_widget_type;
 
@@ -35,6 +36,7 @@ typedef struct vimgui_widget {
 	v2 TextPad;
 	char *Title;
 	b64 Centered;
+	platform_texture_handle Texture;
 } vimgui_widget;
 
 typedef struct plore_vimgui_context {

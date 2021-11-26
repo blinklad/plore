@@ -523,8 +523,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		b64 Allocated;
 	} image_preview_handle;
 	
-	image_preview_handle *HACKHandle = 0;
-	
 	if (Window(State->VimguiContext, (vimgui_window_desc) {
 				   .Title = FileContext->Current->File.Path.Absolute,
 				   .Rect = { .P = V2(0, 0), .Span = { PlatformAPI->WindowDimensions.X, PlatformAPI->WindowDimensions.Y - FooterHeight } },
@@ -557,7 +555,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			v2 P      = V2(X, 0);
 			v2 Span   = V2(W-3, H-22);
 			
-			HACKHandle = 0;
 			plore_viewable_directory *Directory = ViewDirectories + Col;
 			plore_file_listing *Listing = Directory->File;
 			if (!Listing) continue; /* Parent can be null, if we are currently looking at a top-level directory. */
@@ -646,8 +643,22 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 																				  });
 								Platform->DebugCloseFile(File);
 							}
-							
-							HACKHandle = MyHandle;
+						}
+						
+						if (MyHandle) { 
+							if (Image(State->VimguiContext, (vimgui_image_desc) { 
+											  .ID = (u64) MyHandle,
+											  .Texture = MyHandle->Texture,
+										  })) {
+								State->VimguiContext->RenderList->Quads[State->VimguiContext->RenderList->QuadCount++] = (render_quad) {
+									.Rect = {
+										.P = V2(1330, 250),
+										.Span = V2(512, 512),
+									}, 
+									.Colour = V4(1, 1, 1, 1),
+									.Texture = MyHandle->Texture,
+								};
+							}
 						}
 					} break;
 					
@@ -734,19 +745,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	
 	
 	VimguiEnd(State->VimguiContext);
-	
-	#if 1
-	if (HACKHandle) {
-		State->VimguiContext->RenderList->Quads[State->VimguiContext->RenderList->QuadCount++] = (render_quad) {
-			.Rect = {
-				.P = V2(1330, 250),
-				.Span = V2(512, 512),
-			}, 
-			.Colour = V4(1, 1, 1, 1),
-			.Texture = HACKHandle->Texture,
-		};
-	}
-	#endif
 	
 	
 	// NOTE(Evan): Right now, we copy this out. We may not want to in the future(tm), even if it is okay now.

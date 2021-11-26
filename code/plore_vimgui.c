@@ -54,16 +54,17 @@ VimguiEnd(plore_vimgui_context *Context) {
 						   .Colour = Widget->BackgroundColour, 
 					   });
 		
-		PushRenderText(Context->RenderList, 
-					   (vimgui_render_text_desc) {
-					       .Rect = Widget->Rect,
-					       .TextColour = Widget->TextColour,
-					       .Text = Widget->Title, 
-					       .Centered = Widget->Centered, 
-						   .Height = 32.0f,
-					       .TextPad = Widget->TextPad,
-					   }
-					   );
+		if (Widget->Title) {
+			PushRenderText(Context->RenderList, 
+						   (vimgui_render_text_desc) {
+						       .Rect = Widget->Rect,
+						       .TextColour = Widget->TextColour,
+						       .Text = Widget->Title, 
+						       .Centered = Widget->Centered, 
+							   .Height = 32.0f,
+						       .TextPad = Widget->TextPad,
+						   });
+		}
 	}
 	
 	
@@ -151,6 +152,41 @@ SetActiveWindow(plore_vimgui_context *Context, vimgui_window *Window) {
 internal void
 SetHotWindow(plore_vimgui_context *Context, vimgui_window *Window) {
 	Context->HotWindow = Window->ID;
+}
+
+typedef struct vimgui_image_desc {
+	u64 ID;
+	platform_texture_handle Texture;
+	rectangle Rect;
+} vimgui_image_desc;
+
+internal b64
+Image(plore_vimgui_context *Context, vimgui_image_desc Desc) {
+	b64 Result = true;
+	
+	Assert(Desc.ID);
+	u64 MyID = Desc.ID;
+	
+	vimgui_window *Window = GetLayoutWindow(Context);
+	
+	if (IsWithinRectangleInclusive(Context->ThisFrame.Input.MouseP, Desc.Rect)) {
+		SetHotWindow(Context, Window);
+		Context->HotWidgetID = MyID;
+		if (Context->ThisFrame.Input.MouseLeftIsPressed) {
+			SetActiveWindow(Context, Window);
+			Context->ActiveWidgetID = MyID;
+			Result = true;
+		}
+	}
+	
+	PushWidget(Context, Window, (vimgui_widget) {
+				   .Type = VimguiWidgetType_Image,
+				   .ID = MyID,
+				   .WindowID = Window->ID,
+				   .Rect = Desc.Rect,
+				   .Texture = Desc.Texture,
+			   });
+	return(Result);
 }
 
 typedef struct vimgui_button_desc {
