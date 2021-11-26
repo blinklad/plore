@@ -8,23 +8,18 @@ internal void
 VimguiBegin(plore_vimgui_context *Context, keyboard_and_mouse Input, v2 WindowDimensions) {
 	Assert(!Context->GUIPassActive);
 	Context->GUIPassActive = true;
+	Context->ThisFrame = (struct plore_vimgui_context_this_frame) {0};
 	
-	Context->InputThisFrame = Input;
-	
+	Context->ThisFrame.Input = Input;
 	Context->RenderList->QuadCount = 0;
 	Context->RenderList->TextCount = 0;
-	Context->WidgetCount = 0;
 	
-	Context->WindowFocusStolenThisFrame = false;
-	Context->WidgetFocusStolenThisFrame = false;
-	
-	Context->ParentStackCount = 0;
-	Context->WindowWeAreLayingOut = 0;
 	Context->WindowDimensions = WindowDimensions;
 	
 	for (u64 W = 0; W < Context->WindowCount; W++) {
 		vimgui_window *Window = Context->Windows + W;
 		Window->RowCountThisFrame = 0;
+		Window->ParentStackLayer = 0;
 	}
 }
 
@@ -33,12 +28,20 @@ VimguiEnd(plore_vimgui_context *Context) {
 	Assert(Context->GUIPassActive);
 	Context->GUIPassActive = false;
 	
-	vimgui_window *Window = GetActiveWindow(Context);
-	
 	// TODO(Evan): When we buffer widgets, build the render list here, so we can associate
 	// e.g. bitmaps, z-ordering, etc with draw commands, rather then just quads + text.
-	for (u64 W = 0; W < Context->WidgetCount;  W++) {
+	for (u64 W = 0; W < Context->ThisFrame.WidgetCount;  W++) {
 		vimgui_widget *Widget = Context->Widgets + W;
+		
+		u64 ID = 0;
+		if (Widget->Type == VimguiWidgetType_Window) {
+			ID = Widget->ID;
+		} else {
+			ID = Widget->WindowID;
+		}
+		
+		vimgui_window *Window = GetWindow(Context, ID);
+		//Widget->Z = Context->ThisFrame.ParentStackMax - Window->ParentStackLayer;
 		
 		if (Context->ActiveWindow == Widget->ID) {
 			Widget->BackgroundColour = V4(0.15, 0.15, 0.15, 1.0f);
@@ -46,7 +49,10 @@ VimguiEnd(plore_vimgui_context *Context) {
 			Widget->BackgroundColour.RGB = MultiplyVec3f(Widget->BackgroundColour.RGB, 1.10f);
 		}
 		
-		PushRenderQuad(Context->RenderList, Widget->Rect, Widget->BackgroundColour);
+		PushRenderQuad(Context->RenderList, (vimgui_render_quad_desc) { 
+						   .Rect = Widget->Rect, 
+						   .Colour = Widget->BackgroundColour, 
+					   });
 		
 		PushRenderText(Context->RenderList, 
 					   (vimgui_render_text_desc) {
@@ -83,7 +89,7 @@ GetLayoutWindow(plore_vimgui_context *Context) {
 	vimgui_window *Window = 0;
 	for (u64 W = 0; W < Context->WindowCount; W++) {
 		vimgui_window *MaybeWindow = Context->Windows + W;
-		if (MaybeWindow->ID == Context->WindowWeAreLayingOut) {
+		if (MaybeWindow->ID == Context->ThisFrame.WindowWeAreLayingOut) {
 			Window = MaybeWindow;
 			break;
 		}
@@ -162,7 +168,7 @@ internal b64
 Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	// NOTE(Evan): We require an ID from the title right now, __LINE__ shenanigans may be required.
 	Assert(Desc.Title); 
-	Assert(Context->WindowWeAreLayingOut);
+	Assert(Context->ThisFrame.WindowWeAreLayingOut);
 	
 	b64 Result = false;
 	u64 MyID; 
@@ -209,10 +215,10 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 		Desc.Rect.P.Y += Window->Rect.P.Y;
 	}
 	
-	if (IsWithinRectangleInclusive(Context->InputThisFrame.MouseP, Desc.Rect)) {
+	if (IsWithinRectangleInclusive(Context->ThisFrame.Input.MouseP, Desc.Rect)) {
 		SetHotWindow(Context, Window);
 		Context->HotWidgetID = MyID;
-		if (Context->InputThisFrame.MouseLeftIsPressed) {
+		if (Context->ThisFrame.Input.MouseLeftIsPressed) {
 			SetActiveWindow(Context, Window);
 			Context->ActiveWidgetID = MyID;
 			Result = true;
@@ -282,7 +288,7 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 	}
 	
 	if (MaybeWindow) {
-		Assert(Context->ParentStackCount < ArrayCount(Context->ParentStack));
+		Assert(Context->ThisFrame.ParentStackCount < ArrayCount(Context->ThisFrame.ParentStack));
 		MaybeWindow->Generation++; // NOTE(Evan): Touch the window so it continues to live.
 		if (Desc.Hidden) {
 			MaybeWindow->Hidden = true;
@@ -290,16 +296,18 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 		}
 		
 		
-		u64 MyParentIndex = Context->ParentStackCount;
-		Context->ParentStack[Context->ParentStackCount++] = MaybeWindow->ID;
+		u64 MyParentIndex = Context->ThisFrame.ParentStackCount;
+		Context->ThisFrame.ParentStack[Context->ThisFrame.ParentStackCount++] = MaybeWindow->ID;
+		Context->ThisFrame.ParentStackMax = Max(Context->ThisFrame.ParentStackCount, Context->ThisFrame.ParentStackMax);
+		MaybeWindow->ParentStackLayer = MyParentIndex+1;
 		
 		// NOTE(Evan): Only check if the active window needs updating if focus wasn't stolen.
-		if (!Context->WindowFocusStolenThisFrame || Desc.ForceFocus) {
-			if (IsWithinRectangleInclusive(Context->InputThisFrame.MouseP, Desc.Rect) && !Context->HotWindow) {
+		if (!Context->ThisFrame.WindowFocusStolen || Desc.ForceFocus) {
+			if (IsWithinRectangleInclusive(Context->ThisFrame.Input.MouseP, Desc.Rect) && !Context->HotWindow) {
 				Context->HotWindow = MyID;
 			} else if (Desc.ForceFocus) {
 				Context->ActiveWindow = MyID;
-				Context->WindowFocusStolenThisFrame = true;
+				Context->ThisFrame.WindowFocusStolen = true;
 			}
 				
 		}
@@ -309,14 +317,14 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 		vimgui_window *Parent = 0;
 		if (MyParentIndex) {
 			MyParentIndex -= 1;
-			Parent = GetWindow(Context, Context->ParentStack[MyParentIndex]);
+			Parent = GetWindow(Context, Context->ThisFrame.ParentStack[MyParentIndex]);
 			MaybeWindow->Rect.P.X += Parent->Rect.P.X;
 			MaybeWindow->Rect.P.Y += Parent->Rect.P.Y;
 			MaybeWindow->Rect.P.Y += 32.0f; // NOTE(Evan): This offsets child widgets.
 		} 
 		MaybeWindow->RowMax = (Desc.Rect.Span.Y) / (36.0f) - 1; // @Hardcode
 		MaybeWindow->Colour = Desc.BackgroundColour;
-		Context->WindowWeAreLayingOut = MyID;
+		Context->ThisFrame.WindowWeAreLayingOut = MyID;
 		
 		PushWidget(Context, Parent, 
 				   (vimgui_widget) {
@@ -354,19 +362,19 @@ ClipRect(rectangle A, rectangle B) {
 
 internal void
 WindowEnd(plore_vimgui_context *Context) {
-	if (Context->ParentStackCount) {
-		u64 Window = Context->ParentStack[--Context->ParentStackCount-1];
-		Context->WindowWeAreLayingOut = Window;
+	if (Context->ThisFrame.ParentStackCount) {
+		u64 Window = Context->ThisFrame.ParentStack[--Context->ThisFrame.ParentStackCount-1];
+		Context->ThisFrame.WindowWeAreLayingOut = Window;
 	}
 }
 
 internal void
 PushWidget(plore_vimgui_context *Context, vimgui_window *Parent, vimgui_widget Widget) {
-	Assert(Context->WidgetCount < ArrayCount(Context->Widgets));
+	Assert(Context->ThisFrame.WidgetCount < ArrayCount(Context->Widgets));
 	rectangle ParentRect = { .Span = Context->WindowDimensions };
 	if (Parent) ParentRect = Parent->Rect;
 	Widget.Rect = ClipRect(Widget.Rect, ParentRect);
-	Context->Widgets[Context->WidgetCount++] = Widget;
+	Context->Widgets[Context->ThisFrame.WidgetCount++] = Widget;
 }
 
 internal void
@@ -395,12 +403,12 @@ PushRenderText(plore_render_list *RenderList, vimgui_render_text_desc Desc) {
 }
 
 internal void
-PushRenderQuad(plore_render_list *RenderList, rectangle Rect, v4 Colour) {
+PushRenderQuad(plore_render_list *RenderList, vimgui_render_quad_desc Desc) {
 	Assert(RenderList && RenderList->QuadCount < ArrayCount(RenderList->Quads));
 	
 	RenderList->Quads[RenderList->QuadCount++] = (render_quad) {
-		.Rect = Rect,
-		.Colour = Colour,
+		.Rect = Desc.Rect,
+		.Colour = Desc.Colour,
 	};
 }
 
