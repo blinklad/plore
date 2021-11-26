@@ -1,6 +1,6 @@
 # plore
 ## Handmade, simple file explorer
-![plore 0.1.0](plore-v-0-1.png)
+![plore 0.1.1](docs/plore-v-0-1-1.png)
 
 Somewhat inspired by Ranger and LF, with a first-class focus on vim bindings and minimizing the number of concepts, libraries or footguns required to use.
 
@@ -20,18 +20,18 @@ Further, there are some cases that it will probably *never* handle to keep it as
    - Change directory
    - OS-specific shell
    - Rename
+   - Make directory
 * Command previews
 * Command stack. Sort of implemented, not useful.
 * Selecting entries moves the cursor
-* Scalars/motion on cursor movement
-* File preview - use an extension whitelist
-* Multiple tabs
-* Vim commands have an actual grammar, rather than memcmping strings.
+* File preview - use an extension whitelist. Working for BMP images currently!
+* Multiple tabs.
+* Vim commands supporting scalars (e.g., 5yy, 2j)
 * Per-context cursor and undo stack.
 * VIMGUI work:
    - Actual alpha blending 
-   - Z-order
-   - Focus
+   - ~~Z-order~~ Implicit z-ordering using the parent window stack will work ok!
+   - ~Focus~
    - Better primitive lists (curves, bitmaps)
    - Floating windows
    - More widgets (dropdowns, textfields)
