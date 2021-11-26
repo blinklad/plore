@@ -3,7 +3,6 @@
 
 typedef struct render_circle {
 	f32 R;
-	f32 Z;
 	v2 P;
 	v4 Colour;
 	b64 Outline;
@@ -11,9 +10,9 @@ typedef struct render_circle {
 
 typedef struct render_quad {
 	rectangle Rect;
-	f32 Z;
 	v4 Colour;
 	b32 DrawOutline;
+	platform_texture_handle Texture;
 } render_quad;
 
 typedef struct render_text {

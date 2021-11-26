@@ -32,6 +32,54 @@ typedef struct plore_state {
 #include "plore_vim.c"
 #include "plore_vimgui.c"
 #include "plore_table.c"
+#define BITMAP_COMPRESSION_NONE 0
+#define BITMAP_COMPRESSION_RUN_LENGTH_ENCODING_8 1
+#define BITMAP_COMPRESSION_RUN_LENGTH_ENCODING_4 2
+#define BITMAP_COMPRESSION_RGB_WITH_MASK 3
+
+#pragma pack(push, 1)
+typedef struct bitmap_header {
+	u16 Name;
+	u32 SizeInBytes;
+	u32 Reserved;
+	u32 DataOffsetFromHeaderStart;
+	u32 HeaderSize;
+	i32 Width;
+	i32 Height;
+	u16 Planes;
+	u16 BitsPerPixel;
+	u32 CompressionType;
+	u32 ImageSizeInBytes;
+	i32 XResolutionInMeters;
+	i32 YResolutionInMeters;
+	u32 ColourCount;
+	u32 ImportantColours;
+} bitmap_header;
+#pragma pack(pop)
+
+typedef struct loaded_bitmap {
+	u32 Width;
+	u32 Height;
+	void *Memory;
+} loaded_bitmap;
+
+internal loaded_bitmap
+LoadBMP(void *Memory) {
+	bitmap_header *BitmapHeader = (bitmap_header *)Memory;
+	
+	Assert(BitmapHeader);
+	Assert(((char *)BitmapHeader)[0] == 'B'); 
+	Assert(((char *)BitmapHeader)[1] == 'M'); 
+	Assert(BitmapHeader->Height > 0); // NOTE(Evan): Negative height means top-down instead of bottom-up!
+	loaded_bitmap Result = {
+		.Memory = ((u8 *)BitmapHeader + BitmapHeader->DataOffsetFromHeaderStart),
+		.Width = (u32)BitmapHeader->Width,
+		.Height = (u32)BitmapHeader->Height,
+	};
+	
+	return(Result);
+}
+
 
 internal void
 PrintDirectory(plore_file_listing *Directory);
@@ -93,10 +141,17 @@ FontInit(memory_arena *Arena, char *Path) {
 	
 	for (u64 F = 0; F < 2; F++) {
 		stbtt_BakeFontBitmap(FontBuffer, 0, Result->Fonts[F].Height, TempBitmap, 512, 512, 32, 96, Result->Fonts[F].Data); // No guarantee this fits!
-		Result->Fonts[F].Handle = Platform->CreateTextureHandle(TempBitmap, 512, 512);
+		Result->Fonts[F].Handle = Platform->CreateTextureHandle((platform_texture_handle_desc) {
+																	.Pixels = TempBitmap, 
+																	.Height = 512, 
+																	.Width = 512,
+																	.TargetPixelFormat = PixelFormat_ALPHA,
+																	.ProvidedPixelFormat = PixelFormat_ALPHA,
+																	.FilterMode = FilterMode_Linear
+																});
 		
-		Platform->DebugCloseFile(FontFile);
 	}
+	Platform->DebugCloseFile(FontFile);
 	
 	return(Result);
 }
@@ -413,8 +468,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 				default: {
 				} break;
 		}
-			
 		AteCommands = true;
+				
 		} break;
 		case InteractState_CommandHistory: {
 			PrintLine("Command history mode.");
@@ -462,6 +517,13 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		},
 	};
 	
+	typedef struct image_preview_handle {
+		plore_path Path;
+		platform_texture_handle Texture;
+		b64 Allocated;
+	} image_preview_handle;
+	
+	image_preview_handle *HACKHandle = 0;
 	
 	if (Window(State->VimguiContext, (vimgui_window_desc) {
 				   .Title = FileContext->Current->File.Path.Absolute,
@@ -469,13 +531,37 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 				   .BackgroundColour = V4(0.0, 0.0, 0.0, 1.0f),
 			   })) {
 		
+		
+#if 1
+		if (DirectoryState.Cursor) {
+			char CursorInfo[512] = {0};
+			StringPrintSized(CursorInfo, 
+							 ArrayCount(CursorInfo),
+						     "[%s] %s 01-02-3 %s", 
+						     (DirectoryState.Cursor->File.Type == PloreFileNode_Directory) ? "DIR" : "FILE", 
+						     DirectoryState.Cursor->File.Path.FilePart,
+							 PloreKeysToString(&State->FrameArena, LastCommand, LastCommandCount));
+			
+			if (Button(State->VimguiContext, (vimgui_button_desc) {
+						   .Title = CursorInfo,
+						   .Rect = { 
+							   .P = V2(0, PlatformAPI->WindowDimensions.X + FooterHeight), 
+							   .Span = V2(PlatformAPI->WindowDimensions.X, FooterHeight + PadY)
+						   },
+					   })) {
+			}
+			
+		}
+#endif
 		for (u64 Col = 0; Col < Cols; Col++) {
 			v2 P      = V2(X, 0);
 			v2 Span   = V2(W-3, H-22);
 			
+			HACKHandle = 0;
 			plore_viewable_directory *Directory = ViewDirectories + Col;
 			plore_file_listing *Listing = Directory->File;
 			if (!Listing) continue; /* Parent can be null, if we are currently looking at a top-level directory. */
+			
 			
 			char *Title = Listing->File.Path.FilePart;
 			if (Window(State->VimguiContext, (vimgui_window_desc) {
@@ -483,42 +569,90 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 						   .Rect                 = {P, Span}, 
 						   .ForceFocus           = Directory->Focus })) {
 				
-				for (u64 Row = 0; Row < Listing->Count; Row++) {
-					v4 BackgroundColour = {0};
-					v4 TextColour = {0};
-					
-					plore_file_listing *RowEntry = GetOrInsertListing(FileContext, ListingFromFile(&Listing->Entries[Row])).Listing;
-					if (Listing->Cursor == Row) {
-						BackgroundColour = V4(0.5, 0.3, 0.3, 0.35);
-					} else if (IsYanked(FileContext, RowEntry)) {
-						BackgroundColour = V4(0.5, 0.4, 0.4, 0.45);
-					} else if (IsSelected(FileContext, RowEntry)) {
-						BackgroundColour = V4(0.40, 0.5, 0.4, 0.35);
-					} 
-					
-					if (RowEntry->File.Type == PloreFileNode_Directory) {
-						TextColour = V4(0.4, 0.5, 0.6, 1);
-					} else {
-						TextColour = V4(0.9, 0.85, 0.80, 1);
-					}
-					
-					if (Button(State->VimguiContext, (vimgui_button_desc) {
-								   .Title = Listing->Entries[Row].Path.FilePart,
-								   .FillWidth = true,
-								   .Centre = true,
-								   .BackgroundColour = BackgroundColour,
-								   .TextColour = TextColour,
-								   .TextPad = V2(4, 0),
-							   })) {
-						Listing->Cursor = Row;
-						PrintLine("Button %s was clicked!", Listing->Entries[Row].Path.FilePart);
-						if (Listing->Entries[Row].Type == PloreFileNode_Directory) {
-							PrintLine("Changing Directory to %s", Listing->Entries[Row].Path.Absolute);
-							Platform->SetCurrentDirectory(Listing->Entries[Row].Path.Absolute);
+				switch (Listing->File.Type) {
+					case PloreFileNode_Directory: {
+						for (u64 Row = 0; Row < Listing->Count; Row++) {
+							v4 BackgroundColour = {0};
+							v4 TextColour = {0};
+							
+							plore_file_listing *RowEntry = GetOrInsertListing(FileContext, ListingFromFile(&Listing->Entries[Row])).Listing;
+							if (Listing->Cursor == Row) {
+								BackgroundColour = V4(0.5, 0.3, 0.3, 0.35);
+							} else if (IsYanked(FileContext, RowEntry)) {
+								BackgroundColour = V4(0.5, 0.4, 0.4, 0.45);
+							} else if (IsSelected(FileContext, RowEntry)) {
+								BackgroundColour = V4(0.40, 0.5, 0.4, 0.35);
+							} 
+							
+							if (RowEntry->File.Type == PloreFileNode_Directory) {
+								TextColour = V4(0.4, 0.5, 0.6, 1);
+							} else {
+								TextColour = V4(0.9, 0.85, 0.80, 1);
+							}
+							
+							if (Button(State->VimguiContext, (vimgui_button_desc) {
+										   .Title = Listing->Entries[Row].Path.FilePart,
+										   .FillWidth = true,
+										   .Centre = true,
+										   .BackgroundColour = BackgroundColour,
+										   .TextColour = TextColour,
+										   .TextPad = V2(4, 0),
+									   })) {
+								Listing->Cursor = Row;
+								PrintLine("Button %s was clicked!", Listing->Entries[Row].Path.FilePart);
+								if (Listing->Entries[Row].Type == PloreFileNode_Directory) {
+									PrintLine("Changing Directory to %s", Listing->Entries[Row].Path.Absolute);
+									Platform->SetCurrentDirectory(Listing->Entries[Row].Path.Absolute);
+								}
+							}
 						}
-					}
+					} break;
+					case PloreFileNode_File: {
+						
+						local image_preview_handle ImagePreviewHandles[32] = {0};
+						local u64 ImagePreviewHandleCursor = 0;
+						
+						image_preview_handle *MyHandle = 0;
+						// TODO(Evan): Make this work for other image types
+						// TODO(Evan): Make file loading asynchronous!
+						if (Listing->File.Extension == PloreFileExtension_BMP) {
+							for (u64 I = 0; I < ArrayCount(ImagePreviewHandles); I++) {
+								image_preview_handle *Handle = ImagePreviewHandles + I;
+								if (CStringsAreEqual(Handle->Path.Absolute, Listing->File.Path.Absolute)) {
+									MyHandle = Handle;
+									break;
+								}
+							}
+							
+							if (!MyHandle) {
+								MyHandle = ImagePreviewHandles + ImagePreviewHandleCursor;
+								ImagePreviewHandleCursor = (ImagePreviewHandleCursor + 1) % ArrayCount(ImagePreviewHandles);
+								
+								if (MyHandle->Allocated) {
+									Platform->DestroyTextureHandle(MyHandle->Texture);
+								}
+								MyHandle->Path = Listing->File.Path;
+								platform_readable_file File = Platform->DebugOpenFile(MyHandle->Path.Absolute);
+								char *Buffer = PushBytes(&State->FrameArena, File.FileSize);
+								Platform->DebugReadEntireFile(File, Buffer, File.FileSize);
+								loaded_bitmap Bitmap = LoadBMP(Buffer);
+								MyHandle->Texture = Platform->CreateTextureHandle((platform_texture_handle_desc) {
+																					  .Pixels = Bitmap.Memory, 
+																					  .Width = Bitmap.Width, 
+																					  .Height = Bitmap.Height,
+																					  .ProvidedPixelFormat = PixelFormat_BGRA8,
+																					  .TargetPixelFormat = PixelFormat_RGBA8,
+																					  .FilterMode = FilterMode_Nearest,
+																				  });
+								Platform->DebugCloseFile(File);
+							}
+							
+							HACKHandle = MyHandle;
+						}
+					} break;
+					
+					InvalidDefaultCase;
 				}
-				
 				WindowEnd(State->VimguiContext);
 			}
 			
@@ -582,28 +716,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			WindowEnd(State->VimguiContext);
 		}
 		
-#if 1
-		if (DirectoryState.Cursor) {
-			char CursorInfo[512] = {0};
-			StringPrintSized(CursorInfo, 
-							 ArrayCount(CursorInfo),
-						     "[%s] %s 01-02-3 %s", 
-						     (DirectoryState.Cursor->File.Type == PloreFileNode_Directory) ? "DIR" : "FILE", 
-						     DirectoryState.Cursor->File.Path.FilePart,
-							 PloreKeysToString(&State->FrameArena, LastCommand, LastCommandCount));
-			
-			if (Button(State->VimguiContext, (vimgui_button_desc) {
-						   .Title = CursorInfo,
-						   .Rect = { 
-								   .P = V2(0, PlatformAPI->WindowDimensions.X + FooterHeight), 
-								   .Span = V2(PlatformAPI->WindowDimensions.X, FooterHeight + PadY)
-						   },
-					   })) {
-			}
-			
-		}
-#endif
-		
 		WindowEnd(State->VimguiContext);
 	}
 	
@@ -620,8 +732,21 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	FlushText();
 #endif
 	
+	
 	VimguiEnd(State->VimguiContext);
 	
+	#if 1
+	if (HACKHandle) {
+		State->VimguiContext->RenderList->Quads[State->VimguiContext->RenderList->QuadCount++] = (render_quad) {
+			.Rect = {
+				.P = V2(1330, 250),
+				.Span = V2(512, 512),
+			}, 
+			.Colour = V4(1, 1, 1, 1),
+			.Texture = HACKHandle->Texture,
+		};
+	}
+	#endif
 	
 	
 	// NOTE(Evan): Right now, we copy this out. We may not want to in the future(tm), even if it is okay now.

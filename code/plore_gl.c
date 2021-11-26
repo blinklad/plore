@@ -90,12 +90,8 @@ ImmediateBegin(u64 WindowWidth, u64 WindowHeight) {
 		
 		glBindTexture(GL_TEXTURE_2D, 0);
 		
-		glDisable(GL_DEPTH_TEST);
-		glClear(GL_DEPTH_BUFFER_BIT);
-		glDepthFunc(GL_LESS);
-		
 		glEnable(GL_ALPHA_TEST);
-//		glAlphaFunc(GL_NOTEQUAL, 0);
+		glAlphaFunc(GL_NOTEQUAL, 0);
 		
 		glClearColor(0.01f, 0.01f, 0.01f, 1);
 		glClear(GL_COLOR_BUFFER_BIT);
@@ -105,8 +101,8 @@ ImmediateBegin(u64 WindowWidth, u64 WindowHeight) {
 				GLWindowWidth,
 				GLWindowHeight,
 				0,
-				0.00f,
-				-10.0f);
+				-1.0f,
+				10.0f);
 	}
 }
 
@@ -121,7 +117,7 @@ DrawSquare(render_quad Quad) {
 	f32 H = Quad.Rect.Span.H;
 	f32 X = Quad.Rect.P.X;
 	f32 Y = Quad.Rect.P.Y;
-	f32 Z = Quad.Z;
+	f32 Z = 0; // NOTE(Evan): Unused!
 	
     f32 LeftX   = X;
     f32 RightX  = X + W;
@@ -130,8 +126,23 @@ DrawSquare(render_quad Quad) {
 	
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-	Colour.RGB = MultiplyVec3f(Colour.RGB, Colour.A);
-    glColor4f(Colour.R, Colour.G, Colour.B, Colour.A);
+	if (Quad.Texture.Opaque) {
+		glEnable(GL_TEXTURE_2D);
+		glBindTexture(GL_TEXTURE_2D, Quad.Texture.Opaque);
+		glColor4f(1, 1, 1, 1);
+		
+		// @Hack, flip coordinate space of texture!
+		f32 Temp = TopY;
+		TopY = BottomY;
+		BottomY = Temp;
+	} else {
+		glEnable(GL_ALPHA_TEST);
+		glAlphaFunc(GL_NOTEQUAL, 0);
+		
+		Colour.RGB = MultiplyVec3f(Colour.RGB, Colour.A);
+		glColor4f(Colour.R, Colour.G, Colour.B, Colour.A);
+		glBindTexture(GL_TEXTURE_2D, 0);
+	}
 	
     if (Quad.DrawOutline) {
         glBegin(GL_LINES); 
