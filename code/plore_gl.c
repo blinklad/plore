@@ -36,11 +36,11 @@ WriteText(plore_font *Font, render_text T) {
 	//Y = GLWindowHeight - Y;
 	
 	// assume orthographic projection with units = screen pixels, origin at top left
-	glMatrixMode(GL_PROJECTION);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glEnable(GL_TEXTURE_2D);
 	glBindTexture(GL_TEXTURE_2D, Handle.Opaque);
+	glMatrixMode(GL_PROJECTION);
 	glBegin(GL_QUADS);
 	
 	f32 StartX = X;
@@ -90,11 +90,12 @@ ImmediateBegin(u64 WindowWidth, u64 WindowHeight) {
 		
 		glBindTexture(GL_TEXTURE_2D, 0);
 		
+		glDisable(GL_DEPTH_TEST);
 		glEnable(GL_ALPHA_TEST);
 		glAlphaFunc(GL_NOTEQUAL, 0);
 		
 		glClearColor(0.01f, 0.01f, 0.01f, 1);
-		glClear(GL_COLOR_BUFFER_BIT);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		
 		glViewport(0, 0, GLWindowWidth, GLWindowHeight);
 		glOrtho(0,
@@ -110,9 +111,7 @@ internal void
 DrawSquare(render_quad Quad) {
 	v4 Colour = Quad.Colour;
 	
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-	
+	glMatrixMode(GL_PROJECTION);
 	f32 W = Quad.Rect.Span.W;
 	f32 H = Quad.Rect.Span.H;
 	f32 X = Quad.Rect.P.X;
@@ -125,7 +124,7 @@ DrawSquare(render_quad Quad) {
     f32 TopY    = Y + H;
 	
 	glEnable(GL_BLEND);
-	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	if (Quad.Texture.Opaque) {
 		glEnable(GL_TEXTURE_2D);
 		glBindTexture(GL_TEXTURE_2D, Quad.Texture.Opaque);
@@ -136,12 +135,8 @@ DrawSquare(render_quad Quad) {
 		TopY = BottomY;
 		BottomY = Temp;
 	} else {
-		glEnable(GL_ALPHA_TEST);
-		glAlphaFunc(GL_NOTEQUAL, 0);
-		
-		Colour.RGB = MultiplyVec3f(Colour.RGB, Colour.A);
+		glDisable(GL_TEXTURE_2D);
 		glColor4f(Colour.R, Colour.G, Colour.B, Colour.A);
-		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 	
     if (Quad.DrawOutline) {
