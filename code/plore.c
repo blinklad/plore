@@ -217,7 +217,11 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	plore_current_directory_state DirectoryState = SynchronizeCurrentDirectory(State);
 	
 	if (BufferedInput.OIsPressed) {
-		State->InteractState = ToggleFlag(State->InteractState, InteractState_CommandHistory);
+		if (State->InteractState == InteractState_CommandHistory) {
+			State->InteractState = InteractState_FileExplorer;
+		} else {
+			State->InteractState = InteractState_CommandHistory;
+		}
 	}
 	
 	//ThisFrame->InputChar = SymbolicName + (ThisFrame->ShiftIsDown ? 32 : 0); \
@@ -526,7 +530,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	if (Window(State->VimguiContext, (vimgui_window_desc) {
 				   .Title = FileContext->Current->File.Path.Absolute,
 				   .Rect = { .P = V2(0, 0), .Span = { PlatformAPI->WindowDimensions.X, PlatformAPI->WindowDimensions.Y - FooterHeight } },
-				   .BackgroundColour = V4(0.0, 0.0, 0.0, 1.0f),
+					   .BackgroundColour = V4(0.1, 0.1, 0.1, 0.0),
 			   })) {
 		
 		
@@ -562,9 +566,11 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			
 			char *Title = Listing->File.Path.FilePart;
 			if (Window(State->VimguiContext, (vimgui_window_desc) {
-						   .Title                = Title,
-						   .Rect                 = {P, Span}, 
-						   .ForceFocus           = Directory->Focus })) {
+							   .Title                = Title,
+							   .Rect                 = {P, Span}, 
+							   .ForceFocus           = Directory->Focus,
+							   .BackgroundColour = V4(0.05, 0.05, 0.05, 1.0)
+						   })) {
 				
 				switch (Listing->File.Type) {
 					case PloreFileNode_Directory: {
@@ -574,11 +580,11 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							
 							plore_file_listing *RowEntry = GetOrInsertListing(FileContext, ListingFromFile(&Listing->Entries[Row])).Listing;
 							if (Listing->Cursor == Row) {
-								BackgroundColour = V4(0.5, 0.3, 0.3, 0.35);
+								BackgroundColour = V4(0.5, 0.3, 0.3, 1);
 							} else if (IsYanked(FileContext, RowEntry)) {
-								BackgroundColour = V4(0.5, 0.4, 0.4, 0.45);
+								BackgroundColour = V4(0.5, 0.4, 0.4, 1);
 							} else if (IsSelected(FileContext, RowEntry)) {
-								BackgroundColour = V4(0.40, 0.5, 0.4, 0.35);
+								BackgroundColour = V4(0.40, 0.5, 0.4, 1);
 							} 
 							
 							if (RowEntry->File.Type == PloreFileNode_Directory) {
@@ -649,15 +655,11 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							if (Image(State->VimguiContext, (vimgui_image_desc) { 
 											  .ID = (u64) MyHandle,
 											  .Texture = MyHandle->Texture,
+											  .Rect = {
+												  .P = V2(1330, 250),
+												  .Span = V2(512, 512),
+											  }, 
 										  })) {
-								State->VimguiContext->RenderList->Quads[State->VimguiContext->RenderList->QuadCount++] = (render_quad) {
-									.Rect = {
-										.P = V2(1330, 250),
-										.Span = V2(512, 512),
-									}, 
-									.Colour = V4(1, 1, 1, 1),
-									.Texture = MyHandle->Texture,
-								};
 							}
 						}
 					} break;
@@ -674,8 +676,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		if (Window(State->VimguiContext, (vimgui_window_desc) {
 					   .Title              = "Command History",
 					   .Rect               = { DivideVec2f(PlatformAPI->WindowDimensions, 2), V2(400, 400) }, 
-					   .BackgroundColour   = V4(1, 1, 1, 0.1),
 					   .Hidden             = Hidden,
+					   .BackgroundColour = V4(0.05, 0.05, 0.05, 1),
 					   .ForceFocus         = !Hidden})) {
 			for (u64 C = 0; C < State->VimContext->VimCommandCount; C++) {
 				if (C == 10) break;
@@ -720,6 +722,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							   .ID = (u64) Command,
 							   .FillWidth = true,
 							   .Centre = true,
+							   .BackgroundColour = V4(0.1, 0.1, 0.1, 1.0),
 						   })) {
 				}
 			}
