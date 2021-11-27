@@ -12,24 +12,26 @@ typedef struct vimgui_window {
 	char *Title;
 	u64 RowMax;
 	u64 RowCountLastFrame;
-	u64 RowCountThisFrame; // NOTE(Evan): Temporary
-	u64 ParentStackLayer;  // NOTE(Evan): Temporary
+	u64 RowCountThisFrame; // NOTE(Evan): ThisFrame
+	u64 Layer;             // NOTE(Evan): ThisFrame
 	i64 Generation; // NOTE(Evan): When a window is "touched", this is incremented.
 	                // If the generation lags behind the global context, the window is deleted. 
 	b64 Hidden;
 } vimgui_window;
 
-typedef enum vimgui_widget_type {
-	VimguiWidgetType_Window,
-	VimguiWidgetType_Button,
-	VimguiWidgetType_Image,
-	_VimguiWidgetType_ForceU64 = 0xFFFFFFFF,
-} vimgui_widget_type;
+typedef enum widget_type {
+	WidgetType_Window,
+	WidgetType_Button,
+	WidgetType_Image,
+	WidgetType_Count,
+	_WidgetType_ForceU64 = 0xFFFFFFFF,
+} widget_type;
 
 typedef struct vimgui_widget {
 	u64 ID;
 	u64 WindowID;
-	vimgui_widget_type Type;
+	u64 Layer;
+	widget_type Type;
 	rectangle Rect;
 	v4 BackgroundColour;
 	v4 TextColour;
@@ -48,6 +50,7 @@ typedef struct plore_vimgui_context {
 		u64 ParentStack[8];
 		u64 ParentStackMax;
 		u64 WindowWeAreLayingOut;
+		vimgui_widget Widgets[512];
 		keyboard_and_mouse Input;
 	} ThisFrame;
 	
@@ -63,7 +66,6 @@ typedef struct plore_vimgui_context {
 	
 	i64 GenerationCount;
 	
-	vimgui_widget Widgets[512];
 	plore_render_list *RenderList;
 	
 	v2 WindowDimensions;
@@ -88,14 +90,17 @@ typedef struct vimgui_render_text_desc {
 	v2 TextPad;
 } vimgui_render_text_desc;
 
+// @Cleanup
 internal void
 PushRenderText(plore_render_list *RenderList, vimgui_render_text_desc Desc);
 
 typedef struct vimgui_render_quad_desc {
 	rectangle Rect;
 	v4 Colour;
+	platform_texture_handle Texture;
 } vimgui_render_quad_desc;
 
+// @Cleanup
 internal void
 PushRenderQuad(plore_render_list *RenderList, vimgui_render_quad_desc Desc);
 

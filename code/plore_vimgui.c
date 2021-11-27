@@ -19,7 +19,7 @@ VimguiBegin(plore_vimgui_context *Context, keyboard_and_mouse Input, v2 WindowDi
 	for (u64 W = 0; W < Context->WindowCount; W++) {
 		vimgui_window *Window = Context->Windows + W;
 		Window->RowCountThisFrame = 0;
-		Window->ParentStackLayer = 0;
+		Window->Layer = 0;
 	}
 }
 
@@ -28,30 +28,45 @@ VimguiEnd(plore_vimgui_context *Context) {
 	Assert(Context->GUIPassActive);
 	Context->GUIPassActive = false;
 	
-	// TODO(Evan): When we buffer widgets, build the render list here, so we can associate
-	// e.g. bitmaps, z-ordering, etc with draw commands, rather then just quads + text.
-	for (u64 W = 0; W < Context->ThisFrame.WidgetCount;  W++) {
-		vimgui_widget *Widget = Context->Widgets + W;
-		
-		u64 ID = 0;
-		if (Widget->Type == VimguiWidgetType_Window) {
-			ID = Widget->ID;
-		} else {
-			ID = Widget->WindowID;
+	vimgui_widget *Widgets = Context->ThisFrame.Widgets;
+	Assert(Context->ThisFrame.WidgetCount);
+	
+	u64 ActiveWindowID = Context->ActiveWindow;
+	
+	// NOTE(Evan): Push focused widgets (including window) to the top.
+	for (u64 W = 0; W < Context->ThisFrame.WidgetCount; W++) {
+		if (Widgets[W].WindowID == ActiveWindowID) {
+			Widgets[W].Layer += 2;
 		}
+	}
+	
+	// NOTE(Evan): Sort widgets
+	for (u64 W = 0; W < Context->ThisFrame.WidgetCount - 1; W++) {
+		for (u64 C = 0; C < Context->ThisFrame.WidgetCount - W - 1; C++) {
+			if (Widgets[C].Layer < Widgets[C+1].Layer) {
+				vimgui_widget Temp = Widgets[C];
+				Widgets[C] = Widgets[C+1];
+				Widgets[C+1] = Temp;
+			}
+		}
+	}
+	
+	// NOTE(Evan): Push widgets back-to-front onto the list for painters' algorithm.
+	for (u64 W = 0; W < Context->ThisFrame.WidgetCount;  W++) {
+		vimgui_widget *Widget = Context->ThisFrame.Widgets + Context->ThisFrame.WidgetCount - 1 - W;
 		
-		vimgui_window *Window = GetWindow(Context, ID);
-		//Widget->Z = Context->ThisFrame.ParentStackMax - Window->ParentStackLayer;
+		vimgui_window *Window = GetWindow(Context, Widget->ID);
 		
-		if (Context->ActiveWindow == Widget->ID) {
-			Widget->BackgroundColour = V4(0.15, 0.15, 0.15, 1.0f);
-		} else if (Context->HotWindow == Widget->ID) {
+		if (Context->ActiveWindow == Widget->WindowID) {
+			Widget->BackgroundColour.RGB = MultiplyVec3f(Widget->BackgroundColour.RGB, 1.40f);
+		} else if (Context->HotWindow == Widget->WindowID) {
 			Widget->BackgroundColour.RGB = MultiplyVec3f(Widget->BackgroundColour.RGB, 1.10f);
 		}
 		
 		PushRenderQuad(Context->RenderList, (vimgui_render_quad_desc) { 
 						   .Rect = Widget->Rect, 
 						   .Colour = Widget->BackgroundColour, 
+						   .Texture = Widget->Texture,
 					   });
 		
 		if (Widget->Title) {
@@ -180,7 +195,8 @@ Image(plore_vimgui_context *Context, vimgui_image_desc Desc) {
 	}
 	
 	PushWidget(Context, Window, (vimgui_widget) {
-				   .Type = VimguiWidgetType_Image,
+				   .Layer = Window->Layer + 1,
+				   .Type = WidgetType_Image,
 				   .ID = MyID,
 				   .WindowID = Window->ID,
 				   .Rect = Desc.Rect,
@@ -222,7 +238,7 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	
 	// NOTE(Evan): Default args.
 	if (MemoryCompare(&Desc.BackgroundColour, &(v4){0}, sizeof(v4)) == 0) {
-		Desc.BackgroundColour = V4(0.65, 0.65, 0.65, 0.1);
+		Desc.BackgroundColour = V4(0.10, 0.1, 0.1, 1.0);
 	}
 	
 	if (MemoryCompare(&Desc.TextColour, &(v4){0}, sizeof(v4)) == 0) {
@@ -265,8 +281,9 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	
 	PushWidget(Context, Window,
 			   (vimgui_widget) {
-				   .Type = VimguiWidgetType_Button,
+				   .Type = WidgetType_Button,
 				   .ID = MyID,
+				   .Layer = Window->Layer + 1,
 				   .WindowID = Window->ID,
 				   .Rect = Desc.Rect,
 				   .BackgroundColour = Desc.BackgroundColour,
@@ -301,7 +318,7 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 	
 	// NOTE(Evan): Default args.
 	if (MemoryCompare(&Desc.BackgroundColour, &(v4){0}, sizeof(v4)) == 0) {
-		Desc.BackgroundColour = V4(1, 1, 1, 0.1);
+		Desc.BackgroundColour = V4(0.0, 0.0, 0.0, 1.0);
 	}
 	
 	if (MemoryCompare(&Desc.TextColour, &(v4){0}, sizeof(v4)) == 0) {
@@ -335,7 +352,7 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 		u64 MyParentIndex = Context->ThisFrame.ParentStackCount;
 		Context->ThisFrame.ParentStack[Context->ThisFrame.ParentStackCount++] = MaybeWindow->ID;
 		Context->ThisFrame.ParentStackMax = Max(Context->ThisFrame.ParentStackCount, Context->ThisFrame.ParentStackMax);
-		MaybeWindow->ParentStackLayer = MyParentIndex+1;
+		MaybeWindow->Layer = MyParentIndex+1;
 		
 		// NOTE(Evan): Only check if the active window needs updating if focus wasn't stolen.
 		if (!Context->ThisFrame.WindowFocusStolen || Desc.ForceFocus) {
@@ -364,8 +381,10 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 		
 		PushWidget(Context, Parent, 
 				   (vimgui_widget) {
-					   .Type = VimguiWidgetType_Window,
+					   .Type = WidgetType_Window,
 					   .ID = MyID,
+					   .WindowID = MaybeWindow->ID,
+					   .Layer = Parent ? Parent->Layer + 1 : 0,
 					   .Rect = MaybeWindow->Rect,
 					   .Title = MaybeWindow->Title,
 					   .Centered = true, 
@@ -406,11 +425,11 @@ WindowEnd(plore_vimgui_context *Context) {
 
 internal void
 PushWidget(plore_vimgui_context *Context, vimgui_window *Parent, vimgui_widget Widget) {
-	Assert(Context->ThisFrame.WidgetCount < ArrayCount(Context->Widgets));
+	Assert(Context->ThisFrame.WidgetCount < ArrayCount(Context->ThisFrame.Widgets));
 	rectangle ParentRect = { .Span = Context->WindowDimensions };
 	if (Parent) ParentRect = Parent->Rect;
 	Widget.Rect = ClipRect(Widget.Rect, ParentRect);
-	Context->Widgets[Context->ThisFrame.WidgetCount++] = Widget;
+	Context->ThisFrame.Widgets[Context->ThisFrame.WidgetCount++] = Widget;
 }
 
 internal void
@@ -445,6 +464,7 @@ PushRenderQuad(plore_render_list *RenderList, vimgui_render_quad_desc Desc) {
 	RenderList->Quads[RenderList->QuadCount++] = (render_quad) {
 		.Rect = Desc.Rect,
 		.Colour = Desc.Colour,
+		.Texture = Desc.Texture,
 	};
 }
 
