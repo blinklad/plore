@@ -465,10 +465,9 @@ CleanupProcessHandle(void *Context, BOOLEAN WasTimedOut) {
 //
 OPENGL_DEBUG_CALLBACK(WindowsGLDebugMessageCallback)
 {
-    if (severity == GL_DEBUG_SEVERITY_HIGH || severity == GL_DEBUG_SEVERITY_MEDIUM)
+    if (true)//severity == GL_DEBUG_SEVERITY_HIGH || severity == GL_DEBUG_SEVERITY_MEDIUM)
     {
         WindowsDebugPrintLine("OpenGL error!... Not sure what, just an error!");
-        // oh no
     }
 }
 
@@ -1086,8 +1085,6 @@ int WinMain (
 			
 			windows_timer FileCopyEndTimer = WindowsGetTime();
 			f64 FileCopyTimeInSeconds = ((f64) ((f64)FileCopyEndTimer.TicksNow - (f64)FileCopyBeginTimer.TicksNow) / (f64)FileCopyBeginTimer.Frequency);
-			
-//			WindowsDebugPrintLine("File timing :: %f seconds", FileCopyTimeInSeconds);
 			
 			ImmediateBegin(WindowsContext.Width, WindowsContext.Height);
 			for (u64 I = 0; I < RenderList.QuadCount; I++) {
