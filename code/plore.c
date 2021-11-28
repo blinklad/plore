@@ -8,9 +8,41 @@ global platform_api *Platform;
 global platform_debug_print_line *PrintLine;
 global platform_debug_print *Print;
 
+
 #define STB_TRUETYPE_IMPLEMENTATION  // force following include to generate implementation
 #include "stb_truetype.h"
 
+platform_texture_handle TextureHandle_CantLoad;
+memory_arena *STBFrameArena = 0;
+internal void *
+STBMalloc(u64 Size) {
+	void *Result = PushBytes(STBFrameArena, Size);
+	Assert(Result);
+	
+	return(Result);
+}
+
+internal void
+STBFree(void *Ptr) {
+	(void)Ptr;
+}
+
+internal void *
+STBRealloc(void *Ptr, u64 Size) {
+	(void)Ptr;
+	
+	void *Result = STBMalloc(Size);
+	Assert(Result);
+	
+	return(Result);
+}
+
+#define STBI_MALLOC(Size) STBMalloc(Size)
+#define STBI_FREE(Ptr) STBFree(Ptr)
+#define STBI_REALLOC(Ptr, Size) STBRealloc(Ptr, Size)
+#define STBI_NO_STDIO
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 typedef struct plore_state {
 	b64 Initialized;
@@ -32,54 +64,16 @@ typedef struct plore_state {
 #include "plore_vim.c"
 #include "plore_vimgui.c"
 #include "plore_table.c"
-#define BITMAP_COMPRESSION_NONE 0
-#define BITMAP_COMPRESSION_RUN_LENGTH_ENCODING_8 1
-#define BITMAP_COMPRESSION_RUN_LENGTH_ENCODING_4 2
-#define BITMAP_COMPRESSION_RGB_WITH_MASK 3
 
-#pragma pack(push, 1)
-typedef struct bitmap_header {
-	u16 Name;
-	u32 SizeInBytes;
-	u32 Reserved;
-	u32 DataOffsetFromHeaderStart;
-	u32 HeaderSize;
-	i32 Width;
-	i32 Height;
-	u16 Planes;
-	u16 BitsPerPixel;
-	u32 CompressionType;
-	u32 ImageSizeInBytes;
-	i32 XResolutionInMeters;
-	i32 YResolutionInMeters;
-	u32 ColourCount;
-	u32 ImportantColours;
-} bitmap_header;
-#pragma pack(pop)
 
-typedef struct loaded_bitmap {
-	u32 Width;
-	u32 Height;
-	void *Memory;
-} loaded_bitmap;
+typedef struct load_image_result {
+	platform_texture_handle Texture;
+	b64 LoadedSuccessfully;
+	char *ErrorReason;
+} load_image_result;
 
-internal loaded_bitmap
-LoadBMP(void *Memory) {
-	bitmap_header *BitmapHeader = (bitmap_header *)Memory;
-	
-	Assert(BitmapHeader);
-	Assert(((char *)BitmapHeader)[0] == 'B'); 
-	Assert(((char *)BitmapHeader)[1] == 'M'); 
-	Assert(BitmapHeader->Height > 0); // NOTE(Evan): Negative height means top-down instead of bottom-up!
-	loaded_bitmap Result = {
-		.Memory = ((u8 *)BitmapHeader + BitmapHeader->DataOffsetFromHeaderStart),
-		.Width = (u32)BitmapHeader->Width,
-		.Height = (u32)BitmapHeader->Height,
-	};
-	
-	return(Result);
-}
-
+internal load_image_result
+LoadImage(memory_arena *Arena, char *AbsolutePath, u64 MaxX, u64 MaxY);
 
 internal void
 PrintDirectory(plore_file_listing *Directory);
@@ -165,7 +159,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		
 		State->Initialized = true;
 		State->Memory = PloreMemory;
-		State->FrameArena = SubArena(&State->Memory->PermanentStorage, Megabytes(32), 16);
+		State->FrameArena = SubArena(&State->Memory->PermanentStorage, Megabytes(128), 16);
+		STBFrameArena = &State->FrameArena;
 		
 		// MAINTENANCE(Evan): Don't copy the main arena by value until we've allocated the frame arena.
 		State->Arena = PloreMemory->PermanentStorage;
@@ -615,39 +610,41 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 						local u64 ImagePreviewHandleCursor = 0;
 						
 						image_preview_handle *MyHandle = 0;
+						
 						// TODO(Evan): Make this work for other image types
 						// TODO(Evan): Make file loading asynchronous!
-						if (Listing->File.Extension == PloreFileExtension_BMP) {
-							for (u64 I = 0; I < ArrayCount(ImagePreviewHandles); I++) {
-								image_preview_handle *Handle = ImagePreviewHandles + I;
-								if (CStringsAreEqual(Handle->Path.Absolute, Listing->File.Path.Absolute)) {
-									MyHandle = Handle;
-									break;
+						switch (Listing->File.Extension) {
+							case PloreFileExtension_BMP:
+							case PloreFileExtension_PNG:
+							case PloreFileExtension_JPG: {
+								for (u64 I = 0; I < ArrayCount(ImagePreviewHandles); I++) {
+									image_preview_handle *Handle = ImagePreviewHandles + I;
+									if (CStringsAreEqual(Handle->Path.Absolute, Listing->File.Path.Absolute)) {
+										MyHandle = Handle;
+										break;
+									}
 								}
-							}
-							
-							if (!MyHandle) {
-								MyHandle = ImagePreviewHandles + ImagePreviewHandleCursor;
-								ImagePreviewHandleCursor = (ImagePreviewHandleCursor + 1) % ArrayCount(ImagePreviewHandles);
-								
-								if (MyHandle->Allocated) {
-									Platform->DestroyTextureHandle(MyHandle->Texture);
+								if (!MyHandle) {
+									MyHandle = ImagePreviewHandles + ImagePreviewHandleCursor;
+									ImagePreviewHandleCursor = (ImagePreviewHandleCursor + 1) % ArrayCount(ImagePreviewHandles);
+									
+									if (MyHandle->Allocated) {
+										Platform->DestroyTextureHandle(MyHandle->Texture);
+										MyHandle->Texture = (platform_texture_handle) {0};
+									}
+									MyHandle->Path = Listing->File.Path;
+									
+									load_image_result ImageResult = LoadImage(&State->FrameArena, Listing->File.Path.Absolute, 1024, 1024);
+									
+									if (!ImageResult.LoadedSuccessfully) {
+//										DrawText("%s", ImageResult.ErrorReason);
+										MyHandle->Texture = TextureHandle_CantLoad;
+									} else {
+										MyHandle->Texture = ImageResult.Texture;
+									}
+									
 								}
-								MyHandle->Path = Listing->File.Path;
-								platform_readable_file File = Platform->DebugOpenFile(MyHandle->Path.Absolute);
-								char *Buffer = PushBytes(&State->FrameArena, File.FileSize);
-								Platform->DebugReadEntireFile(File, Buffer, File.FileSize);
-								loaded_bitmap Bitmap = LoadBMP(Buffer);
-								MyHandle->Texture = Platform->CreateTextureHandle((platform_texture_handle_desc) {
-																					  .Pixels = Bitmap.Memory, 
-																					  .Width = Bitmap.Width, 
-																					  .Height = Bitmap.Height,
-																					  .ProvidedPixelFormat = PixelFormat_BGRA8,
-																					  .TargetPixelFormat = PixelFormat_RGBA8,
-																					  .FilterMode = FilterMode_Nearest,
-																				  });
-								Platform->DebugCloseFile(File);
-							}
+							} break;
 						}
 						
 						if (MyHandle) { 
@@ -655,9 +652,9 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 											  .ID = (u64) MyHandle,
 											  .Texture = MyHandle->Texture,
 											  .Rect = {
-												  .P = V2(1330, 250),
 												  .Span = V2(512, 512),
 											  }, 
+											  .Centered = true,
 										  })) {
 							}
 						}
@@ -850,6 +847,42 @@ PloreKeysToString(memory_arena *Arena, plore_key *Keys, u64 KeyCount) {
 		Count += CStringCopy(PloreKeyStrings[Keys[K]], Buffer, Size - Count);
 		Buffer += Count;
 	}
+	
+	return(Result);
+}
+
+internal load_image_result
+LoadImage(memory_arena *Arena, char *AbsolutePath, u64 MaxX, u64 MaxY) {
+	load_image_result Result = {0};
+	i32 X, Y, Comp;
+	
+	platform_readable_file File = Platform->DebugOpenFile(AbsolutePath);
+	Assert(File.OpenedSuccessfully);
+	
+	u64 Size = MaxX*MaxY*4*4;
+	u8 *Buffer = PushBytes(Arena, Size);
+	platform_read_file_result FileResult = Platform->DebugReadEntireFile(File, Buffer, Size);
+	Assert(FileResult.ReadSuccessfully);
+	
+	stbi_set_flip_vertically_on_load(true);
+	u8 *Pixels = stbi_load_from_memory(Buffer, Size, &X, &Y, &Comp, 4);
+	
+	Platform->DebugCloseFile(File);
+	if (Pixels) {
+		Result.LoadedSuccessfully = true;
+		Result.Texture = Platform->CreateTextureHandle((platform_texture_handle_desc) {
+														   .Pixels = Pixels, 
+														   .Width = X, 
+														   .Height = Y,
+														   .ProvidedPixelFormat = PixelFormat_RGBA8,
+														   .TargetPixelFormat = PixelFormat_RGBA8,
+														   .FilterMode = FilterMode_Nearest,
+													   });
+	} else {
+		Result.Texture = TextureHandle_CantLoad;
+		Result.ErrorReason = (char *)stbi_failure_reason();
+	}
+	
 	
 	return(Result);
 }
