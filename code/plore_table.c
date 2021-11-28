@@ -54,7 +54,7 @@ GetListing(plore_file_context *Context, char *AbsolutePath) {
 	Assert(Slot);
 	if (Slot->Allocated) {
 		if (!CStringsAreEqual(Slot->Listing.File.Path.Absolute, AbsolutePath)) {
-			for (;;) {
+			for (u64 SlotCount = 0; SlotCount < Context->FileCount; SlotCount++) {
 				Index = (Index + 1) % ArrayCount(Context->FileSlots);
 				Slot = Context->FileSlots[Index];
 				if (Slot->Allocated) {
@@ -99,10 +99,13 @@ RemoveListing(plore_file_context *Context, plore_file_listing *Listing) {
 				}
 			}
 			
-			if (SlotsChecked == ArrayCount(Context->FileSlots)) return; // NOTE(Evan): Tried to delete something non-existent/unallocated.
+			if (SlotsChecked == ArrayCount(Context->FileSlots)) {
+				return; // NOTE(Evan): Tried to delete something non-existent/unallocated.
+			}
 		}
 	}
 	
+	Context->FileCount--;
 	Slot->Listing = (plore_file_listing) {0};
 	Slot->Allocated = false;
 }
@@ -164,6 +167,7 @@ InsertListing(plore_file_context *Context, plore_file_listing_desc Desc) {
 			Result.Slot->Listing.File.Extension = GetFileExtension(Desc.Path.FilePart).Extension; 
 		}
 		
+		Context->FileCount++;
 		Result.Slot->Allocated = true;
 	}
 	
