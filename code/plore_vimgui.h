@@ -3,12 +3,33 @@
 #ifndef PLORE_VIMGUI_H
 #define PLORE_VIMGUI_H
 
+
+typedef enum widget_colour {
+	WidgetColour_Default,
+	WidgetColour_Primary,
+	WidgetColour_Secondary,
+	WidgetColour_Tertiary,
+	WidgetColour_Quaternary,
+	WidgetColour_Count,
+	_WidgetColour_ForceU64 = 0xFFFFFFFF,
+} widget_colour;
+
+typedef enum text_colour {
+	TextColour_Default,
+	TextColour_Primary,
+	TextColour_Secondary,
+	TextColour_Count,
+	_TextColour_ForceU64 = 0xFFFFFFFF,
+} text_colour;
+
+
 // NOTE(Evan): Container for other widgets. These are garbage collected when inactive.
 typedef struct vimgui_window {
 	u64 ID;
 	rectangle Rect;
 	v2 Pad;
-	v4 Colour;
+	widget_colour BackgroundColour;
+	text_colour TextColour;
 	char *Title;
 	u64 RowMax;
 	u64 RowCountLastFrame;
@@ -33,8 +54,8 @@ typedef struct vimgui_widget {
 	u64 Layer;
 	widget_type Type;
 	rectangle Rect;
-	v4 BackgroundColour;
-	v4 TextColour;
+	widget_colour BackgroundColour;
+	text_colour TextColour;
 	v2 TextPad;
 	char *Title;
 	b64 Centered;

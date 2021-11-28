@@ -53,19 +53,86 @@ VimguiEnd(plore_vimgui_context *Context) {
 	
 	// NOTE(Evan): Push widgets back-to-front onto the list for painters' algorithm.
 	for (u64 W = 0; W < Context->ThisFrame.WidgetCount;  W++) {
-		vimgui_widget *Widget = Context->ThisFrame.Widgets + Context->ThisFrame.WidgetCount - 1 - W;
+		vimgui_widget *Widget = Context->ThisFrame.Widgets + Context->ThisFrame.WidgetCount-W-1;
 		
 		vimgui_window *Window = GetWindow(Context, Widget->ID);
 		
+		v4 TextColour = {0};
+		v4 BackgroundColour = {0};
+		switch (Widget->Type) {
+			case WidgetType_Button: {
+				switch (Widget->BackgroundColour) {
+					case WidgetColour_Default:
+					case WidgetColour_Primary: {
+						BackgroundColour = V4(0.10, 0.1, 0.1, 1.0);
+					} break;
+					
+					case WidgetColour_Secondary: {
+						BackgroundColour = V4(0.5, 0.3, 0.3, 1);
+					}; break;
+					
+					case WidgetColour_Tertiary: {
+						BackgroundColour = V4(0.5, 0.4, 0.4, 1);
+					} break;
+					
+					case WidgetColour_Quaternary: {
+						BackgroundColour = V4(0.40, 0.5, 0.4, 1);
+					} break;
+				}
+				switch (Widget->TextColour) {
+					case TextColour_Default: {
+						TextColour = V4(1, 1, 1, 1);
+					} break;
+					
+					case TextColour_Primary: {
+						TextColour = V4(0.4, 0.5, 0.6, 1);
+					} break;
+					
+					case TextColour_Secondary: {
+						TextColour = V4(0.9, 0.85, 0.80, 1);
+					} break;
+					
+				}
+				
+			} break;
+			
+			case WidgetType_Window: {
+				switch (Widget->BackgroundColour) {
+					case WidgetColour_Default: {
+						BackgroundColour = V4(0.0, 0.0, 0.0, 1.0);
+					} break;
+					
+					case WidgetColour_Primary: {
+					    BackgroundColour = V4(0.05, 0.05, 0.05, 1.0);
+					} break;
+					
+						
+				}
+				
+				switch (Widget->TextColour) {
+					case TextColour_Default: {
+						TextColour = V4(1, 1, 1, 1);;
+					} break;
+					case TextColour_Primary:
+					case TextColour_Secondary: {
+						Assert(!"Unhandled colours.");
+					}
+				}
+			} break;
+			
+			default: break;
+		}
+		
+		
 		if (Context->ActiveWindow == Widget->WindowID) {
-			Widget->BackgroundColour.RGB = MultiplyVec3f(Widget->BackgroundColour.RGB, 1.40f);
+			BackgroundColour.RGB = MultiplyVec3f(BackgroundColour.RGB, 1.40f);
 		} else if (Context->HotWindow == Widget->WindowID) {
-			Widget->BackgroundColour.RGB = MultiplyVec3f(Widget->BackgroundColour.RGB, 1.10f);
+			BackgroundColour.RGB = MultiplyVec3f(BackgroundColour.RGB, 1.10f);
 		}
 		
 		PushRenderQuad(Context->RenderList, (vimgui_render_quad_desc) { 
 						   .Rect = Widget->Rect, 
-						   .Colour = Widget->BackgroundColour, 
+						   .Colour = BackgroundColour, 
 						   .Texture = Widget->Texture,
 					   });
 		
@@ -73,7 +140,7 @@ VimguiEnd(plore_vimgui_context *Context) {
 			PushRenderText(Context->RenderList, 
 						   (vimgui_render_text_desc) {
 						       .Rect = Widget->Rect,
-						       .TextColour = Widget->TextColour,
+						       .TextColour = TextColour,
 						       .Text = Widget->Title, 
 						       .Centered = Widget->Centered, 
 							   .Height = 32.0f,
@@ -211,8 +278,8 @@ typedef struct vimgui_button_desc {
 	char *Title;
 	u64 ID;
 	rectangle Rect;
-	v4 BackgroundColour;
-	v4 TextColour;
+	widget_colour BackgroundColour;
+	text_colour TextColour;
 	v2 TextPad;
 } vimgui_button_desc;
 
@@ -237,13 +304,6 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	}
 	
 	// NOTE(Evan): Default args.
-	if (MemoryCompare(&Desc.BackgroundColour, &(v4){0}, sizeof(v4)) == 0) {
-		Desc.BackgroundColour = V4(0.10, 0.1, 0.1, 1.0);
-	}
-	
-	if (MemoryCompare(&Desc.TextColour, &(v4){0}, sizeof(v4)) == 0) {
-		Desc.TextColour = V4(1, 1, 1, 1);
-	}
 	
 	
 	if (Desc.FillWidth) {
@@ -300,8 +360,8 @@ typedef struct vimgui_window_desc {
 	u64 ID;
 	char *Title;
 	rectangle Rect;
-	v4 BackgroundColour;
-	v4 TextColour;
+	widget_colour BackgroundColour;
+	text_colour TextColour;
 	b64 ForceFocus;
 	b64 Hidden;
 } vimgui_window_desc;
@@ -316,19 +376,7 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 		MyID = (u64) Desc.Title;
 	}
 	
-	// NOTE(Evan): Default args.
-	if (MemoryCompare(&Desc.BackgroundColour, &(v4){0}, sizeof(v4)) == 0) {
-		Desc.BackgroundColour = V4(0.0, 0.0, 0.0, 1.0);
-	}
-	
-	if (MemoryCompare(&Desc.TextColour, &(v4){0}, sizeof(v4)) == 0) {
-		Desc.TextColour = V4(1, 1, 1, 1);
-	}
-	
-	
-	
 	vimgui_window *MaybeWindow = GetWindow(Context, MyID);
-	
 	
 	if (!MaybeWindow) {
 		if (Context->WindowCount < ArrayCount(Context->Windows)) {
@@ -376,7 +424,7 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 			MaybeWindow->Rect.P.Y += 32.0f; // NOTE(Evan): This offsets child widgets.
 		} 
 		MaybeWindow->RowMax = (Desc.Rect.Span.Y) / (36.0f) - 1; // @Hardcode
-		MaybeWindow->Colour = Desc.BackgroundColour;
+		MaybeWindow->BackgroundColour = Desc.BackgroundColour;
 		Context->ThisFrame.WindowWeAreLayingOut = MyID;
 		
 		PushWidget(Context, Parent, 

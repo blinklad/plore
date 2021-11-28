@@ -530,7 +530,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	if (Window(State->VimguiContext, (vimgui_window_desc) {
 				   .Title = FileContext->Current->File.Path.Absolute,
 				   .Rect = { .P = V2(0, 0), .Span = { PlatformAPI->WindowDimensions.X, PlatformAPI->WindowDimensions.Y - FooterHeight } },
-					   .BackgroundColour = V4(0.1, 0.1, 0.1, 0.0),
 			   })) {
 		
 		
@@ -569,28 +568,28 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							   .Title                = Title,
 							   .Rect                 = {P, Span}, 
 							   .ForceFocus           = Directory->Focus,
-							   .BackgroundColour = V4(0.05, 0.05, 0.05, 1.0)
+							   .BackgroundColour     = WidgetColour_Primary,
 						   })) {
 				
 				switch (Listing->File.Type) {
 					case PloreFileNode_Directory: {
 						for (u64 Row = 0; Row < Listing->Count; Row++) {
-							v4 BackgroundColour = {0};
-							v4 TextColour = {0};
+							widget_colour BackgroundColour = 0;
+							text_colour TextColour = 0;
 							
 							plore_file_listing *RowEntry = GetOrInsertListing(FileContext, ListingFromFile(&Listing->Entries[Row])).Listing;
 							if (Listing->Cursor == Row) {
-								BackgroundColour = V4(0.5, 0.3, 0.3, 1);
+								BackgroundColour = WidgetColour_Secondary;
 							} else if (IsYanked(FileContext, RowEntry)) {
-								BackgroundColour = V4(0.5, 0.4, 0.4, 1);
+								BackgroundColour = WidgetColour_Tertiary;
 							} else if (IsSelected(FileContext, RowEntry)) {
-								BackgroundColour = V4(0.40, 0.5, 0.4, 1);
-							} 
+								BackgroundColour = WidgetColour_Quaternary;
+							}
 							
 							if (RowEntry->File.Type == PloreFileNode_Directory) {
-								TextColour = V4(0.4, 0.5, 0.6, 1);
+								TextColour = TextColour_Primary;
 							} else {
-								TextColour = V4(0.9, 0.85, 0.80, 1);
+								TextColour = TextColour_Secondary;
 							}
 							
 							if (Button(State->VimguiContext, (vimgui_button_desc) {
@@ -677,7 +676,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 					   .Title              = "Command History",
 					   .Rect               = { DivideVec2f(PlatformAPI->WindowDimensions, 2), V2(400, 400) }, 
 					   .Hidden             = Hidden,
-					   .BackgroundColour = V4(0.05, 0.05, 0.05, 1),
 					   .ForceFocus         = !Hidden})) {
 			for (u64 C = 0; C < State->VimContext->VimCommandCount; C++) {
 				if (C == 10) break;
@@ -722,7 +720,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							   .ID = (u64) Command,
 							   .FillWidth = true,
 							   .Centre = true,
-							   .BackgroundColour = V4(0.1, 0.1, 0.1, 1.0),
 						   })) {
 				}
 			}
