@@ -39,17 +39,9 @@ VimguiEnd(plore_vimgui_context *Context) {
 			Widgets[W].Layer += 2;
 		}
 	}
-	
-	// NOTE(Evan): Sort widgets
-	for (u64 W = 0; W < Context->ThisFrame.WidgetCount - 1; W++) {
-		for (u64 C = 0; C < Context->ThisFrame.WidgetCount - W - 1; C++) {
-			if (Widgets[C].Layer < Widgets[C+1].Layer) {
-				vimgui_widget Temp = Widgets[C];
-				Widgets[C] = Widgets[C+1];
-				Widgets[C+1] = Temp;
-			}
-		}
-	}
+#define PloreSortPredicate(A, B) A.Layer < B.Layer
+	PloreSort(Context->ThisFrame.Widgets, Context->ThisFrame.WidgetCount, vimgui_widget)
+#undef PloreSortPredicate
 	
 	// NOTE(Evan): Push widgets back-to-front onto the list for painters' algorithm.
 	for (u64 W = 0; W < Context->ThisFrame.WidgetCount;  W++) {
@@ -240,6 +232,7 @@ typedef struct vimgui_image_desc {
 	u64 ID;
 	platform_texture_handle Texture;
 	rectangle Rect;
+	b64 Centered;
 } vimgui_image_desc;
 
 internal b64
@@ -259,6 +252,12 @@ Image(plore_vimgui_context *Context, vimgui_image_desc Desc) {
 			Context->ActiveWidgetID = MyID;
 			Result = true;
 		}
+	}
+	
+	Desc.Rect.P = AddVec2(Desc.Rect.P, Window->Rect.P);
+	if (Desc.Centered) {
+		Desc.Rect.P.X += (Window->Rect.Span.X - Desc.Rect.Span.X) / 2.0f;
+		Desc.Rect.P.Y += (Window->Rect.Span.Y - Desc.Rect.Span.X) / 2.0f;
 	}
 	
 	PushWidget(Context, Window, (vimgui_widget) {
