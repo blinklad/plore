@@ -107,7 +107,7 @@ PLATFORM_CREATE_TEXTURE_HANDLE(WindowsGLCreateTextureHandle) {
 	}
 	switch (Desc.ProvidedPixelFormat) {
 		case PixelFormat_RGBA8: {
-			GLProvidedPixelFormat = GL_RGBA8;
+			GLProvidedPixelFormat = GL_RGBA;
 		} break;
 		
 		case PixelFormat_ALPHA: {
@@ -982,27 +982,20 @@ int WinMain (
 	WindowsPushPath(TempDLLPath, ArrayCount(TempDLLPath), TempDLLPathString, StringLength(TempDLLPathString), false);
 	WindowsPushPath(LockPath, ArrayCount(LockPath), LockPathString, StringLength(LockPathString), false);
 	
-    plore_code PloreCode = WindowsLoadPloreCode(PloreDLLPath, TempDLLPath, LockPath);
-	
-    plore_memory PloreMemory = {
-        .PermanentStorage ={
-           .Size = Megabytes(128),
-        },
-    };
 	
     platform_api WindowsPlatformAPI = {
         // TODO(Evan): Update these on resize!
         .WindowWidth = DEFAULT_WINDOW_WIDTH,
         .WindowHeight = DEFAULT_WINDOW_HEIGHT,
 		
-		#if PLORE_INTERNAL
+#if PLORE_INTERNAL
         .DebugOpenFile       = WindowsDebugOpenFile,
         .DebugReadEntireFile = WindowsDebugReadEntireFile,
 		.DebugCloseFile      = WindowsDebugCloseFile,
 		
         .DebugPrintLine = WindowsDebugPrintLine,
         .DebugPrint     = WindowsDebugPrint,
-		#endif
+#endif
 		
 		.CreateTextureHandle = WindowsGLCreateTextureHandle,
 		.DestroyTextureHandle = WindowsGLDestroyTextureHandle,
@@ -1022,6 +1015,14 @@ int WinMain (
 		.IsPathTopLevel          = WindowsIsPathTopLevel,
 		.MoveFile                = WindowsMoveFile,
 		.RunShell                = WindowsRunShell,
+    };
+    plore_code PloreCode = WindowsLoadPloreCode(PloreDLLPath, TempDLLPath, LockPath);
+	
+	
+    plore_memory PloreMemory = {
+        .PermanentStorage ={
+           .Size = Megabytes(512),
+        },
     };
     
     PloreMemory.PermanentStorage.Memory = VirtualAlloc(0, PloreMemory.PermanentStorage.Size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
