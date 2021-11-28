@@ -188,4 +188,18 @@ HashString(char *String) {
 	return Hash+Seed;
 }
 
+
+
+
+#define PloreSort(Items, Count, type)                          \
+for (u64 I = 0; I < Count-1; I++) {                            \
+	for (u64 J = 0; J < Count-I-1; J++) {                      \
+		if (PloreSortPredicate(Items[J], Items[J+1])) {        \
+			type Temp = Items[J];                              \
+			Items[J] = Items[J+1];                             \
+			Items[J+1] = Temp;                                 \
+		}                                                      \
+	}                                                          \
+}                                                              \
+
 #endif
