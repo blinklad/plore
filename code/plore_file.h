@@ -77,7 +77,7 @@ typedef struct plore_file {
 	plore_file_node Type;
 	plore_file_extension Extension;
 } plore_file;
-
+#endif //PLORE_FILE_H
 
 typedef struct plore_get_file_extension_result {
 	char *FilePart;
@@ -101,17 +101,16 @@ GetFileExtension(char *FilePart) {
 	}
 	if (*S) {
 		Result.ExtensionPart = S;
-		#define PLORE_X(Name, E, _Ignored1, _Ignored2)                      \
-		if (!Result.FoundOkay && CStringsAreEqual(E, S)) {                  \
-			Result.Extension = PloreFileExtension_##Name;                   \
-			Result.FoundOkay = true;                                        \
-		}
+#define PLORE_X(Name, E, _Ignored1, _Ignored2)                      \
+if (!Result.FoundOkay && CStringsAreEqual(E, S)) {                  \
+Result.Extension = PloreFileExtension_##Name;                   \
+Result.FoundOkay = true;                                        \
+}
 		
 		PLORE_FILE_EXTENSIONS
-		#undef PLORE_X
+#undef PLORE_X
 	}
 	
 	return(Result);
 }
 
-#endif //PLORE_FILE_H
