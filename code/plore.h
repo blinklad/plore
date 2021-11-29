@@ -131,24 +131,28 @@ typedef struct plore_memory {
 typedef struct plore_file_listing {
 	plore_file File;
 	plore_file Entries[256]; // NOTE(Evan): Directories only.
-	
 	u64 Count;
-	u64 Cursor;
+	b64 Valid;
 } plore_file_listing;
 
-typedef struct plore_file_listing_slot {
+typedef struct plore_file_listing_cursor {
+	plore_path Path;
+	u64 Cursor;
+} plore_file_listing_cursor;
+
+typedef struct plore_file_listing_cursor_slot {
 	b64 Allocated;
-	plore_file_listing Listing;
-} plore_file_listing_slot;
+	plore_file_listing_cursor Cursor;
+} plore_file_listing_cursor_slot;
 
 typedef struct plore_file_context {
-	plore_file_listing *Selected[32];
+	plore_path Selected[32];
 	u64 SelectedCount;
 	
-	plore_file_listing *Yanked[32];
+	plore_path Yanked[32];
 	u64 YankedCount;
 	
-	plore_file_listing_slot *FileSlots[512];
+	plore_file_listing_cursor_slot *CursorSlots[512];
 	u64 FileCount;
 	
 	b64 InTopLevelDirectory;

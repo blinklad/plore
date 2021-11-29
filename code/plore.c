@@ -44,11 +44,15 @@ STBRealloc(void *Ptr, u64 Size) {
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-
 typedef struct plore_current_directory_state {
-	plore_file_listing *Current;
-	plore_file_listing *Parent;
-	plore_file_listing *Cursor;
+	union {
+		struct {
+			plore_file_listing Current;
+			plore_file_listing Parent;
+			plore_file_listing Cursor;
+		};
+		plore_file_listing Listings[3];
+	};
 } plore_current_directory_state;
 
 typedef struct plore_state {
@@ -84,22 +88,22 @@ internal load_image_result
 LoadImage(memory_arena *Arena, char *AbsolutePath, u64 MaxX, u64 MaxY);
 
 internal void
-PrintDirectory(plore_file_listing *Directory);
+PrintDirectory(plore_file_listing_cursor *Directory);
 
 plore_inline b64
-IsYanked(plore_file_context *Context, plore_file_listing *Yankee);
+IsYanked(plore_file_context *Context, plore_path *Yankee);
 
 plore_inline b64
-IsSelected(plore_file_context *Context, plore_file_listing *Selectee);
+IsSelected(plore_file_context *Context, plore_path *Selectee);
 
 internal void
-ToggleSelected(plore_file_context *Context, plore_file_listing *Selectee);
+ToggleSelected(plore_file_context *Context, plore_path *Selectee);
 
 internal char *
 PloreKeysToString(memory_arena *Arena, plore_key *Keys, u64 KeyCount);
 
-internal plore_current_directory_state
-SynchronizeCurrentDirectory(plore_file_context *FileContext);
+internal void
+SynchronizeCurrentDirectory(plore_file_context *FileContext, plore_current_directory_state *CurrentState);
 
 #if defined(PLORE_INTERNAL)
 #include "plore_debug.c"
@@ -168,8 +172,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		State->Arena = PloreMemory->PermanentStorage;
 		
 		State->FileContext = PushStruct(&State->Arena, plore_file_context);
-		for (u64 Dir = 0; Dir < ArrayCount(State->FileContext->FileSlots); Dir++) {
-			State->FileContext->FileSlots[Dir] = PushStruct(&State->Arena, plore_file_listing);
+		for (u64 Dir = 0; Dir < ArrayCount(State->FileContext->CursorSlots); Dir++) {
+			State->FileContext->CursorSlots[Dir] = PushStruct(&State->Arena, plore_file_listing_cursor);
 		}
 		
 		State->Font = FontInit(&State->Arena, "data/fonts/Inconsolata-Light.ttf");
@@ -210,7 +214,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	VimguiBegin(State->VimguiContext, BufferedInput, PlatformAPI->WindowDimensions);
 	
 	// TODO(Evan): File watching so this function doesn't need to be called eagerly.
-	State->DirectoryState = SynchronizeCurrentDirectory(State->FileContext);
+	SynchronizeCurrentDirectory(State->FileContext, &State->DirectoryState);
 	
 	if (BufferedInput.OIsPressed) {
 		if (State->InteractState == InteractState_CommandHistory) {
@@ -321,10 +325,10 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 					case VimCommandType_Paste: {
 						if (FileContext->YankedCount) { // @Cleanup
 							u64 PastedCount = 0;
-							plore_file_listing *Current = State->DirectoryState.Current;
+							plore_file_listing *Current = &State->DirectoryState.Current;
 							u64 WeAreTopLevel = Platform->IsPathTopLevel(Current->File.Path.Absolute, PLORE_MAX_PATH);
 							for (u64 M = 0; M < FileContext->YankedCount; M++) {
-								plore_file_listing *Movee = FileContext->Yanked[M];
+								plore_path *Movee = FileContext->Yanked + M;
 								
 								char NewPath[PLORE_MAX_PATH] = {0};
 								u64 BytesWritten = CStringCopy(Current->File.Path.Absolute, NewPath, PLORE_MAX_PATH);
@@ -332,31 +336,16 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								if (!WeAreTopLevel) {
 									NewPath[BytesWritten++] = '\\';
 								}
-								CStringCopy(Movee->File.Path.FilePart, NewPath + BytesWritten, PLORE_MAX_PATH);
+								CStringCopy(Movee->FilePart, NewPath + BytesWritten, PLORE_MAX_PATH);
 								
-								b64 DidMoveOk = Platform->MoveFile(Movee->File.Path.Absolute, NewPath);
+								b64 DidMoveOk = Platform->MoveFile(Movee->Absolute, NewPath);
 								if (DidMoveOk) {
-									char MoveeCopy[PLORE_MAX_PATH] = {0};
-									CStringCopy(Movee->File.Path.Absolute, MoveeCopy, PLORE_MAX_PATH);
-									
-									RemoveListing(FileContext, Movee);
-									
-									if (!Platform->IsPathTopLevel(Movee->File.Path.Absolute, PLORE_MAX_PATH)) {
-										Platform->PopPathNode(MoveeCopy, PLORE_MAX_PATH, false);
-										plore_file_listing *Parent = GetListing(FileContext, MoveeCopy);
-										if (Parent) {
-											RemoveListing(FileContext, Parent);
-										}
-									}
-									
 									PastedCount++;
 								} else {
-									DrawText("Couldn't paste `%s`", Movee->File.Path.FilePart);
+									DrawText("Couldn't paste `%s`", Movee->FilePart);
 								}
 							}
 							DrawText("Pasted %d items!", PastedCount);
-							
-							if (State->DirectoryState.Current) RemoveListing(FileContext, State->DirectoryState.Current);
 							
 							PushVimCommand(State->VimContext, (vim_command) {
 											   .State = InteractState_FileExplorer,
@@ -394,12 +383,12 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 											   });
 							} break;
 							case Right: {
-								// move right
-								plore_file *CursorEntry = State->DirectoryState.Current->Entries + State->DirectoryState.Current->Cursor;
+								plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(State->FileContext, &State->DirectoryState.Current.File.Path);
+								plore_file *CursorEntry = State->DirectoryState.Current.Entries + CursorResult.Cursor->Cursor;
 							
 								if (CursorEntry->Type == PloreFileNode_Directory) {
 									PrintLine("Moving down a directory, from %s to %s", 
-											  State->DirectoryState.Current->File.Path.Absolute, 
+											  State->DirectoryState.Current.File.Path.Absolute, 
 											  CursorEntry->Path.Absolute);
 									Platform->SetCurrentDirectory(CursorEntry->Path.Absolute);
 									
@@ -421,11 +410,12 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							} break;
 							
 							case Up: {
-								if (State->DirectoryState.Current->Count) {
-									if (State->DirectoryState.Current->Cursor == 0) {
-										State->DirectoryState.Current->Cursor = State->DirectoryState.Current->Count-1;
+								if (State->DirectoryState.Current.Count) {
+									plore_file_listing_cursor_get_or_create_result CurrentResult = GetOrCreateCursor(State->FileContext, &State->DirectoryState.Current.File.Path);
+									if (CurrentResult.Cursor->Cursor == 0) {
+										CurrentResult.Cursor->Cursor = State->DirectoryState.Current.Count-1;
 									} else {
-										State->DirectoryState.Current->Cursor -= 1;
+										CurrentResult.Cursor->Cursor -= 1;
 									}
 									
 									PushVimCommand(State->VimContext, (vim_command) {
@@ -439,7 +429,9 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							} break;
 							
 							case Down: {
-									State->DirectoryState.Current->Cursor = (State->DirectoryState.Current->Cursor + 1) % State->DirectoryState.Current->Count;
+								if (State->DirectoryState.Current.Count) {
+									plore_file_listing_cursor_get_or_create_result CurrentResult = GetOrCreateCursor(State->FileContext, &State->DirectoryState.Current.File.Path);
+									CurrentResult.Cursor->Cursor = (CurrentResult.Cursor->Cursor + 1) % State->DirectoryState.Current.Count;
 									PushVimCommand(State->VimContext, (vim_command) {
 													   .State = InteractState_FileExplorer,
 													   .Type = VimCommandType_Movement,
@@ -447,13 +439,15 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 														   .Direction = Down,
 													   },
 												   });
+								}
 							} break;
 						} break;
 					} break;
 					
 					case VimCommandType_Select: {
-						if (State->DirectoryState.Cursor) {
-							ToggleSelected(FileContext, State->DirectoryState.Cursor);
+						#if 1
+						if (State->DirectoryState.Cursor.Valid) {
+							ToggleSelected(FileContext, &State->DirectoryState.Cursor.File.Path);
 							
 							PushVimCommand(State->VimContext, (vim_command) {
 											   .State = InteractState_FileExplorer,
@@ -463,6 +457,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 											   },
 										   });
 						}
+						#endif
 					} break;
 			
 				default: {
@@ -480,7 +475,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		AteCommands = true;
 	}
 	
-	State->DirectoryState = SynchronizeCurrentDirectory(State->FileContext);
+	SynchronizeCurrentDirectory(State->FileContext, &State->DirectoryState);
 	
 	
 	//
@@ -506,14 +501,14 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	
 	plore_viewable_directory ViewDirectories[3] = {
 		[0] = {
-			.File = FileContext->InTopLevelDirectory ? 0 : State->DirectoryState.Parent,
+			.File = FileContext->InTopLevelDirectory ? 0 : &State->DirectoryState.Parent,
 		},
 		[1] = {
-			.File = State->DirectoryState.Current,
+			.File = &State->DirectoryState.Current,
 			.Focus = true,
 		},
 		[2] = {
-			.File = State->DirectoryState.Cursor,
+			.File = &State->DirectoryState.Cursor.Valid ? &State->DirectoryState.Cursor : 0,
 		},
 	};
 	
@@ -524,19 +519,19 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	} image_preview_handle;
 	
 	if (Window(State->VimguiContext, (vimgui_window_desc) {
-				   .Title = State->DirectoryState.Current->File.Path.Absolute,
+				   .Title = State->DirectoryState.Current.File.Path.Absolute,
 				   .Rect = { .P = V2(0, 0), .Span = { PlatformAPI->WindowDimensions.X, PlatformAPI->WindowDimensions.Y - FooterHeight } },
 			   })) {
 		
 		
 #if 1
-		if (State->DirectoryState.Cursor) {
+		if (State->DirectoryState.Cursor.Valid) {
 			char CursorInfo[512] = {0};
 			StringPrintSized(CursorInfo, 
 							 ArrayCount(CursorInfo),
 						     "[%s] %s 01-02-3 %s", 
-						     (State->DirectoryState.Cursor->File.Type == PloreFileNode_Directory) ? "DIR" : "FILE", 
-						     State->DirectoryState.Cursor->File.Path.FilePart,
+						     (State->DirectoryState.Cursor.File.Type == PloreFileNode_Directory) ? "DIR" : "FILE", 
+						     State->DirectoryState.Cursor.File.Path.FilePart,
 							 PloreKeysToString(&State->FrameArena, LastCommand, LastCommandCount));
 			
 			if (Button(State->VimguiContext, (vimgui_button_desc) {
@@ -559,6 +554,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			if (!Listing) continue; /* Parent can be null, if we are currently looking at a top-level directory. */
 			
 			
+			plore_file_listing_cursor *RowCursor = GetCursor(State->FileContext, Listing->File.Path.Absolute);
 			char *Title = Listing->File.Path.FilePart;
 			if (Window(State->VimguiContext, (vimgui_window_desc) {
 							   .Title                = Title,
@@ -573,16 +569,17 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							widget_colour BackgroundColour = 0;
 							text_colour TextColour = 0;
 							
-							plore_file_listing *RowEntry = GetOrInsertListing(FileContext, ListingFromFile(&Listing->Entries[Row])).Listing;
-							if (Listing->Cursor == Row) {
+							plore_file *RowEntry = Listing->Entries + Row;
+							
+							if (RowCursor && RowCursor->Cursor == Row) {
 								BackgroundColour = WidgetColour_Secondary;
-							} else if (IsYanked(FileContext, RowEntry)) {
+							} else if (IsYanked(FileContext, &RowEntry->Path)) {
 								BackgroundColour = WidgetColour_Tertiary;
-							} else if (IsSelected(FileContext, RowEntry)) {
+							} else if (IsSelected(FileContext, &RowEntry->Path)) {
 								BackgroundColour = WidgetColour_Quaternary;
 							}
 							
-							if (RowEntry->File.Type == PloreFileNode_Directory) {
+							if (RowEntry->Type == PloreFileNode_Directory) {
 								TextColour = TextColour_Primary;
 							} else {
 								TextColour = TextColour_Secondary;
@@ -596,7 +593,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 										   .TextColour = TextColour,
 										   .TextPad = V2(4, 0),
 									   })) {
-								Listing->Cursor = Row;
+								//Listing->Cursor = Row;
 								PrintLine("Button %s was clicked!", Listing->Entries[Row].Path.FilePart);
 								if (Listing->Entries[Row].Type == PloreFileNode_Directory) {
 									PrintLine("Changing Directory to %s", Listing->Entries[Row].Path.Absolute);
@@ -745,38 +742,46 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	VimguiEnd(State->VimguiContext);
 	
 	
+	for (u64 S = 0; S < State->FileContext->SelectedCount; S++) {
+		PrintLine("Selected %d is %s", S, State->FileContext->Selected[S]);
+	}
+	
+	for (u64 S = 0; S < State->FileContext->YankedCount; S++) {
+		PrintLine("Yanked %d is %s", S, State->FileContext->Yanked[S]);
+	}
+	
 	// NOTE(Evan): Right now, we copy this out. We may not want to in the future(tm), even if it is okay now.
 	return(*State->VimguiContext->RenderList);
 }
 
 plore_inline b64
-IsYanked(plore_file_context *Context, plore_file_listing *Yankee) {
+IsYanked(plore_file_context *Context, plore_path *Yankee) {
 	for (u64 Y = 0; Y < Context->YankedCount; Y++) {
-		plore_file_listing *It = Context->Yanked[Y];
-		if (It == Yankee) return(true);
+		plore_path *It = Context->Yanked + Y;
+		if (CStringsAreEqual(It->Absolute, Yankee->Absolute)) return(true);
 	}
 	
 	return(false);
 }
 
 plore_inline b64
-IsSelected(plore_file_context *Context, plore_file_listing *Selectee) {
+IsSelected(plore_file_context *Context, plore_path *Selectee) {
 	for (u64 S = 0; S < Context->SelectedCount; S++) {
-		plore_file_listing *It = Context->Selected[S];
-		if (It == Selectee) return(true);
+		plore_path *It = Context->Selected + S;
+		if (CStringsAreEqual(It->Absolute, Selectee->Absolute)) return(true);
 	}
 	
 	return(false);
 }
 
 internal void
-ToggleSelected(plore_file_context *Context, plore_file_listing *Selectee) {
+ToggleSelected(plore_file_context *Context, plore_path *Selectee) {
 	Assert(Selectee);
 	
 	// NOTE(Evan): Toggle and return if its in the list.
 	for (u64 S = 0; S < Context->SelectedCount; S++) {
-		plore_file_listing *It = Context->Selected[S];
-		if (It == Selectee) {
+		plore_path *It = Context->Selected + S;
+		if (CStringsAreEqual(It->Absolute, Selectee->Absolute)) {
 			Context->Selected[S] = Context->Selected[--Context->SelectedCount];
 			return;
 		}
@@ -785,52 +790,84 @@ ToggleSelected(plore_file_context *Context, plore_file_listing *Selectee) {
 	if (Context->SelectedCount == ArrayCount(Context->Selected) - 1) return;
 	
 	// NOTE(Evan): Otherwise, add it to the list.
-	Context->Selected[Context->SelectedCount++] = Selectee;
+	Context->Selected[Context->SelectedCount++] = *Selectee;
 	DrawText("There are now %d selected items.", Context->SelectedCount);
 }
 
-internal plore_current_directory_state
-SynchronizeCurrentDirectory(plore_file_context *FileContext) {
-	plore_current_directory_state CurrentState = {0};
+
+internal void
+CreateFileListing(plore_file_listing *Listing, plore_file_listing_desc Desc) {
+	Assert(Listing);
 	
-	plore_path CurrentDir = Platform->GetCurrentDirectoryPath();
-	
-	CurrentState.Current = GetOrInsertListing(FileContext, ListingFromDirectoryPath(&CurrentDir)).Listing;
-	FileContext->InTopLevelDirectory = Platform->IsPathTopLevel(CurrentDir.Absolute, PLORE_MAX_PATH);
-	
-	if (CurrentState.Current->Count) {
-		plore_file *CursorEntry = CurrentState.Current->Entries + CurrentState.Current->Cursor;
-		
-		CurrentState.Cursor = GetOrInsertListing(FileContext, ListingFromFile(CursorEntry)).Listing;
+	Listing->File.Type = Desc.Type;
+	CStringCopy(Desc.Path.Absolute, Listing->File.Path.Absolute, PLORE_MAX_PATH);
+	CStringCopy(Desc.Path.FilePart, Listing->File.Path.FilePart, PLORE_MAX_PATH);
+	if (Desc.Type == PloreFileNode_Directory) {
+		directory_entry_result CurrentDirectory = Platform->GetDirectoryEntries(Listing->File.Path.Absolute, 
+																				Listing->Entries, 
+																				ArrayCount(Listing->Entries));
+		if (!CurrentDirectory.Succeeded) {
+			PrintLine("Could not get current directory.");
+		} else {
+			Listing->Count = CurrentDirectory.Count;
+			Listing->Valid = true;
+		}
+	} else { 
+		// NOTE(Evan): GetDirectoryEntries does this for directories!
+		Listing->File.Extension = GetFileExtension(Desc.Path.FilePart).Extension; 
+		Listing->Valid = true;
 	}
 	
-	if (!FileContext->InTopLevelDirectory) { 
+}
+internal void
+SynchronizeCurrentDirectory(plore_file_context *FileContext, plore_current_directory_state *CurrentState) {
+	plore_path CurrentDir = Platform->GetCurrentDirectoryPath();
+	
+	CurrentState->Cursor = (plore_file_listing) {0};
+	
+	CreateFileListing(&CurrentState->Current, ListingFromDirectoryPath(&CurrentDir));
+	FileContext->InTopLevelDirectory = Platform->IsPathTopLevel(CurrentState->Current.File.Path.Absolute, PLORE_MAX_PATH);
+	
+	if (CurrentState->Current.Valid) {
+		plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(FileContext, &CurrentState->Current.File.Path);
+		plore_file *CursorEntry = CurrentState->Current.Entries + CursorResult.Cursor->Cursor;
+		CreateFileListing(&CurrentState->Cursor, ListingFromFile(CursorEntry));
+		if (!CurrentState->Cursor.Valid) {
+			int BreakHere = 5;
+		}
+	}
+	
+	if (!FileContext->InTopLevelDirectory) {
 		// CLEANUP(Evan): Doesn't need to copy twice!
-		plore_file_listing CurrentCopy = *CurrentState.Current;
+		plore_file_listing CurrentCopy = CurrentState->Current;
 		Platform->PopPathNode(CurrentCopy.File.Path.Absolute, ArrayCount(CurrentCopy.File.Path.Absolute), false);
 		
-		plore_file_listing_get_or_insert_result ParentResult = GetOrInsertListing(FileContext, ListingFromDirectoryPath(&CurrentCopy.File.Path));
+		if (Platform->IsPathTopLevel(CurrentCopy.File.Path.Absolute, PLORE_MAX_PATH)) {
+			CStringCopy(CurrentCopy.File.Path.Absolute, CurrentCopy.File.Path.FilePart, PLORE_MAX_PATH);
+		}
+		CreateFileListing(&CurrentState->Parent, ListingFromDirectoryPath(&CurrentCopy.File.Path));
+		
+		plore_file_listing_cursor_get_or_create_result ParentResult = GetOrCreateCursor(FileContext, &CurrentState->Parent.File.Path);
 		
 		// Make sure the parent's cursor is set to the current directory.
 		// The parent's row will be invalid on plore startup.
-		CurrentState.Parent = ParentResult.Listing;
 		if (!ParentResult.DidAlreadyExist) {
-			for (u64 Row = 0; Row < CurrentState.Parent->Count; Row++) {
-				plore_file *File = CurrentState.Parent->Entries + Row;
+			for (u64 Row = 0; Row < CurrentState->Parent.Count; Row++) {
+				plore_file *File = CurrentState->Parent.Entries + Row;
 				if (File->Type != PloreFileNode_Directory) continue;
 				
-				if (CStringsAreEqual(File->Path.Absolute, CurrentState.Current->File.Path.Absolute)) {
-					CurrentState.Parent->Cursor = Row;
+				if (CStringsAreEqual(File->Path.Absolute, CurrentState->Current.File.Path.Absolute)) {
+					ParentResult.Cursor->Cursor = Row;
 					break;
 				}
 			}
 			
 		}
 		
+		
+	} else {
+		CurrentState->Parent.Valid = false;
 	}
-	
-	
-	return(CurrentState);
 }
 
 internal char *
