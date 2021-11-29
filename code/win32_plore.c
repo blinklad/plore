@@ -106,8 +106,13 @@ PLATFORM_CREATE_TEXTURE_HANDLE(WindowsGLCreateTextureHandle) {
 		InvalidDefaultCase;
 	}
 	switch (Desc.ProvidedPixelFormat) {
+		
 		case PixelFormat_RGBA8: {
 			GLProvidedPixelFormat = GL_RGBA;
+		} break;
+		
+		case PixelFormat_RGB8: {
+			GLProvidedPixelFormat = GL_RGB;
 		} break;
 		
 		case PixelFormat_ALPHA: {
