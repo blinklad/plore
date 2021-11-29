@@ -142,8 +142,6 @@ typedef struct plore_file_listing_slot {
 } plore_file_listing_slot;
 
 typedef struct plore_file_context {
-	plore_file_listing *Current;
-	
 	plore_file_listing *Selected[32];
 	u64 SelectedCount;
 	
