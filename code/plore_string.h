@@ -26,9 +26,43 @@ IsAlpha(char C) {
 	return(Result);
 }
 
-typedef struct string_buffer {
-	char *String;
-	u64 Size;
-} string_buffer;
+internal char
+AlphaToLower(char C) {
+	if (!IsAlpha(C)) {
+		return(C);
+	}
+	
+	if (C >= 'A' && C <= 'Z') {
+		C += 32;
+	}
+	
+	return(C);
+}
+
+
+internal b64
+CStringsAreEqualIgnoreCase(char *A, char *B) {
+	while (*A && *B) {
+		if (*A++ != *B++) {
+			if (IsAlpha(*A) && IsAlpha(*B)) {
+				if (AlphaToLower(*A) == AlphaToLower(*B)) continue;
+			}
+			return(false);
+		}
+	}
+	
+	if ((!*A && *B) || (*A && !*B)) return(false);
+	return(true);
+}
+
+internal b64
+CStringsAreEqual(char *A, char *B) {
+	while (*A && *B) {
+		if (*A++ != *B++) return(false);
+	}
+	
+	if ((!*A && *B) || (*A && !*B)) return(false);
+	return(true);
+}
 
 #endif //PLORE_STRING_H
