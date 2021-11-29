@@ -155,17 +155,6 @@ CStringCopy(char *Source, char *Destination, u64 BufferSize) {
 	
 	return(BytesWritten);
 }
-
-internal b64
-CStringsAreEqual(char *A, char *B) {
-	while (*A && *B) {
-		if (*A++ != *B++) return(false);
-	}
-	
-	if ((!*A && *B) || (*A && !*B)) return(false);
-	return(true);
-}
-
 // credit: stb
 #define ROTATE_LEFT(val, n)   (((val) << (n)) | ((val) >> (sizeof(u64)*8 - (n))))
 #define ROTATE_RIGHT(val, n)  (((val) >> (n)) | ((val) << (sizeof(u64)*8 - (n))))
