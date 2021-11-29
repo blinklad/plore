@@ -31,11 +31,11 @@ typedef enum plore_file_node {
 
 #define PLORE_FILE_EXTENSIONS                         \
 PLORE_X(Unknown, "", "unknown", "unknown")            \
-PLORE_X(BMP, ".bmp", "bitmap", PLORE_PHOTO_HANDLER)   \
-PLORE_X(PNG, ".png", "png",    PLORE_PHOTO_HANDLER)   \
-PLORE_X(JPG, ".jpg", "jpeg",   PLORE_PHOTO_HANDLER)   \
-PLORE_X(TXT, ".txt", "text",   PLORE_TEXT_HANDLER)    \
-PLORE_X(BAT, ".bat", "batch",  PLORE_TEXT_HANDLER)  
+PLORE_X(BMP, "bmp", "bitmap", PLORE_PHOTO_HANDLER)   \
+PLORE_X(PNG, "png", "png",    PLORE_PHOTO_HANDLER)   \
+PLORE_X(JPG, "jpg", "jpeg",   PLORE_PHOTO_HANDLER)   \
+PLORE_X(TXT, "txt", "text",   PLORE_TEXT_HANDLER)    \
+PLORE_X(BAT, "bat", "batch",  PLORE_TEXT_HANDLER)  
 
 typedef enum plore_file_extension {
 #define PLORE_X(Name, _Ignored1, _Ignored2, _Ignored3) PloreFileExtension_##Name##,
@@ -46,15 +46,15 @@ typedef enum plore_file_extension {
 } plore_file_extension;
 
 
-#define PLORE_X(Name, _Ignored1, ShortString, _Ignored2) ShortString
-char *PloreFileExtensionShortStrings[] = {
-	PLORE_FILE_EXTENSIONS,
+#define PLORE_X(Name, _Ignored1, LongString, _Ignored2) LongString,
+char *PloreFileExtensionLongStrings[] = {
+	PLORE_FILE_EXTENSIONS
 };
 #undef PLORE_X
 
-#define PLORE_X(Name, LongString, _Ignored1, _Ignored2) LongString
-char *PloreFileExtensionLongStrings[] = {
-	PLORE_FILE_EXTENSIONS,
+#define PLORE_X(Name, ShortString, _Ignored1, _Ignored2) ShortString,
+char *PloreFileExtensionShortStrings[] = {
+	PLORE_FILE_EXTENSIONS
 };
 #undef PLORE_X
 
@@ -86,6 +86,7 @@ typedef struct plore_get_file_extension_result {
 	plore_file_extension Extension;
 } plore_get_file_extension_result;
 
+// NOTE(Evan): This grabs the *first* '.' starting from the left of the filename.
 internal plore_get_file_extension_result
 GetFileExtension(char *FilePart) {
 	plore_get_file_extension_result Result = {
@@ -96,19 +97,23 @@ GetFileExtension(char *FilePart) {
 	u64 ExtensionSize = NameSize;
 	char *S = FilePart;
 	while (*S) {
-		if (*S == '.') break;
-		else S++, NameSize--;
+		if (*S == '.') {
+			S++; 
+			break;
+		}
+		else {
+			S++;
+			NameSize--;
+		}
 	}
 	if (*S) {
 		Result.ExtensionPart = S;
-#define PLORE_X(Name, E, _Ignored1, _Ignored2)                      \
-if (!Result.FoundOkay && CStringsAreEqual(E, S)) {                  \
-Result.Extension = PloreFileExtension_##Name;                   \
-Result.FoundOkay = true;                                        \
-}
-		
-		PLORE_FILE_EXTENSIONS
-#undef PLORE_X
+		for (plore_file_extension E = 0; E < PloreFileExtension_Count; E++) {
+			if (CStringsAreEqualIgnoreCase(PloreFileExtensionShortStrings[E], S)) {
+				Result.Extension = E; 
+				Result.FoundOkay = true;
+			}
+		}
 	}
 	
 	return(Result);
