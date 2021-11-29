@@ -36,7 +36,13 @@ typedef struct platform_texture_handle {
 	f32 Height;
 } platform_texture_handle;
 
-typedef enum pixel_format { PixelFormat_RGBA8, PixelFormat_BGRA8, PixelFormat_ALPHA } pixel_format;
+typedef enum pixel_format { 
+	PixelFormat_RGBA8, 
+	PixelFormat_RGB8, 
+	PixelFormat_BGRA8, 
+	PixelFormat_ALPHA 
+} pixel_format;
+
 typedef struct platform_texture_handle_desc {
 	void *Pixels;
 	u64 Width;
