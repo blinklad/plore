@@ -26,6 +26,12 @@ IsAlpha(char C) {
 	return(Result);
 }
 
+internal b64
+IsNumeric(char C) {
+	b64 Result = (C >= '0' && C <= '9');
+	return(Result);
+}
+
 internal char
 AlphaToLower(char C) {
 	if (!IsAlpha(C)) {
