@@ -38,61 +38,69 @@ typedef enum interact_state {
 } interact_state;
 
 #define PLORE_KEYBOARD_AND_MOUSE \
-PLORE_X(A,                "a")                  \
-PLORE_X(B,                "b")                  \
-PLORE_X(C,                "c")                  \
-PLORE_X(D,                "d")                  \
-PLORE_X(E,                "e")                  \
-PLORE_X(F,                "f")                  \
-PLORE_X(G,                "g")                  \
-PLORE_X(H,                "h")                  \
-PLORE_X(I,                "i")                  \
-PLORE_X(J,                "j")                  \
-PLORE_X(K,                "k")                  \
-PLORE_X(L,                "l")                  \
-PLORE_X(M,                "m")                  \
-PLORE_X(N,                "n")                  \
-PLORE_X(O,                "o")                  \
-PLORE_X(P,                "p")                  \
-PLORE_X(Q,                "q")                  \
-PLORE_X(R,                "r")                  \
-PLORE_X(S,                "s")                  \
-PLORE_X(T,                "t")                  \
-PLORE_X(U,                "u")                  \
-PLORE_X(V,                "v")                  \
-PLORE_X(W,                "w")                  \
-PLORE_X(X,                "x")                  \
-PLORE_X(Y,                "y")                  \
-PLORE_X(Z,                "z")                  \
-PLORE_X(Zero,             "0")                  \
-PLORE_X(One,              "1")                  \
-PLORE_X(Two,              "2")                  \
-PLORE_X(Three,            "3")                  \
-PLORE_X(Four,             "4")                  \
-PLORE_X(Five,             "5")                  \
-PLORE_X(Six,              "6")                  \
-PLORE_X(Seven,            "7")                  \
-PLORE_X(Eight,            "8")                  \
-PLORE_X(Nine,             "9")                  \
-PLORE_X(Plus,             "+")                  \
-PLORE_X(Minus,            "-")                  \
-PLORE_X(Slash,            "/")                  \
-PLORE_X(Space,            "<space>")            \
-PLORE_X(Return,           "<ret>")              \
-PLORE_X(Ctrl,             "<ctrl>")             \
-PLORE_X(Shift,            "<shift>")            \
-PLORE_X(MouseLeft,        "<m-l>")              \
-PLORE_X(MouseRight,       "<m-r>")   
+PLORE_X(None,             "none",    '\0')                 \
+PLORE_X(A,                "a",       'a')                  \
+PLORE_X(B,                "b",       'b')                  \
+PLORE_X(C,                "c",       'c')                  \
+PLORE_X(D,                "d",       'd')                  \
+PLORE_X(E,                "e",       'e')                  \
+PLORE_X(F,                "f",       'f')                  \
+PLORE_X(G,                "g",       'g')                  \
+PLORE_X(H,                "h",       'h')                  \
+PLORE_X(I,                "i",       'i')                  \
+PLORE_X(J,                "j",       'j')                  \
+PLORE_X(K,                "k",       'k')                  \
+PLORE_X(L,                "l",       'l')                  \
+PLORE_X(M,                "m",       'm')                  \
+PLORE_X(N,                "n",       'n')                  \
+PLORE_X(O,                "o",       'o')                  \
+PLORE_X(P,                "p",       'p')                  \
+PLORE_X(Q,                "q",       'q')                  \
+PLORE_X(R,                "r",       'r')                  \
+PLORE_X(S,                "s",       's')                  \
+PLORE_X(T,                "t",       't')                  \
+PLORE_X(U,                "u",       'u')                  \
+PLORE_X(V,                "v",       'v')                  \
+PLORE_X(W,                "w",       'w')                  \
+PLORE_X(X,                "x",       'x')                  \
+PLORE_X(Y,                "y",       'y')                  \
+PLORE_X(Z,                "z",       'z')                  \
+PLORE_X(Zero,             "0",       '0')                  \
+PLORE_X(One,              "1",       '1')                  \
+PLORE_X(Two,              "2",       '2')                  \
+PLORE_X(Three,            "3",       '3')                  \
+PLORE_X(Four,             "4",       '4')                  \
+PLORE_X(Five,             "5",       '5')                  \
+PLORE_X(Six,              "6",       '6')                  \
+PLORE_X(Seven,            "7",       '7')                  \
+PLORE_X(Eight,            "8",       '8')                  \
+PLORE_X(Nine,             "9",       '9')                  \
+PLORE_X(Plus,             "+",       '+')                  \
+PLORE_X(Minus,            "-",       '-')                  \
+PLORE_X(Slash,            "/",       '/')                  \
+PLORE_X(Space,            "<space>", '\0')                 \
+PLORE_X(Return,           "<ret>",   '\0')                 \
+PLORE_X(Ctrl,             "<ctrl>",  '\0')                 \
+PLORE_X(Shift,            "<shift>", '\0')                 \
+PLORE_X(MouseLeft,        "<m-l>",   '\0')                 \
+PLORE_X(MouseRight,       "<m-r>",   '\0')     
 // MAINTENANCE(Evan): None of the symbolic strings should be larger then 8 bytes, including the null terminator.
 
-#define PLORE_X(_Ignored, String) \
+#define PLORE_X(_Ignored1, String, _Ignored2) \
 String,
 char *PloreKeyStrings[] = {
 	PLORE_KEYBOARD_AND_MOUSE
 };
 #undef PLORE_X
 
-#define PLORE_X(Name, _Ignored) \
+#define PLORE_X(_Ignored1, _Ignored2, Character) \
+Character,
+char PloreKeyCharacters[] = {
+	PLORE_KEYBOARD_AND_MOUSE
+};
+#undef PLORE_X
+
+#define PLORE_X(Name, _Ignored1, _Ignored2) \
 PloreKey_##Name,
 typedef enum plore_key {
 	PLORE_KEYBOARD_AND_MOUSE
@@ -101,7 +109,7 @@ typedef enum plore_key {
 } plore_key;
 #undef PLORE_X
 
-#define PLORE_X(Name, _Ignored) \
+#define PLORE_X(Name, _Ignored1, _Ignored2) \
 	b32 Name##IsPressed;  \
 	b32 Name##IsDown;     \
 	b32 Name##WasDown;
@@ -109,7 +117,9 @@ typedef struct keyboard_and_mouse {
 	PLORE_KEYBOARD_AND_MOUSE
 		
 	b64 pKeys[PloreKey_Count]; // Presses this frame.
+	b64 sKeys[PloreKey_Count]; // Shift down while this key was pressed.
 	b64 bKeys[PloreKey_Count]; // Buffered presses this frame.
+	b64 dKeys[PloreKey_Count]; // Down this frame.
 	v2 MouseP;
     uint32 MouseWheel;
 	b32 CursorIsShowing;

@@ -3,52 +3,52 @@
 #ifndef PLORE_VIM_H
 #define PLORE_VIM_H
 
+#define VIM_COMMANDS \
+PLORE_X(None,       "None")        \
+PLORE_X(Incomplete, "Incomplete")  \
+PLORE_X(MoveLeft,   "Move Left")   \
+PLORE_X(MoveRight,  "Move Right")  \
+PLORE_X(MoveUp,     "Move Up")     \
+PLORE_X(MoveDown,   "Move Down")   \
+PLORE_X(Yank,       "Yank")        \
+PLORE_X(ClearYank,  "Clear Yank")  \
+PLORE_X(Paste,      "Paste")       \
+PLORE_X(SelectUp,   "Select Up")   \
+PLORE_X(SelectDown, "Select Down") \
+PLORE_X(ISearch,    "ISearch")
+
+
+#define PLORE_X(Name, _Ignored) VimCommandType_##Name,
 typedef enum vim_command_type {
-	VimCommandType_None,
-	VimCommandType_Movement,
-	VimCommandType_Yank,
-	VimCommandType_ClearYank,
-	VimCommandType_Paste,
-	VimCommandType_Select,
-	VimCommandType_ISearch,
-	
+	VIM_COMMANDS
+	#undef PLORE_X
+	VimCommandType_Count,
 	_VimCommandType_ForceU64 = 0xFFFFFFFF,
 } vim_command_type;
 
-typedef struct vim_command_movement {
-	enum { Left, Right, Up, Down} Direction;
-} vim_command_movement;
 
-typedef struct vim_command_yank {
-	u64 YankeeCount;
-} vim_command_yank;
-
-typedef struct vim_command_paste {
-	u64 PasteeCount;
-} vim_command_paste;
-
-typedef struct vim_command_clear_yank {
-	u64 YankeeCount;
-} vim_command_clear_yank;
-
-typedef struct vim_command_select {
-	u64 SelectCount;
-} vim_command_select;
+#define PLORE_X(_Ignored, String) String,
+char *VimCommandStrings[] = {
+	VIM_COMMANDS
+};
+#undef PLORE_X
 
 typedef struct vim_command {
+	u64 Scalar;
 	interact_state State;
 	vim_command_type Type;
-	union {
-		vim_command_movement   Movement;
-		vim_command_yank       Yank;
-		vim_command_paste      Paste;
-		vim_command_clear_yank ClearYank;
-		vim_command_select     Select;
-	};
 } vim_command;
 
+
+typedef struct vim_key {
+	plore_key Input;
+	plore_key Modifier;
+	b64 DisableBufferedMove;
+} vim_key;
+
+
 typedef struct plore_vim_context {
-	plore_key CommandKeys[32];
+	vim_key CommandKeys[32];
 	u64 CommandKeyCount;
 	vim_command VimCommands[10];
 	u64 VimCommandCount;
@@ -56,45 +56,129 @@ typedef struct plore_vim_context {
 	u64 MaxCommandCount; // @Hardcode
 } plore_vim_context;
 
+typedef struct vim_binding {
+	vim_key Keys[16];
+	vim_command_type Type;
+	b64 DisableBufferedMove;
+} vim_binding;
+
+global vim_binding VimBindings[] = {
+	{
+		.Type = VimCommandType_Yank,
+		.Keys = {
+			[0] = {
+				.Input = PloreKey_Y,
+			},
+			[1] = {
+				.Input = PloreKey_Y,
+			},
+		}
+	},
+	{
+		.Type = VimCommandType_ClearYank,
+		.Keys = {
+			[0] = {
+				.Input = PloreKey_U,
+			},
+			[1] = {
+				.Input = PloreKey_Y,
+			},
+		}
+	},
+	{
+		.Type = VimCommandType_SelectUp,
+		.Keys = {
+			[0] = {
+				.Input = PloreKey_Space,
+				.Modifier = PloreKey_Shift,
+			},
+		}
+	},
+	{
+		.Type = VimCommandType_SelectDown,
+		.Keys = {
+			[0] = {
+				.Input = PloreKey_Space,
+			},
+		}
+	},
+	{
+		.Type = VimCommandType_Paste,
+		.Keys = {
+			[0] = {
+				.Input = PloreKey_P,
+			},
+			[1] = {
+				.Input = PloreKey_P,
+			},
+		}
+	},
+	{
+		.Type = VimCommandType_MoveLeft,
+		.Keys = {
+			[0] = {
+				.Input = PloreKey_H,
+			},
+		}
+	},
+	{
+		.Type = VimCommandType_MoveRight,
+		.DisableBufferedMove = true,
+		.Keys = {
+			[0] = {
+				.Input = PloreKey_L,
+			},
+		}
+	},
+	{
+		.Type = VimCommandType_MoveUp,
+		.Keys = {
+			[0] = {
+				.Input = PloreKey_K,
+			},
+		}
+	},
+	{
+		.Type = VimCommandType_MoveDown,
+		.Keys = {
+			[0] = {
+				.Input = PloreKey_J,
+			},
+		}
+	},
+};
+
 
 internal vim_command
 MakeCommand(plore_vim_context *Context) {
-	vim_command Result = {0};
+	vim_command Result = {
+		.Scalar = 1,
+	};
 	
 	if (!Context->CommandKeyCount) return(Result);
-	local plore_key YankCommand[] =      { PloreKey_Y, PloreKey_Y, };
-	local plore_key PasteCommand[] =     { PloreKey_P, PloreKey_P, };
-	local plore_key ClearYankCommand[] = { PloreKey_U, PloreKey_Y, };
-	local plore_key MoveLeftCommand[] =  { PloreKey_H };
-	local plore_key MoveRightCommand[] = { PloreKey_L };
-	local plore_key MoveUpCommand[] =    { PloreKey_K };
-	local plore_key MoveDownCommand[] =  { PloreKey_J };
-	local plore_key SelectCommand[] =    { PloreKey_Space };
 	
+	vim_key *C = Context->CommandKeys;
 	
-	plore_key *C = Context->CommandKeys;
-	if (MemoryCompare(C, SelectCommand, sizeof(SelectCommand)) == 0) {
-		Result.Type = VimCommandType_Select;
-	} else if (MemoryCompare(C, MoveLeftCommand, sizeof(MoveLeftCommand)) == 0)  {
-		Result.Type = VimCommandType_Movement;
-		Result.Movement.Direction = Left;
-	} else if (MemoryCompare(C, MoveRightCommand, sizeof(MoveRightCommand)) == 0) {
-		Result.Type = VimCommandType_Movement;
-		Result.Movement.Direction = Right;
-	} else if (MemoryCompare(C, MoveUpCommand, sizeof(MoveUpCommand)) == 0) {
-		Result.Type = VimCommandType_Movement;
-		Result.Movement.Direction = Up;
-	} else if (MemoryCompare(C, MoveDownCommand, sizeof(MoveDownCommand)) == 0) {
-		Result.Type = VimCommandType_Movement;
-		Result.Movement.Direction = Down;
-	} else if (MemoryCompare(C, YankCommand, sizeof(YankCommand)) == 0) {
-		Result.Type = VimCommandType_Yank;
-	} else if (MemoryCompare(C, PasteCommand, sizeof(PasteCommand)) == 0) {
-		Result.Type = VimCommandType_Paste;
-	} else if (MemoryCompare(C, ClearYankCommand, sizeof(ClearYankCommand)) == 0) {
-		Result.Type = VimCommandType_ClearYank;
+	char Buffer[ArrayCount(Context->CommandKeys) + 1] = {0};
+	u64 BufferCount = 0;
+	while (IsNumeric(PloreKeyCharacters[C->Input])) {
+		Buffer[BufferCount++] = PloreKeyCharacters[C->Input];
+		C++;
+		
 	}
-	
+	if (BufferCount) {
+		Result.Scalar = StringToI32(Buffer);
+		Result.Type = VimCommandType_Incomplete;
+	} 
+	if (BufferCount < Context->CommandKeyCount) {
+		for (u64 B = 0; B < ArrayCount(VimBindings); B++) {
+			vim_binding *Binding = VimBindings + B;
+			if (MemoryCompare(C, Binding->Keys, sizeof(vim_key) * (Context->CommandKeyCount - BufferCount)) == 0) {
+				Result.Type = Binding->Type;
+				break;
+			}
+		}
+	}
 	
 	return(Result);
 }
