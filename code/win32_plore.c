@@ -733,13 +733,14 @@ internal void
 WindowsProcessMessages(windows_context *Context, keyboard_and_mouse *ThisFrame) {
 	MSG Message = {0};
 	
-	#define PROCESS_KEY(SymbolicName, Name)                                                          \
-	case SymbolicName: {                                                                             \
-		ThisFrame->##Name##IsDown = IsDown;                                                          \
-		ThisFrame->##Name##WasDown = Message.lParam & (1 << 30);                                     \
-		ThisFrame->##Name##IsPressed = (ThisFrame->##Name##IsDown) && !(ThisFrame->##Name##WasDown); \
-		ThisFrame->pKeys[PloreKey_##Name] = ThisFrame->##Name##IsPressed;                            \
-		WindowsDebugPrintLine("Pressed " #Name);                                                     \
+	#define PROCESS_KEY(SymbolicName, Name)                                                                        \
+	case SymbolicName: {                                                                                           \
+		ThisFrame->##Name##IsDown = IsDown;                                                                        \
+		ThisFrame->##Name##WasDown = Message.lParam & (1 << 30);                                                   \
+		ThisFrame->##Name##IsPressed = (ThisFrame->##Name##IsDown) && !(ThisFrame->##Name##WasDown);               \
+		ThisFrame->pKeys[PloreKey_##Name] = ThisFrame->##Name##IsPressed;                                          \
+		ThisFrame->sKeys[PloreKey_##Name] = ThisFrame->##Name##IsPressed && (GetAsyncKeyState(VK_SHIFT) & 0x8000); \
+		WindowsDebugPrintLine("Pressed " #Name);                                                                   \
 	} break;
 	
 	while (PeekMessageA(&Message, 0, 0, 0, PM_REMOVE)) {
@@ -783,6 +784,16 @@ WindowsProcessMessages(windows_context *Context, keyboard_and_mouse *ThisFrame) 
 	                    PROCESS_KEY('X', X);
 	                    PROCESS_KEY('Y', Y);
 	                    PROCESS_KEY('Z', Z);
+	                    PROCESS_KEY('0', Zero);
+	                    PROCESS_KEY('1', One);
+	                    PROCESS_KEY('2', Two);
+	                    PROCESS_KEY('3', Three);
+	                    PROCESS_KEY('4', Four);
+	                    PROCESS_KEY('5', Five);
+	                    PROCESS_KEY('6', Six);
+	                    PROCESS_KEY('7', Seven);
+	                    PROCESS_KEY('8', Eight);
+	                    PROCESS_KEY('9', Nine);
 	                    PROCESS_KEY(VK_OEM_2, Slash);
 	                    PROCESS_KEY(VK_RETURN, Return);
 	                    PROCESS_KEY(VK_SPACE, Space);
@@ -1063,7 +1074,7 @@ int WinMain (
 			GlobalPloreInput.ThisFrame.MouseLeftIsDown    = GetKeyState(VK_LBUTTON) & (1 << 15);
 			GlobalPloreInput.ThisFrame.MouseLeftIsPressed = GlobalPloreInput.ThisFrame.MouseLeftIsDown && !(GlobalPloreInput.LastFrame.MouseLeftIsDown);
 		}		
-
+		
 		windows_timer CurrentTimer = WindowsGetTime();
         f64 TimeNowInSeconds = ((f64) (CurrentTimer.TicksNow - PreviousTimer.TicksNow) / CurrentTimer.Frequency);
 		f64 DT = TimeNowInSeconds - TimePreviousInSeconds;
@@ -1106,7 +1117,7 @@ int WinMain (
 		}
 		
 		GlobalPloreInput.LastFrame = GlobalPloreInput.ThisFrame;
-#define PLORE_X(Name, _Ignored) \
+#define PLORE_X(Name, _Ignored1, _Ignored2) \
 GlobalPloreInput.ThisFrame.##Name##IsDown = GlobalPloreInput.LastFrame.##Name##IsDown || GlobalPloreInput.ThisFrame.##Name##IsPressed;
 		GlobalPloreInput.ThisFrame = (keyboard_and_mouse) {0};
 		PLORE_KEYBOARD_AND_MOUSE;

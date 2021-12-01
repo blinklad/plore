@@ -100,7 +100,7 @@ internal void
 ToggleSelected(plore_file_context *Context, plore_path *Selectee);
 
 internal char *
-PloreKeysToString(memory_arena *Arena, plore_key *Keys, u64 KeyCount);
+PloreKeysToString(memory_arena *Arena, vim_key *Keys, u64 KeyCount);
 
 internal void
 SynchronizeCurrentDirectory(plore_file_context *FileContext, plore_current_directory_state *CurrentState);
@@ -224,13 +224,12 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		}
 	}
 	
-	//ThisFrame->InputChar = SymbolicName + (ThisFrame->ShiftIsDown ? 32 : 0); \
 	// NOTE(Evan): Buffered input.
-#define PLORE_X(Key, _Ignored) local u64 Key##Count = 0;
+#define PLORE_X(Key, _Ignored1, _Ignored2) local u64 Key##Count = 0;
 	PLORE_KEYBOARD_AND_MOUSE
 #undef PLORE_X
 	
-#define PLORE_X(Key, _Ignored) \
+#define PLORE_X(Key, _Ignored1, _Ignored2) \
 	if (BufferedInput.##Key##IsDown) Key##Count++;                    \
 	else Key##Count = 0;                                              \
 	if (Key##Count > 20) { Key##Count = 10; }                         \
@@ -570,12 +569,12 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							
 							plore_file *RowEntry = Listing->Entries + Row;
 							
-							if (RowCursor && RowCursor->Cursor == Row) {
-								BackgroundColour = WidgetColour_Secondary;
-							} else if (IsYanked(FileContext, &RowEntry->Path)) {
+							if (IsYanked(FileContext, &RowEntry->Path)) {
 								BackgroundColour = WidgetColour_Tertiary;
 							} else if (IsSelected(FileContext, &RowEntry->Path)) {
 								BackgroundColour = WidgetColour_Quaternary;
+							} else if (RowCursor && RowCursor->Cursor == Row) {
+								BackgroundColour = WidgetColour_Secondary;
 							}
 							
 							if (RowEntry->Type == PloreFileNode_Directory) {
@@ -591,8 +590,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 										   .BackgroundColour = BackgroundColour,
 										   .TextColour = TextColour,
 										   .TextPad = V2(4, 0),
-									   })) {
-								//Listing->Cursor = Row;
+										   })) {
+								// TODO(Evan): Change cursor to here?!
 								PrintLine("Button %s was clicked!", Listing->Entries[Row].Path.FilePart);
 								if (Listing->Entries[Row].Type == PloreFileNode_Directory) {
 									PrintLine("Changing Directory to %s", Listing->Entries[Row].Path.Absolute);
