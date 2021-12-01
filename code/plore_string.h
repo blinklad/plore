@@ -45,6 +45,13 @@ AlphaToLower(char C) {
 	return(C);
 }
 
+// @Cleanup, atoi (and more CRT) is not ideal.
+internal i32
+StringToI32(char *S) {
+	i32 Result = atoi(S);
+	return(Result);
+}
+
 
 internal b64
 CStringsAreEqualIgnoreCase(char *A, char *B) {
