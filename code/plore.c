@@ -469,7 +469,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			} break;
 				
 			}
-		} else if (State->VimContext->CommandKeyCount == State->VimContext->MaxCommandCount) {
+		} 
+		if (State->VimContext->CommandKeyCount == State->VimContext->MaxCommandCount) {
 			AteCommands = true;
 		}
 	}
@@ -524,13 +525,20 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		
 #if 1
 		if (State->DirectoryState.Cursor.Valid) {
+			plore_file *CursorFile = &State->DirectoryState.Cursor.File;
+			char *CursorState = "";
+			if (IsSelected(FileContext, &CursorFile->Path)) CursorState = "selected";
+			if (IsYanked(FileContext, &CursorFile->Path)) CursorState = "yanked";
+			
 			char CursorInfo[512] = {0};
 			StringPrintSized(CursorInfo, 
 							 ArrayCount(CursorInfo),
-						     "[%s] %s 01-02-3 %s", 
-						     (State->DirectoryState.Cursor.File.Type == PloreFileNode_Directory) ? "DIR" : "FILE", 
-						     State->DirectoryState.Cursor.File.Path.FilePart,
-							 PloreKeysToString(&State->FrameArena, State->VimContext->CommandKeys, State->VimContext->CommandKeyCount));
+						     "[%s] %s 01-02-03 %s %s", 
+						     (CursorFile->Type == PloreFileNode_Directory) ? "directory" : "file", 
+						     CursorFile->Path.FilePart,
+							 PloreKeysToString(&State->FrameArena, State->VimContext->CommandKeys, State->VimContext->CommandKeyCount),
+							 CursorState
+							 );
 			
 			if (Button(State->VimguiContext, (vimgui_button_desc) {
 						   .Title = CursorInfo,
