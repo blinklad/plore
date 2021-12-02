@@ -52,6 +52,38 @@ StringToI32(char *S) {
 	return(Result);
 }
 
+typedef struct substring_result {
+	u64 Index;
+	b64 IsContained;
+} substring_result;
+
+internal substring_result
+Substring(char *S, char *Substring) {
+	substring_result Result = {0};
+	
+	if (!S || !Substring) return(Result);
+	
+	u64 SLen = StringLength(S);
+	u64 SubLen = StringLength(Substring);
+	if (SubLen > SLen) return(Result);
+	
+	for (u64 I = 0; I < SLen; I++) {
+		if ((SLen - I) < SubLen) break;
+		Result.Index = I;
+		
+		char *A = S+I;
+		char *B = Substring;
+		for (u64 J = 0; J < SubLen; J++) {
+			if (*A++ != *B++) break;
+			if (J == SubLen-1) Result.IsContained = true;
+		}
+		
+		if (Result.IsContained) break;
+	}
+	
+	return(Result);
+}
+
 
 internal b64
 CStringsAreEqualIgnoreCase(char *A, char *B) {
