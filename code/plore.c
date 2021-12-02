@@ -437,6 +437,22 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							PushVimCommand(State->VimContext, Command);
 						} break;
 						
+						case VimCommandType_JumpTop: {
+							plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(State->FileContext, &State->DirectoryState.Current.File.Path);
+							CursorResult.Cursor->Cursor = 0;
+						} break;
+						
+						case VimCommandType_JumpBottom: {
+							plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(State->FileContext, &State->DirectoryState.Current.File.Path);
+							if (State->DirectoryState.Current.Count) {
+								CursorResult.Cursor->Cursor = State->DirectoryState.Current.Count-1;
+							}
+						} break;
+						
+						case VimCommandType_ISearch: {
+							DrawText("ISearch");
+						} break;
+						
 						case VimCommandType_Incomplete: {
 							PrintLine("Incomplete command");
 						} break;

@@ -4,19 +4,20 @@
 #define PLORE_VIM_H
 
 #define VIM_COMMANDS \
-PLORE_X(None,       "None")        \
-PLORE_X(Incomplete, "Incomplete")  \
-PLORE_X(MoveLeft,   "Move Left")   \
-PLORE_X(MoveRight,  "Move Right")  \
-PLORE_X(MoveUp,     "Move Up")     \
-PLORE_X(MoveDown,   "Move Down")   \
-PLORE_X(Yank,       "Yank")        \
-PLORE_X(ClearYank,  "Clear Yank")  \
-PLORE_X(Paste,      "Paste")       \
-PLORE_X(SelectUp,   "Select Up")   \
-PLORE_X(SelectDown, "Select Down") \
-PLORE_X(ISearch,    "ISearch")
-
+PLORE_X(None,       "None")           \
+PLORE_X(Incomplete, "Incomplete")     \
+PLORE_X(MoveLeft,   "Move Left")      \
+PLORE_X(MoveRight,  "Move Right")     \
+PLORE_X(MoveUp,     "Move Up")        \
+PLORE_X(MoveDown,   "Move Down")      \
+PLORE_X(Yank,       "Yank")           \
+PLORE_X(ClearYank,  "Clear Yank")     \
+PLORE_X(Paste,      "Paste")          \
+PLORE_X(SelectUp,   "Select Up")      \
+PLORE_X(SelectDown, "Select Down")    \
+PLORE_X(ISearch,    "ISearch")        \
+PLORE_X(JumpTop,    "Jump To Top")    \
+PLORE_X(JumpBottom, "Jump To Bottom")
 
 #define PLORE_X(Name, _Ignored) VimCommandType_##Name,
 typedef enum vim_command_type {
@@ -157,6 +158,26 @@ global vim_binding VimBindings[] = {
 		.Keys = {
 			[0] = {
 				.Input = PloreKey_Slash,
+			},
+		}
+	},
+	{
+		.Type = VimCommandType_JumpTop,
+		.Keys = {
+			[0] = {
+				.Input = PloreKey_G,
+			},
+			[1] = {
+				.Input = PloreKey_G,
+			},
+		}
+	},
+	{
+		.Type = VimCommandType_JumpBottom,
+		.Keys = {
+			[0] = {
+				.Input = PloreKey_G,
+				.Modifier = PloreKey_Shift,
 			},
 		}
 	},
