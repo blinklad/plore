@@ -33,9 +33,14 @@ char *VimCommandStrings[] = {
 };
 #undef PLORE_X
 
+typedef enum vim_mode {
+	VimMode_Normal,
+	VimMode_ISearch,
+	VimMode_Count,
+	_VimMode_ForceU64 = 0xFFFFFFFF,
+} vim_mode;
 typedef struct vim_command {
 	u64 Scalar;
-	interact_state State;
 	vim_command_type Type;
 } vim_command;
 
@@ -50,14 +55,15 @@ typedef struct vim_key {
 typedef struct plore_vim_context {
 	vim_key CommandKeys[32];
 	u64 CommandKeyCount;
-	vim_command VimCommands[10];
-	u64 VimCommandCount;
-	u64 Cursor;
 	u64 MaxCommandCount; // @Hardcode
+	
+	vim_command VimCommandHistory[10];
+	u64 VimCommandHistoryCount;
+	vim_mode Mode;
 } plore_vim_context;
 
 typedef struct vim_binding {
-	vim_key Keys[16];
+	vim_key Keys[32];
 	vim_command_type Type;
 	b64 DisableBufferedMove;
 } vim_binding;
@@ -146,41 +152,15 @@ global vim_binding VimBindings[] = {
 			},
 		}
 	},
+	{
+		.Type = VimCommandType_ISearch,
+		.Keys = {
+			[0] = {
+				.Input = PloreKey_Slash,
+			},
+		}
+	},
 };
 
-
-internal vim_command
-MakeCommand(plore_vim_context *Context) {
-	vim_command Result = {
-		.Scalar = 1,
-	};
-	
-	if (!Context->CommandKeyCount) return(Result);
-	
-	vim_key *C = Context->CommandKeys;
-	
-	char Buffer[ArrayCount(Context->CommandKeys) + 1] = {0};
-	u64 BufferCount = 0;
-	while (IsNumeric(PloreKeyCharacters[C->Input])) {
-		Buffer[BufferCount++] = PloreKeyCharacters[C->Input];
-		C++;
-		
-	}
-	if (BufferCount) {
-		Result.Scalar = StringToI32(Buffer);
-		Result.Type = VimCommandType_Incomplete;
-	} 
-	if (BufferCount < Context->CommandKeyCount) {
-		for (u64 B = 0; B < ArrayCount(VimBindings); B++) {
-			vim_binding *Binding = VimBindings + B;
-			if (MemoryCompare(C, Binding->Keys, sizeof(vim_key) * (Context->CommandKeyCount - BufferCount)) == 0) {
-				Result.Type = Binding->Type;
-				break;
-			}
-		}
-	}
-	
-	return(Result);
-}
 
 #endif //PLORE_VIM_H

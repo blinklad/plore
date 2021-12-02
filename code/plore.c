@@ -183,7 +183,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 #endif
 		
 		State->VimContext = PushStruct(&State->Arena, plore_vim_context);
-		State->VimContext->MaxCommandCount = 2; // @Hack
+		State->VimContext->MaxCommandCount = 32; // @Hack
 		
 		State->RenderList = PushStruct(&State->Arena, plore_render_list);
 		State->RenderList->Font = State->Font;
@@ -222,7 +222,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		} else {
 			State->InteractState = InteractState_CommandHistory;
 		}
-	}
+	} 
 	
 	// NOTE(Evan): Buffered input.
 #define PLORE_X(Key, _Ignored1, _Ignored2) local u64 Key##Count = 0;
@@ -263,27 +263,16 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		}
 	}
 	
-#if 0
-	local plore_key LastCommand[32] = {0};
-	local u64 LastCommandCount = 0;
-	if (DidInput) {
-		PrintLine("DID INPUT.");
-		MemoryCopy(State->VimContext->CommandKeys, LastCommand, sizeof(LastCommand));
-		LastCommandCount = State->VimContext->CommandKeyCount;
-	}
-#endif
-	
-	
 	local b64 AteCommands = 0;
 	//
 	// NOTE(Evan): Vim command processing
 	//
 	if (DidInput) {
-		vim_command Command = MakeCommand(State->VimContext);
+		make_command_result CommandResult = MakeCommand(State->VimContext);
+		vim_command Command = CommandResult.Command;
 		if (Command.Type != VimCommandType_None) {
 			switch (State->InteractState) {
 				case (InteractState_FileExplorer): {
-					Command.State = InteractState_FileExplorer;
 					
 					switch (Command.Type) {
 						case VimCommandType_Yank: {
@@ -293,7 +282,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								DrawText("Yanked %d guys.", FileContext->YankedCount);
 									
 								PushVimCommand(State->VimContext, (vim_command) {
-												   .State = InteractState_FileExplorer,
 												   .Type = VimCommandType_Yank,
 											   });
 							} 
@@ -305,7 +293,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								FileContext->YankedCount = 0;
 								FileContext->SelectedCount = 0;
 								PushVimCommand(State->VimContext, (vim_command) {
-												   .State = InteractState_FileExplorer,
 												   .Type = VimCommandType_ClearYank,
 											   });
 							}
@@ -337,7 +324,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								DrawText("Pasted %d items!", PastedCount);
 								
 								PushVimCommand(State->VimContext, (vim_command) {
-												   .State = InteractState_FileExplorer,
 												   .Type = VimCommandType_Paste,
 											   });
 								
@@ -452,7 +438,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 						} break;
 						
 						case VimCommandType_Incomplete: {
-							PrintLine("INCOMPLETE");
+							PrintLine("Incomplete command");
 						} break;
 						
 						InvalidDefaultCase;
@@ -469,7 +455,10 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			} break;
 				
 			}
-		} 
+		} else if (!CommandResult.CandidateCount) {
+			AteCommands = true;
+			PrintLine("No candidates - you should clear the vim command buffer.");
+		}
 		if (State->VimContext->CommandKeyCount == State->VimContext->MaxCommandCount) {
 			AteCommands = true;
 		}
@@ -678,9 +667,9 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 					   .Rect               = { DivideVec2f(PlatformAPI->WindowDimensions, 2), V2(400, 400) }, 
 					   .Hidden             = Hidden,
 					   .ForceFocus         = !Hidden})) {
-			for (vim_command_type C = 0; C < State->VimContext->VimCommandCount; C++) {
+			for (vim_command_type C = 0; C < State->VimContext->VimCommandHistoryCount; C++) {
 				if (C == 10) break;
-				vim_command *Command = State->VimContext->VimCommands + C;
+				vim_command *Command = State->VimContext->VimCommandHistory + C;
 				char *Title = VimCommandStrings[Command->Type];
 				if (Button(State->VimguiContext, (vimgui_button_desc) {
 							   .Title = Title,
@@ -703,10 +692,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		
 		MemoryClear(State->VimContext->CommandKeys, sizeof(State->VimContext->CommandKeys));
 		State->VimContext->CommandKeyCount = 0;
-#if 0
-		LastCommandCount = 0;
-		MemoryClear(LastCommand, sizeof(LastCommand));
-#endif
 	}
 	
 #if defined(PLORE_INTERNAL)
@@ -715,15 +700,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	
 	
 	VimguiEnd(State->VimguiContext);
-	
-	
-	for (u64 S = 0; S < State->FileContext->SelectedCount; S++) {
-		PrintLine("Selected %d is %s", S, State->FileContext->Selected[S]);
-	}
-	
-	for (u64 S = 0; S < State->FileContext->YankedCount; S++) {
-		PrintLine("Yanked %d is %s", S, State->FileContext->Yanked[S]);
-	}
 	
 	// NOTE(Evan): Right now, we copy this out. We may not want to in the future(tm), even if it is okay now.
 	return(*State->VimguiContext->RenderList);
