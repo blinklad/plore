@@ -21,64 +21,86 @@ MakeCommand(plore_vim_context *Context) {
 	
 	vim_key *C = Context->CommandKeys;
 	
-	char Buffer[ArrayCount(Context->CommandKeys) + 1] = {0};
-	u64 BufferCount = 0;
-	while (IsNumeric(PloreKeyCharacters[C->Input])) {
-		Buffer[BufferCount++] = PloreKeyCharacters[C->Input];
-		C++;
+	if (Context->Mode == VimMode_Normal) {
+		char Buffer[ArrayCount(Context->CommandKeys) + 1] = {0};
+		u64 BufferCount = 0;
+		while (IsNumeric(PloreKeyCharacters[C->Input])) {
+			Buffer[BufferCount++] = PloreKeyCharacters[C->Input];
+			C++;
+			
+		}
+		if (BufferCount) {
+			Result.Command.Scalar = StringToI32(Buffer);
+			Result.Command.Type = VimCommandType_Incomplete;
+		} 
 		
-	}
-	if (BufferCount) {
-		Result.Command.Scalar = StringToI32(Buffer);
-		Result.Command.Type = VimCommandType_Incomplete;
-	} 
-	
-	if (BufferCount < Context->CommandKeyCount) {
-		// NOTE(Evan): If there's at least one non-scalar key, the command can't be incomplete - there must be at least one candidate
-		// command, which includes substrings, otherwise the command buffer should be cleared as there's no possible command that can be matched.
-		Result.Command.Type = VimCommandType_None;
-		
-		for (u64 B = 0; B < ArrayCount(VimBindings); B++) {
-			vim_binding *Binding = VimBindings + B;
-			b64 PotentialCandidate = true;
-			for (u64 K = 0; K < ArrayCount(Binding->Keys); K++) {
-				if (!Binding->Keys[K].Input) break;
-				
-				for (u64 Command = 0; Command < (ArrayCount(Context->CommandKeys)-BufferCount); Command++) {
-					if (Context->CommandKeyCount-BufferCount-Command == 0) break;
-					if (Binding->Keys[K+Command].Input != C[K+Command].Input) {
-						PotentialCandidate = false;
+		if (BufferCount < Context->CommandKeyCount) {
+			// NOTE(Evan): If there's at least one non-scalar key, the command can't be incomplete - there must be at least one candidate
+			// command, which includes substrings, otherwise the command buffer should be cleared as there's no possible command that can be matched.
+			Result.Command.Type = VimCommandType_None;
+			
+			for (u64 B = 0; B < ArrayCount(VimBindings); B++) {
+				vim_binding *Binding = VimBindings + B;
+				b64 PotentialCandidate = true;
+				for (u64 K = 0; K < ArrayCount(Binding->Keys); K++) {
+					if (!Binding->Keys[K].Input) break;
+					
+					for (u64 Command = 0; Command < (ArrayCount(Context->CommandKeys)-BufferCount); Command++) {
+						if (Context->CommandKeyCount-BufferCount-Command == 0) break;
+						if (Binding->Keys[K+Command].Input != C[K+Command].Input) {
+							PotentialCandidate = false;
+							break;
+						}
+					}
+					
+					if (PotentialCandidate) {
+						Result.Command.Type = VimCommandType_Incomplete;
+						Result.Candidates[B] = true;
+						Result.CandidateCount += 1;
 						break;
 					}
 				}
-				
-				if (PotentialCandidate) {
-					Result.Command.Type = VimCommandType_Incomplete;
-					Result.Candidates[B] = true;
-					Result.CandidateCount += 1;
-					break;
-				}
 			}
 		}
-	}
-	
-	if (Result.CandidateCount) {
-		for (u64 Candidate = 0; Candidate < ArrayCount(Result.Candidates); Candidate++) {
-			if (Result.Candidates[Candidate]) {
-				u64 NonScalarEntries = Context->CommandKeyCount-BufferCount;
-				u64 CommandLength;
-				for (CommandLength = 0; CommandLength < ArrayCount(VimBindings[Candidate].Keys); CommandLength++) {
-					if (!VimBindings[Candidate].Keys[CommandLength].Input) break;
+		
+		if (Result.CandidateCount) {
+			for (u64 Candidate = 0; Candidate < ArrayCount(Result.Candidates); Candidate++) {
+				if (Result.Candidates[Candidate]) {
+					u64 NonScalarEntries = Context->CommandKeyCount-BufferCount;
+					u64 CommandLength;
+					for (CommandLength = 0; CommandLength < ArrayCount(VimBindings[Candidate].Keys); CommandLength++) {
+						if (!VimBindings[Candidate].Keys[CommandLength].Input) break;
+						
+					}
+					if (NonScalarEntries < CommandLength) continue;
 					
-				}
-				if (NonScalarEntries < CommandLength) continue;
-				
-				if (MemoryCompare(VimBindings[Candidate].Keys, C, NonScalarEntries * sizeof(vim_key)) == 0) {
-					Result.Command.Type = VimBindings[Candidate].Type;
-					break;
+					if (MemoryCompare(VimBindings[Candidate].Keys, C, NonScalarEntries * sizeof(vim_key)) == 0) {
+						Result.Command.Type = VimBindings[Candidate].Type;
+						break;
+					}
 				}
 			}
 		}
+			
+	} else {
+		if (Context->CommandKeyCount) {
+			if (Context->CommandKeyCount == ArrayCount(Context->CommandKeys) || Context->CommandKeys[Context->CommandKeyCount-1].Input == PloreKey_Return) {
+				Result.Command.Type = VimCommandType_NormalMode;
+			} else {
+				vim_key *LatestKey = Context->CommandKeys + Context->CommandKeyCount-1;
+				
+				if (LatestKey->Input == PloreKey_Backspace) {
+					DrawText("Backspace pressed");
+					if (Context->CommandKeyCount > 1) {
+						Context->CommandKeys[--Context->CommandKeyCount] = (vim_key) {0};
+					}
+					Context->CommandKeys[--Context->CommandKeyCount] = (vim_key) {0};
+				}
+				
+				Result.Command.Type = VimCommandType_Incomplete;
+			}
+		}
+		
 	}
 	
 	return(Result);
