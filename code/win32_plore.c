@@ -331,9 +331,12 @@ PLATFORM_GET_DIRECTORY_ENTRIES(WindowsGetDirectoryEntries) {
 			Result.Count++;
 			
 		} while (FindNextFile(FindHandle, &FindData));
+		
+		FindClose(FindHandle);
 	} else {
 		WindowsDebugPrintLine("Could not open directory %s", SearchableDirectoryName);
 	}
+	
 	
 	Result.Succeeded = true;
 	return(Result);
