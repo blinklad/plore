@@ -84,20 +84,23 @@ MakeCommand(plore_vim_context *Context) {
 			
 	} else {
 		if (Context->CommandKeyCount) {
-			if (Context->CommandKeyCount == ArrayCount(Context->CommandKeys) || Context->CommandKeys[Context->CommandKeyCount-1].Input == PloreKey_Return) {
+			vim_key *LatestKey = Context->CommandKeys + Context->CommandKeyCount-1;
+			if (Context->CommandKeyCount == ArrayCount(Context->CommandKeys)) {
 				Result.Command.Type = VimCommandType_NormalMode;
+			} else if (LatestKey->Input == PloreKey_Return) {
+				Result.Command.Type = VimCommandType_CompleteSearch;
+				Context->CommandKeys[--Context->CommandKeyCount] = (vim_key) {0}; // NOTE(Evan): Remove return from command buffer.
 			} else {
-				vim_key *LatestKey = Context->CommandKeys + Context->CommandKeyCount-1;
-				
 				if (LatestKey->Input == PloreKey_Backspace) {
-					DrawText("Backspace pressed");
 					if (Context->CommandKeyCount > 1) {
 						Context->CommandKeys[--Context->CommandKeyCount] = (vim_key) {0};
 					}
 					Context->CommandKeys[--Context->CommandKeyCount] = (vim_key) {0};
+				} 
+				if (Context->CommandKeyCount) {
+					Result.Command.Type = VimCommandType_Incomplete;
 				}
 				
-				Result.Command.Type = VimCommandType_Incomplete;
 			}
 		}
 		

@@ -52,6 +52,9 @@ typedef struct plore_current_directory_state {
 		};
 		plore_file_listing Listings[3];
 	};
+	
+	char Filter[PLORE_MAX_PATH];
+	u64 FilterCount;
 } plore_current_directory_state;
 
 typedef struct plore_state {
@@ -99,8 +102,8 @@ internal char *
 PloreKeysToString(memory_arena *Arena, vim_key *Keys, u64 KeyCount);
 
 internal char *
-VimKeysToString(memory_arena *Arena, plore_vim_context *Context);
-
+VimKeysToString(char *Buffer, u64 BufferSize, plore_vim_context *Context);
+	
 internal void
 SynchronizeCurrentDirectory(plore_file_context *FileContext, plore_current_directory_state *CurrentState);
 
@@ -461,9 +464,31 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 						
 						case VimMode_ISearch: {
 							switch (Command.Type) {
+								case VimCommandType_Incomplete:
+								case VimCommandType_CompleteSearch: {
+									VimKeysToString(State->DirectoryState.Filter, 
+												    ArrayCount(State->DirectoryState.Filter), 
+												    State->VimContext);
+									
+									if (Command.Type == VimCommandType_CompleteSearch) {
+										State->VimContext->Mode = VimMode_Normal;
+										if (State->DirectoryState.Current.Count) {
+											for (u64 F = 0; F < State->DirectoryState.Current.Count; F++) {
+												plore_file *File = State->DirectoryState.Current.Entries + F;
+												
+												if (Substring(File->Path.FilePart, State->DirectoryState.Filter).IsContained) {
+													plore_file_listing_cursor *CurrentCursor = GetCursor(State->FileContext, State->DirectoryState.Current.File.Path.Absolute);
+													CurrentCursor->Cursor = F;
+													MemoryClear(State->DirectoryState.Filter, ArrayCount(State->DirectoryState.Filter));
+													break;
+												}
+											}
+										}
+									}
+								}; break;
+								
 								case VimCommandType_NormalMode: {
 									State->VimContext->Mode = VimMode_Normal;
-									AteCommands = true;
 								} break;
 							}
 						} break;
@@ -533,7 +558,9 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	
 	char *FilterText = 0;
 	if (State->VimContext->Mode == VimMode_ISearch) {
-		FilterText = VimKeysToString(&State->FrameArena, State->VimContext);			
+		u64 Size = 128;
+		char *Buffer = PushBytes(&State->FrameArena, Size);
+		FilterText = VimKeysToString(Buffer, Size, State->VimContext);			
 	}
 	
 	typedef struct image_preview_handle {
@@ -552,8 +579,11 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		if (State->VimContext->Mode == VimMode_ISearch) {
 			char Buffer[128] = {0};
 			u64 BufferSize = 0;
+			
+			u64 Size = 128;
+			char *S = PushBytes(&State->FrameArena, Size);
 			BufferSize += StringPrintSized(Buffer, ArrayCount(Buffer), "ISearch: ");
-			BufferSize += StringPrintSized(Buffer+BufferSize, ArrayCount(Buffer), VimKeysToString(&State->FrameArena, State->VimContext));
+			BufferSize += StringPrintSized(Buffer+BufferSize, ArrayCount(Buffer), VimKeysToString(S, Size, State->VimContext));
 			
 			Y += FooterHeight + 3*PadY;
 			H -= (FooterHeight + 3*PadY);
@@ -874,13 +904,16 @@ PloreKeysToString(memory_arena *Arena, vim_key *Keys, u64 KeyCount) {
 	return(Result);
 }
 
+// NOTE(Evan): Does not skip unprintable characters.
 internal char *
-VimKeysToString(memory_arena *Arena, plore_vim_context *Context) {
-	char *Buffer = PushBytes(Arena, 128);
-	u64 BufferSize = 0;
+VimKeysToString(char *Buffer, u64 BufferSize, plore_vim_context *Context) {
+	char *S = Buffer;
 	vim_key *Key = Context->CommandKeys;
+	u64 Count = 0;
 	while (Key->Input) {
-		BufferSize += StringPrintSized(Buffer+BufferSize, ArrayCount(Buffer), PloreKeyStrings[Key++->Input]);
+		*S++ = PloreKeyCharacters[Key++->Input];
+		Count++;
+		if (Count == BufferSize-1) break;
 	}
 	
 	return(Buffer);

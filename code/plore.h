@@ -77,13 +77,13 @@ PLORE_X(Nine,             "9",             '9')   \
 PLORE_X(Plus,             "+",             '+')   \
 PLORE_X(Minus,            "-",             '-')   \
 PLORE_X(Slash,            "/",             '/')   \
-PLORE_X(Space,            "<space>",       '\0')  \
-PLORE_X(Return,           "<ret>",         '\0')  \
-PLORE_X(Ctrl,             "<ctrl>",        '\0')  \
-PLORE_X(Shift,            "<shift>",       '\0')  \
-PLORE_X(MouseLeft,        "<m-l>",         '\0')  \
-PLORE_X(MouseRight,       "<m-r>",         '\0')  \
-PLORE_X(Backspace,        "<backspace>",   '\0')     
+PLORE_X(Space,            "<space>",       ' ')  \
+PLORE_X(Return,           "<ret>",         '\r')  \
+PLORE_X(Ctrl,             "<ctrl>",        '$')  \
+PLORE_X(Shift,            "<shift>",       '$')  \
+PLORE_X(MouseLeft,        "<m-l>",         '$')  \
+PLORE_X(MouseRight,       "<m-r>",         '$')  \
+PLORE_X(Backspace,        "<backspace>",   '$')     
 
 // MAINTENANCE(Evan): None of the symbolic strings should be larger then 8 bytes, including the null terminator.
 
