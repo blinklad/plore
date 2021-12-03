@@ -801,6 +801,7 @@ WindowsProcessMessages(windows_context *Context, keyboard_and_mouse *ThisFrame) 
 	                    PROCESS_KEY(VK_SHIFT, Shift);
 	                    PROCESS_KEY(VK_OEM_MINUS, Minus);
 	                    PROCESS_KEY(VK_OEM_PLUS, Plus);
+	                    PROCESS_KEY(VK_BACK, Backspace);
 	                    default:
 	                    WindowsDebugPrint("Key not recorded.");
 	                }
