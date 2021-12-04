@@ -4,22 +4,23 @@
 #define PLORE_VIM_H
 
 #define VIM_COMMANDS \
-PLORE_X(None,           "None")           \
-PLORE_X(Incomplete,     "Incomplete")     \
-PLORE_X(ISearchMode,    "ISearch Mode")   \
-PLORE_X(NormalMode,     "Normal Mode")    \
-PLORE_X(MoveLeft,       "Move Left")      \
-PLORE_X(MoveRight,      "Move Right")     \
-PLORE_X(MoveUp,         "Move Up")        \
-PLORE_X(MoveDown,       "Move Down")      \
-PLORE_X(Yank,           "Yank")           \
-PLORE_X(ClearYank,      "Clear Yank")     \
-PLORE_X(Paste,          "Paste")          \
-PLORE_X(SelectUp,       "Select Up")      \
-PLORE_X(SelectDown,     "Select Down")    \
-PLORE_X(JumpTop,        "Jump To Top")    \
-PLORE_X(JumpBottom,     "Jump To Bottom") \
-PLORE_X(CompleteSearch, "Complete Search")
+PLORE_X(None,           "None")            \
+PLORE_X(Incomplete,     "Incomplete")      \
+PLORE_X(ISearchMode,    "ISearch Mode")    \
+PLORE_X(NormalMode,     "Normal Mode")     \
+PLORE_X(MoveLeft,       "Move Left")       \
+PLORE_X(MoveRight,      "Move Right")      \
+PLORE_X(MoveUp,         "Move Up")         \
+PLORE_X(MoveDown,       "Move Down")       \
+PLORE_X(Yank,           "Yank")            \
+PLORE_X(ClearYank,      "Clear Yank")      \
+PLORE_X(Paste,          "Paste")           \
+PLORE_X(SelectUp,       "Select Up")       \
+PLORE_X(SelectDown,     "Select Down")     \
+PLORE_X(JumpTop,        "Jump To Top")     \
+PLORE_X(JumpBottom,     "Jump To Bottom")  \
+PLORE_X(CompleteSearch, "Complete Search") \
+PLORE_X(ChangeDirectory,"Change Directory")
 
 #define PLORE_X(Name, _Ignored) VimCommandType_##Name,
 typedef enum vim_command_type {
@@ -46,6 +47,7 @@ typedef enum vim_mode {
 typedef struct vim_command {
 	u64 Scalar;
 	vim_command_type Type;
+	char *Shell;
 } vim_command;
 
 
@@ -69,17 +71,18 @@ typedef struct plore_vim_context {
 typedef struct vim_binding {
 	vim_key Keys[32];
 	vim_command_type Type;
-	b64 DisableBufferedMove;
+	b64 DisableBufferedMove; // NOTE(Evan): Prevents buffered input and key-repeat from triggering this command.
+	char *Shell;
 } vim_binding;
 
 global vim_binding VimBindings[] = {
 	{
 		.Type = VimCommandType_Yank,
 		.Keys = {
-			[0] = {
+			{
 				.Input = PloreKey_Y,
 			},
-			[1] = {
+			{
 				.Input = PloreKey_Y,
 			},
 		}
@@ -87,18 +90,43 @@ global vim_binding VimBindings[] = {
 	{
 		.Type = VimCommandType_ClearYank,
 		.Keys = {
-			[0] = {
+			{
 				.Input = PloreKey_U,
 			},
-			[1] = {
+			{
 				.Input = PloreKey_Y,
+			},
+		}
+	},
+	{
+		.Type = VimCommandType_ChangeDirectory,
+		.Shell = "C:\\Users\\Evan\\",
+		.Keys = {
+			{
+				.Input = PloreKey_G,
+			},
+			{
+				.Input = PloreKey_H,
+				.Modifier = PloreKey_Shift,
+			},
+		}
+	},
+	{
+		.Type = VimCommandType_ChangeDirectory,
+		.Shell = "C:\\plore\\",
+		.Keys = {
+			{
+				.Input = PloreKey_G,
+			},
+			{
+				.Input = PloreKey_P,
 			},
 		}
 	},
 	{
 		.Type = VimCommandType_SelectUp,
 		.Keys = {
-			[0] = {
+			{
 				.Input = PloreKey_Space,
 				.Modifier = PloreKey_Shift,
 			},
@@ -107,7 +135,7 @@ global vim_binding VimBindings[] = {
 	{
 		.Type = VimCommandType_SelectDown,
 		.Keys = {
-			[0] = {
+			{
 				.Input = PloreKey_Space,
 			},
 		}
@@ -115,10 +143,10 @@ global vim_binding VimBindings[] = {
 	{
 		.Type = VimCommandType_Paste,
 		.Keys = {
-			[0] = {
+			{
 				.Input = PloreKey_P,
 			},
-			[1] = {
+			{
 				.Input = PloreKey_P,
 			},
 		}
@@ -126,7 +154,7 @@ global vim_binding VimBindings[] = {
 	{
 		.Type = VimCommandType_MoveLeft,
 		.Keys = {
-			[0] = {
+			{
 				.Input = PloreKey_H,
 			},
 		}
@@ -135,7 +163,7 @@ global vim_binding VimBindings[] = {
 		.Type = VimCommandType_MoveRight,
 		.DisableBufferedMove = true,
 		.Keys = {
-			[0] = {
+			{
 				.Input = PloreKey_L,
 			},
 		}
@@ -143,7 +171,7 @@ global vim_binding VimBindings[] = {
 	{
 		.Type = VimCommandType_MoveUp,
 		.Keys = {
-			[0] = {
+			{
 				.Input = PloreKey_K,
 			},
 		}
@@ -151,7 +179,7 @@ global vim_binding VimBindings[] = {
 	{
 		.Type = VimCommandType_MoveDown,
 		.Keys = {
-			[0] = {
+			{
 				.Input = PloreKey_J,
 			},
 		}
@@ -159,7 +187,7 @@ global vim_binding VimBindings[] = {
 	{
 		.Type = VimCommandType_ISearchMode,
 		.Keys = {
-			[0] = {
+			{
 				.Input = PloreKey_Slash,
 			},
 		}
@@ -167,10 +195,10 @@ global vim_binding VimBindings[] = {
 	{
 		.Type = VimCommandType_JumpTop,
 		.Keys = {
-			[0] = {
+			{
 				.Input = PloreKey_G,
 			},
-			[1] = {
+			{
 				.Input = PloreKey_G,
 			},
 		}
@@ -178,7 +206,7 @@ global vim_binding VimBindings[] = {
 	{
 		.Type = VimCommandType_JumpBottom,
 		.Keys = {
-			[0] = {
+			{
 				.Input = PloreKey_G,
 				.Modifier = PloreKey_Shift,
 			},

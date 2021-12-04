@@ -104,6 +104,9 @@ PloreKeysToString(memory_arena *Arena, vim_key *Keys, u64 KeyCount);
 internal char *
 VimKeysToString(char *Buffer, u64 BufferSize, plore_vim_context *Context);
 	
+internal char *
+VimBindingToString(char *Buffer, u64 BufferSize, vim_binding *Binding);
+	
 internal void
 SynchronizeCurrentDirectory(plore_file_context *FileContext, plore_current_directory_state *CurrentState);
 
@@ -212,6 +215,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 #endif
 	
 	plore_file_context *FileContext = State->FileContext;
+	plore_vim_context *VimContext = State->VimContext;
 	keyboard_and_mouse BufferedInput = PloreInput->ThisFrame;
 	
 	local f32 LastTime;
@@ -246,7 +250,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		PrintLine("SHIFT + SPACE!");
 	}
 	b64 DidInput = false;
-	if (State->VimContext->CommandKeyCount < ArrayCount(State->VimContext->CommandKeys)) {
+	if (VimContext->CommandKeyCount < ArrayCount(VimContext->CommandKeys)) {
 		for (plore_key K = 0; K < ArrayCount(BufferedInput.pKeys); K++) {
 			if (BufferedInput.pKeys[K] && (K != PloreKey_Shift && K != PloreKey_Ctrl)) {
 				vim_key TheKey = { .Input = K };
@@ -256,7 +260,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 					TheKey.Modifier = PloreKey_Shift;
 				}
 				
-				State->VimContext->CommandKeys[State->VimContext->CommandKeyCount++] = TheKey;
+				VimContext->CommandKeys[VimContext->CommandKeyCount++] = TheKey;
 				DidInput = true;
 				break;
 			}
@@ -267,13 +271,16 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	//
 	// NOTE(Evan): Vim command processing
 	//
+	local make_command_result CommandCandidates = {0};
+	make_command_result CommandThisFrame = {0};
 	if (DidInput) {
-		make_command_result CommandResult = MakeCommand(State->VimContext);
-		vim_command Command = CommandResult.Command;
+		CommandThisFrame = MakeCommand(VimContext);
+		CommandCandidates = CommandThisFrame;
+		vim_command Command = CommandThisFrame.Command;
 		if (Command.Type != VimCommandType_None) {
 			switch (State->InteractState) {
 				case (InteractState_FileExplorer): {
-					switch (State->VimContext->Mode) {
+					switch (VimContext->Mode) {
 						case VimMode_Normal: {
 							switch (Command.Type) {
 								case VimCommandType_Yank: {
@@ -282,7 +289,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 										FileContext->YankedCount = FileContext->SelectedCount;
 										DrawText("Yanked %d guys.", FileContext->YankedCount);
 											
-										PushVimCommand(State->VimContext, (vim_command) {
+										PushVimCommand(VimContext, (vim_command) {
 														   .Type = VimCommandType_Yank,
 													   });
 									} 
@@ -293,7 +300,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 										DrawText("Unyanked %d guys", FileContext->YankedCount);
 										FileContext->YankedCount = 0;
 										FileContext->SelectedCount = 0;
-										PushVimCommand(State->VimContext, (vim_command) {
+										PushVimCommand(VimContext, (vim_command) {
 														   .Type = VimCommandType_ClearYank,
 													   });
 									}
@@ -324,7 +331,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 										}
 										DrawText("Pasted %d items!", PastedCount);
 										
-										PushVimCommand(State->VimContext, (vim_command) {
+										PushVimCommand(VimContext, (vim_command) {
 														   .Type = VimCommandType_Paste,
 													   });
 										
@@ -351,7 +358,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 										if (Platform->IsPathTopLevel(Buffer, PLORE_MAX_PATH)) break;
 									}
 									Command.Scalar = ScalarCount;
-									PushVimCommand(State->VimContext, Command);
+									PushVimCommand(VimContext, Command);
 								} break;
 								
 								case VimCommandType_MoveRight: {
@@ -384,7 +391,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 										
 									}
 									Command.Scalar = ScalarCount;
-									PushVimCommand(State->VimContext, Command);
+									PushVimCommand(VimContext, Command);
 								} break;
 								
 								case VimCommandType_MoveUp: {
@@ -397,7 +404,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 											CurrentResult.Cursor->Cursor -= Magnitude;
 										}
 										
-										PushVimCommand(State->VimContext, Command);
+										PushVimCommand(VimContext, Command);
 									}
 								} break;
 								
@@ -407,7 +414,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 										u64 Magnitude = Command.Scalar % State->DirectoryState.Current.Count;
 										
 										CurrentResult.Cursor->Cursor = (CurrentResult.Cursor->Cursor + Magnitude) % State->DirectoryState.Current.Count;
-										PushVimCommand(State->VimContext, Command);
+										PushVimCommand(VimContext, Command);
 									}
 								} break;
 								
@@ -435,7 +442,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 										if (CursorResult.Cursor->Cursor == StartScalar) break;
 									}
 									
-									PushVimCommand(State->VimContext, Command);
+									PushVimCommand(VimContext, Command);
 								} break;
 								
 								case VimCommandType_JumpTop: {
@@ -451,11 +458,15 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								} break;
 								
 								case VimCommandType_ISearchMode: {
-									State->VimContext->Mode = VimMode_ISearch;
+									VimContext->Mode = VimMode_ISearch;
 								} break;
 								
 								case VimCommandType_Incomplete: {
 									PrintLine("Incomplete command");
+								} break;
+								
+								case VimCommandType_ChangeDirectory: {
+									Platform->SetCurrentDirectory(Command.Shell);
 								} break;
 								
 								InvalidDefaultCase;
@@ -468,10 +479,10 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								case VimCommandType_CompleteSearch: {
 									VimKeysToString(State->DirectoryState.Filter, 
 												    ArrayCount(State->DirectoryState.Filter), 
-												    State->VimContext);
+												    VimContext);
 									
 									if (Command.Type == VimCommandType_CompleteSearch) {
-										State->VimContext->Mode = VimMode_Normal;
+										VimContext->Mode = VimMode_Normal;
 										if (State->DirectoryState.Current.Count) {
 											for (u64 F = 0; F < State->DirectoryState.Current.Count; F++) {
 												plore_file *File = State->DirectoryState.Current.Entries + F;
@@ -488,7 +499,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								}; break;
 								
 								case VimCommandType_NormalMode: {
-									State->VimContext->Mode = VimMode_Normal;
+									VimContext->Mode = VimMode_Normal;
 								} break;
 							}
 						} break;
@@ -502,11 +513,11 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			} break;
 				
 			}
-		} else if (!CommandResult.CandidateCount) {
+		} else if (!CommandThisFrame.CandidateCount) {
 			AteCommands = true;
 		}
 		
-		if (State->VimContext->CommandKeyCount == State->VimContext->MaxCommandCount) {
+		if (VimContext->CommandKeyCount == VimContext->MaxCommandCount) {
 			AteCommands = true;
 		}
 	}
@@ -518,8 +529,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		PrintLine("Clearing commands.");
 		AteCommands = false;
 		
-		MemoryClear(State->VimContext->CommandKeys, sizeof(State->VimContext->CommandKeys));
-		State->VimContext->CommandKeyCount = 0;
+		MemoryClear(VimContext->CommandKeys, sizeof(VimContext->CommandKeys));
+		VimContext->CommandKeyCount = 0;
 	}
 	
 	//
@@ -527,7 +538,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	//
 	u64 Cols = 3;
 	
-	f32 FooterHeight = 50;
+	f32 FooterPad = 0;
+	f32 FooterHeight = 60;
 	f32 fCols = (f32) Cols;
 	f32 PadX = 10.0f;
 	f32 PadY = 10.0f;
@@ -557,10 +569,10 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	};
 	
 	char *FilterText = 0;
-	if (State->VimContext->Mode == VimMode_ISearch) {
+	if (VimContext->Mode == VimMode_ISearch) {
 		u64 Size = 128;
 		char *Buffer = PushBytes(&State->FrameArena, Size);
-		FilterText = VimKeysToString(Buffer, Size, State->VimContext);			
+		FilterText = VimKeysToString(Buffer, Size, VimContext);			
 	}
 	
 	typedef struct image_preview_handle {
@@ -576,14 +588,14 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		
 		// NOTE(Evan): ISearch, appears at top of screen.
 #if 1
-		if (State->VimContext->Mode == VimMode_ISearch) {
+		if (VimContext->Mode == VimMode_ISearch) {
 			char Buffer[128] = {0};
 			u64 BufferSize = 0;
 			
 			u64 Size = 128;
 			char *S = PushBytes(&State->FrameArena, Size);
 			BufferSize += StringPrintSized(Buffer, ArrayCount(Buffer), "ISearch: ");
-			BufferSize += StringPrintSized(Buffer+BufferSize, ArrayCount(Buffer), VimKeysToString(S, Size, State->VimContext));
+			BufferSize += StringPrintSized(Buffer+BufferSize, ArrayCount(Buffer), VimKeysToString(S, Size, VimContext));
 			
 			Y += FooterHeight + 3*PadY;
 			H -= (FooterHeight + 3*PadY);
@@ -604,6 +616,50 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		// NOTE(Evan): Cursor information, appears at bottom of screen.
 #if 1
 		if (State->DirectoryState.Cursor.Valid) {
+			// NOTE(Evan): If we didn't eat the command and there are candidates, list them!
+			if (VimContext->Mode == VimMode_Normal && VimContext->CommandKeyCount && CommandCandidates.CandidateCount) {
+				u64 CandidateCount = 0;
+				for (u64 C = 0; C < ArrayCount(CommandCandidates.Candidates); C++) {
+					vim_binding *Candidate = 0;
+					if (CommandCandidates.Candidates[C]) {
+						Candidate = VimBindings + C;
+						CandidateCount++;
+					}
+					
+					if (Candidate) {
+						u64 BindingSize = 32;
+						char *BindingString = PushBytes(&State->FrameArena, BindingSize);
+						BindingString = VimBindingToString(BindingString, BindingSize, Candidate);
+						
+						u64 CandidateSize = 256;
+						char *CandidateString = PushBytes(&State->FrameArena, CandidateSize);
+						
+						StringPrintSized(CandidateString, CandidateSize, "%-8s %-28s %-32s",
+										 BindingString,
+										 VimCommandStrings[Candidate->Type],
+										 (Candidate->Shell ? Candidate->Shell : ""));
+						
+						u64 ID = Candidate->Shell ? (u64) Candidate->Shell : (u64) CandidateString + Candidate->Type;
+						
+						PrintLine("{ CandidateString : %s, ID : %d", CandidateString, ID);
+						if (Button(State->VimguiContext, (vimgui_button_desc) {
+										   .ID = ID,
+										   .Title = CandidateString,
+										   .Rect = {
+											   .P = V2(PadX, PlatformAPI->WindowDimensions.Y - FooterHeight - CandidateCount*FooterHeight - 20),
+											   .Span = V2(PlatformAPI->WindowDimensions.X-2*PadX, FooterHeight + PadY)
+										   },
+										   .TextPad = V2(16, 8),
+								   })) {
+						}
+						
+						H -= FooterHeight;
+					}
+				}
+				
+				Y -= 20;
+			}
+			
 			plore_file *CursorFile = &State->DirectoryState.Cursor.File;
 			char *CursorState = "";
 			if (IsSelected(FileContext, &CursorFile->Path)) CursorState = "selected";
@@ -615,8 +671,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 						     "[%s] %s 01-02-03 %s %s", 
 						     (CursorFile->Type == PloreFileNode_Directory) ? "directory" : "file", 
 						     CursorFile->Path.FilePart,
-							 (State->VimContext->Mode == VimMode_Normal ? 
-								 PloreKeysToString(&State->FrameArena, State->VimContext->CommandKeys, State->VimContext->CommandKeyCount)
+							 (VimContext->Mode == VimMode_Normal ? 
+								 PloreKeysToString(&State->FrameArena, VimContext->CommandKeys, VimContext->CommandKeyCount)
 							  :   ""),
 							 CursorState
 							 );
@@ -624,9 +680,10 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			if (Button(State->VimguiContext, (vimgui_button_desc) {
 						   .Title = CursorInfo,
 						   .Rect = { 
-							   .P = V2(0, Y + PlatformAPI->WindowDimensions.X + FooterHeight), 
-							   .Span = V2(PlatformAPI->WindowDimensions.X, FooterHeight + PadY)
+							   .P    = V2(PadX, Y + PlatformAPI->WindowDimensions.X + FooterHeight + FooterPad), 
+							   .Span = V2(PlatformAPI->WindowDimensions.X-2*PadX, FooterHeight + PadY-20)
 						   },
+							   .TextPad = V2(8, 4),
 					   })) {
 			}
 			
@@ -913,6 +970,27 @@ VimKeysToString(char *Buffer, u64 BufferSize, plore_vim_context *Context) {
 	while (Key->Input) {
 		*S++ = PloreKeyCharacters[Key++->Input];
 		Count++;
+		if (Count == BufferSize-1) break;
+	}
+	
+	return(Buffer);
+}
+
+// NOTE(Evan): Does not skip unprintable characters.
+// TODO(Evan): Another reason for metaprogram-generated bindings - we could bake this.
+internal char *
+VimBindingToString(char *Buffer, u64 BufferSize, vim_binding *Binding) {
+	char *S = Buffer;
+	vim_key *Key = Binding->Keys;
+	u64 Count = 0;
+	while (Key->Input) {
+		char C = PloreKeyCharacters[Key->Input];
+		if (Key->Modifier == PloreKey_Shift) {
+			C -= 32;
+		}
+		*S++ = C;
+		Count++;
+		Key++;
 		if (Count == BufferSize-1) break;
 	}
 	

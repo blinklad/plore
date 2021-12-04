@@ -51,6 +51,11 @@ MakeCommand(plore_vim_context *Context) {
 							PotentialCandidate = false;
 							break;
 						}
+						
+						if (Binding->Keys[K+Command].Modifier != C[K+Command].Modifier) {
+							PotentialCandidate = false;
+							break;
+						}
 					}
 					
 					if (PotentialCandidate) {
@@ -76,6 +81,7 @@ MakeCommand(plore_vim_context *Context) {
 					
 					if (MemoryCompare(VimBindings[Candidate].Keys, C, NonScalarEntries * sizeof(vim_key)) == 0) {
 						Result.Command.Type = VimBindings[Candidate].Type;
+						Result.Command.Shell = VimBindings[Candidate].Shell;
 						break;
 					}
 				}
