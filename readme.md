@@ -1,6 +1,6 @@
 # plore
 ## Handmade, simple file explorer
-![plore 0.1.1](docs/plore-v-0-1-1.png)
+![plore 0.1.2](docs/plore-v-0-1-2.png)
 
 Somewhat inspired by Ranger and LF, with a first-class focus on vim bindings and minimizing the number of concepts, libraries or footguns required to use.
 
