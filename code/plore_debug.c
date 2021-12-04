@@ -3,7 +3,7 @@ global plore_state *GlobalState;
 internal void
 DebugInit(plore_state *State) {
 	GlobalState = State;
-	TextureHandle_CantLoad = LoadImage(&State->FrameArena, "data/default_image.bmp", 1024, 1024).Texture;
+	TextureHandle_CantLoad = LoadImage(&State->FrameArena, "C:\\plore\\data\\default_image.bmp", 1024, 1024).Texture;
 }
 
 internal void

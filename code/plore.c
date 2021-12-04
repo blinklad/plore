@@ -183,7 +183,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			State->FileContext->CursorSlots[Dir] = PushStruct(&State->Arena, plore_file_listing_cursor);
 		}
 		
-		State->Font = FontInit(&State->Arena, "data/fonts/Inconsolata-Light.ttf");
+		State->Font = FontInit(&State->Arena, "C:\\plore\\data\\fonts\\Inconsolata-Light.ttf");
 		
 #if defined(PLORE_INTERNAL)
 		DebugInit(State);
