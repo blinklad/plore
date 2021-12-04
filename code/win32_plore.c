@@ -468,6 +468,7 @@ CleanupProcessHandle(void *Context, BOOLEAN WasTimedOut) {
 }
 
 
+
 // 
 // NOTE(Evan): Internal API definitions.
 //
@@ -477,6 +478,39 @@ OPENGL_DEBUG_CALLBACK(WindowsGLDebugMessageCallback)
     {
         WindowsDebugPrintLine("OpenGL error!... Not sure what, just an error!");
     }
+}
+
+
+
+//
+// NOTE(Evan): This indicates that the PlatformAPI will need to expose platform-specific functions.
+//
+typedef struct windows_get_drives_result {
+	char Drives[32];
+	u64 CurrentDriveIndex;
+} windows_get_drives_result;
+
+internal windows_get_drives_result
+WindowsGetDrives() {
+	windows_get_drives_result Result = {0};
+	DWORD DriveMask = GetLogicalDrives();
+	for (u64 Bit = 1; Bit <= 32; Bit++) {
+		if (DriveMask & (1 << Bit)) Result.Drives[Bit-1] = 'A' + Bit;
+	}
+	
+	char Buffer[PLORE_MAX_PATH] = {0};
+	GetCurrentDirectory(ArrayCount(Buffer), Buffer);
+	char CurrentDriveLetter = Buffer[0];
+	Assert((CurrentDriveLetter >= 'A' && CurrentDriveLetter <= 'Z') || 
+		   (CurrentDriveLetter >= 'a' && CurrentDriveLetter <= 'z'));
+	
+	if (CurrentDriveLetter >= 'a' && CurrentDriveLetter <= 'z') {
+		CurrentDriveLetter -= 32;
+	}
+	
+	Result.CurrentDriveIndex = CurrentDriveLetter - 'A';
+	
+	return(Result);
 }
 
 
@@ -1055,6 +1089,8 @@ int WinMain (
 	windows_timer PreviousTimer = WindowsGetTime();
 	f64 TimePreviousInSeconds = 0;
 	
+	windows_get_drives_result Drives = WindowsGetDrives();
+	Drives;
 	
     while (GlobalRunning) {
 		WindowsPlatformAPI.WindowWidth = GlobalWindowsContext->Width;
