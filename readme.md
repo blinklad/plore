@@ -11,6 +11,7 @@ Consider this repository to be a snapshot in time of whatever fire I am currentl
 **This is not intended to be used as an everyday file management tool.**.
 Currently, it does not handle a lot of degenerate cases that could lead to the loss or corruption of files. 
 Further, there are some cases that it will probably *never* handle to keep it as simple as possible. 
+For example, it is unlikely that I will ever support Unicode paths, as I personally do not have any need for it. Given that I've explicitly recommended others -- who may speak languages other than English -- to not use this tool right now, no harm otherwise done.
 
 ### TODOS
 * Linux port
@@ -23,10 +24,10 @@ Further, there are some cases that it will probably *never* handle to keep it as
    - Make directory
 * Command previews
 * Command stack. Sort of implemented, not useful.
-* Selecting entries moves the cursor
-* File preview - use an extension whitelist. Working for BMP images currently!
+* Selecting entries moves the cursor [X]
+* File preview - use an extension whitelist. Working for BMP images currently! [X]
 * Multiple tabs.
-* Vim commands supporting scalars (e.g., 5yy, 2j)
+* Vim commands supporting scalars (e.g., 5yy, 2j) [X]
 * Per-context cursor and undo stack.
 * VIMGUI work:
    - Actual alpha blending 
