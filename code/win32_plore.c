@@ -770,13 +770,17 @@ internal void
 WindowsProcessMessages(windows_context *Context, keyboard_and_mouse *ThisFrame) {
 	MSG Message = {0};
 	
-	#define PROCESS_KEY(SymbolicName, Name)                                                                             \
+#if 0
+#define PROCESS_KEY(SymbolicName, Name)                                                                             \
 	case SymbolicName: {                                                                                                \
 		ThisFrame->dKeys[PloreKey_##Name] = IsDown;                                                                     \
 		ThisFrame->pKeys[PloreKey_##Name] = IsDown && !(Message.lParam & (1 << 30));                                    \
 		ThisFrame->sKeys[PloreKey_##Name] = ThisFrame->pKeys[PloreKey_##Name] && (GetAsyncKeyState(VK_SHIFT) & 0x8000); \
 		WindowsDebugPrintLine("Pressed " #Name);                                                                        \
-	} break;
+} break;
+#else
+#define PROCESS_KEY(Dummy1, Dummy2) 
+#endif
 	
 	while (PeekMessageA(&Message, 0, 0, 0, PM_REMOVE)) {
 	    switch (Message.message) {
@@ -792,78 +796,43 @@ WindowsProcessMessages(windows_context *Context, keyboard_and_mouse *ThisFrame) 
 	            } else if (IsDown && (u32) Message.wParam == VK_F1) {
 					WindowsToggleFullscreen();
 				} else {
-	                switch (Message.wParam) {
-	                    PROCESS_KEY('A', A);
-	                    PROCESS_KEY('B', B);
-	                    PROCESS_KEY('C', C);
-	                    PROCESS_KEY('D', D);
-	                    PROCESS_KEY('E', E);
-	                    PROCESS_KEY('F', F);
-	                    PROCESS_KEY('G', G);
-	                    PROCESS_KEY('H', H);
-	                    PROCESS_KEY('I', I);
-	                    PROCESS_KEY('J', J);
-	                    PROCESS_KEY('K', K);
-	                    PROCESS_KEY('L', L);
-	                    PROCESS_KEY('M', M);
-	                    PROCESS_KEY('N', N);
-	                    PROCESS_KEY('O', O);
-	                    PROCESS_KEY('P', P);
-	                    PROCESS_KEY('Q', Q);
-	                    PROCESS_KEY('R', R);
-	                    PROCESS_KEY('S', S);
-	                    PROCESS_KEY('T', T);
-	                    PROCESS_KEY('U', U);
-	                    PROCESS_KEY('V', V);
-	                    PROCESS_KEY('W', W);
-	                    PROCESS_KEY('X', X);
-	                    PROCESS_KEY('Y', Y);
-	                    PROCESS_KEY('Z', Z);
-	                    PROCESS_KEY('0', Zero);
-	                    PROCESS_KEY('1', One);
-	                    PROCESS_KEY('2', Two);
-	                    PROCESS_KEY('3', Three);
-	                    PROCESS_KEY('4', Four);
-	                    PROCESS_KEY('5', Five);
-	                    PROCESS_KEY('6', Six);
-	                    PROCESS_KEY('7', Seven);
-	                    PROCESS_KEY('8', Eight);
-	                    PROCESS_KEY('9', Nine);
-	                    PROCESS_KEY(VK_OEM_2, Slash);
-	                    PROCESS_KEY(VK_RETURN, Return);
-	                    PROCESS_KEY(VK_SPACE, Space);
-	                    PROCESS_KEY(VK_CONTROL, Ctrl);
-	                    PROCESS_KEY(VK_SHIFT, Shift);
-	                    PROCESS_KEY(VK_OEM_MINUS, Minus);
-	                    PROCESS_KEY(VK_OEM_PLUS, Plus);
-	                    PROCESS_KEY(VK_BACK, Backspace);
-	                    default:
-	                    WindowsDebugPrint("Key not recorded.");
-	                }
-	            }
+					WPARAM C = Message.wParam;
+					b64 Numeric = C >= '0' && C <= '9';
+					b64 Alpha = C >= 'A' && C <= 'Z';
+				
+					if (Alpha || Numeric) {
+						plore_key Key = 0;
+						if (Alpha) {
+							Key = PloreKey_None + Message.wParam - 'A' + 1;
+						} else if (Numeric) {
+							Key = PloreKey_Z    + Message.wParam - '0' + 1;
+						}
+						Assert(Key);
+						
+						b64 IsPressed = !(Message.lParam & (1 << 30));
+						b64 IsDown = Message.message == WM_KEYDOWN;
+						
+						PrintLine("%c is %s", C, IsDown ? "down" : "not down");
+						ThisFrame->dKeys[Key] = IsDown;
+						ThisFrame->pKeys[Key] = IsPressed;
+					}
+					
+					TranslateMessage(&Message);
+					DispatchMessage(&Message);
+				} 
+				#if 0
+					PROCESS_KEY(VK_OEM_2, Slash);
+					PROCESS_KEY(VK_RETURN, Return);
+					PROCESS_KEY(VK_SPACE, Space);
+					PROCESS_KEY(VK_CONTROL, Ctrl);
+					PROCESS_KEY(VK_SHIFT, Shift);
+					PROCESS_KEY(VK_OEM_MINUS, Minus);
+					PROCESS_KEY(VK_OEM_PLUS, Plus);
+					PROCESS_KEY(VK_BACK, Backspace);
+				#endif
 	            
 	        } break;
 	        
-			case WM_LBUTTONDOWN: 
-			case WM_LBUTTONUP: 
-			{
-				b32 IsDown = Message.message == WM_LBUTTONDOWN;
-				switch (Message.message) {
-					PROCESS_KEY(WM_LBUTTONDOWN, MouseLeft);
-					PROCESS_KEY(WM_LBUTTONUP, MouseLeft);
-				}
-			} break;
-			
-			case WM_RBUTTONDOWN:
-			case WM_RBUTTONUP: 
-			{
-				b32 IsDown = Message.message == WM_RBUTTONDOWN;
-				switch (Message.message) {
-					PROCESS_KEY(WM_RBUTTONDOWN, MouseRight);
-					PROCESS_KEY(WM_RBUTTONUP, MouseRight);
-				}
-			} break;
-			
 	        // TODO(Evan): Mouse wheel!
 	        case WM_MOUSEMOVE: {
 	            ThisFrame->MouseP = (v2) {
@@ -873,6 +842,42 @@ WindowsProcessMessages(windows_context *Context, keyboard_and_mouse *ThisFrame) 
 	            
 	        } break;
 			
+			case WM_CHAR: {
+				char C = Message.wParam;
+				if (ThisFrame->TextInputCount < ArrayCount(ThisFrame->TextInput)) {
+					ThisFrame->TextInput[ThisFrame->TextInputCount++] = C;
+				}
+				
+				StaticAssert(PloreKey_A == 1); // NOTE(Evan): We assume PloreKey_None is 0, and A-Z, 0-9 follow contiguously.
+				plore_key Key = 0;
+				if (C >= 'A' && C <= 'Z') {
+					Key = PloreKey_None + Message.wParam - 'A' + 1;
+				} else if (C >= '0' && C <= '9') {
+					Key = PloreKey_Z    + Message.wParam - '0' + 1;
+				} else {
+					
+					#define PLORE_X(Name, _Ignored, Character) \
+					case Character: { \
+						Key = PloreKey_##Name;   \
+					} break;
+					
+					switch (C) {
+						PLORE_KEYBOARD_AND_MOUSE
+							#undef PLORE_X
+					}
+				}
+				Assert(Key && Key < PloreKey_Count);
+				
+				b64 IsPressed = !(Message.lParam & (1 << 30)); // NOTE(Evan): 0 is pressed, 1 is released
+				b64 IsDown = (Message.lParam & (1 << 29));
+				#if 1
+//				ThisFrame->dKeys[Key] = IsDown;
+				ThisFrame->pKeys[Key] = IsPressed;
+				ThisFrame->sKeys[Key] = ThisFrame->pKeys[Key] && (GetAsyncKeyState(VK_SHIFT) & 0x8000); // @Cleanup
+				
+				#endif
+				WindowsDebugPrintLine("WM_CHAR : %c %s", Message.wParam, IsPressed ? " pressed " : " not pressed");
+			} break;
 			default: {
 				TranslateMessage(&Message);
 				DispatchMessage(&Message);
@@ -1155,11 +1160,10 @@ int WinMain (
 		}
 		
 		GlobalPloreInput.LastFrame = GlobalPloreInput.ThisFrame;
-#define PLORE_X(Name, _Ignored1, _Ignored2) \
-		GlobalPloreInput.ThisFrame.dKeys[PloreKey_##Name] = GlobalPloreInput.LastFrame.dKeys[PloreKey_##Name] || GlobalPloreInput.ThisFrame.pKeys[PloreKey_##Name];
-		GlobalPloreInput.ThisFrame = (keyboard_and_mouse) {0};
-		PLORE_KEYBOARD_AND_MOUSE;
-#undef PLORE_X
+		GlobalPloreInput.ThisFrame.TextInputCount = 0;
+		MemoryClear(GlobalPloreInput.ThisFrame.pKeys, sizeof(GlobalPloreInput.ThisFrame.pKeys));
+		MemoryClear(GlobalPloreInput.ThisFrame.TextInput, sizeof(GlobalPloreInput.ThisFrame.TextInput));
+		
 		
 		fflush(stdout);
 		fflush(stderr);
