@@ -37,60 +37,84 @@ typedef enum interact_state {
 } interact_state;
 
 #define PLORE_KEYBOARD_AND_MOUSE \
-PLORE_X(None,             "none",          '\0')  \
-PLORE_X(A,                "a",             'a')   \
-PLORE_X(B,                "b",             'b')   \
-PLORE_X(C,                "c",             'c')   \
-PLORE_X(D,                "d",             'd')   \
-PLORE_X(E,                "e",             'e')   \
-PLORE_X(F,                "f",             'f')   \
-PLORE_X(G,                "g",             'g')   \
-PLORE_X(H,                "h",             'h')   \
-PLORE_X(I,                "i",             'i')   \
-PLORE_X(J,                "j",             'j')   \
-PLORE_X(K,                "k",             'k')   \
-PLORE_X(L,                "l",             'l')   \
-PLORE_X(M,                "m",             'm')   \
-PLORE_X(N,                "n",             'n')   \
-PLORE_X(O,                "o",             'o')   \
-PLORE_X(P,                "p",             'p')   \
-PLORE_X(Q,                "q",             'q')   \
-PLORE_X(R,                "r",             'r')   \
-PLORE_X(S,                "s",             's')   \
-PLORE_X(T,                "t",             't')   \
-PLORE_X(U,                "u",             'u')   \
-PLORE_X(V,                "v",             'v')   \
-PLORE_X(W,                "w",             'w')   \
-PLORE_X(X,                "x",             'x')   \
-PLORE_X(Y,                "y",             'y')   \
-PLORE_X(Z,                "z",             'z')   \
-PLORE_X(Zero,             "0",             '0')   \
-PLORE_X(One,              "1",             '1')   \
-PLORE_X(Two,              "2",             '2')   \
-PLORE_X(Three,            "3",             '3')   \
-PLORE_X(Four,             "4",             '4')   \
-PLORE_X(Five,             "5",             '5')   \
-PLORE_X(Six,              "6",             '6')   \
-PLORE_X(Seven,            "7",             '7')   \
-PLORE_X(Eight,            "8",             '8')   \
-PLORE_X(Nine,             "9",             '9')   \
-PLORE_X(Plus,             "+",             '+')   \
-PLORE_X(Minus,            "-",             '-')   \
-PLORE_X(Slash,            "/",             '/')   \
-PLORE_X(BackSlash,        "\\",            '\\')  \
-PLORE_X(Space,            "<space>",       ' ')   \
-PLORE_X(Return,           "<ret>",         '\r')  \
-PLORE_X(Colon,            ":",             ':')   \
-PLORE_X(SemiColon,        ";",             ';')   \
-PLORE_X(QuestionMark,     "?",             '?')   \
-PLORE_X(ExclamationMark,  "!",             '!')   \
-PLORE_X(Ctrl,             "<ctrl>",        '$')   \
-PLORE_X(Shift,            "<shift>",       '$')   \
-PLORE_X(MouseLeft,        "<m-l>",         '$')   \
-PLORE_X(MouseRight,       "<m-r>",         '$')   \
-PLORE_X(Backspace,        "<backspace>",   '$')     
+PLORE_X(None,                                "none",          '\0')  \
+PLORE_X(A,                                   "a",             'a')   \
+PLORE_X(B,                                   "b",             'b')   \
+PLORE_X(C,                                   "c",             'c')   \
+PLORE_X(D,                                   "d",             'd')   \
+PLORE_X(E,                                   "e",             'e')   \
+PLORE_X(F,                                   "f",             'f')   \
+PLORE_X(G,                                   "g",             'g')   \
+PLORE_X(H,                                   "h",             'h')   \
+PLORE_X(I,                                   "i",             'i')   \
+PLORE_X(J,                                   "j",             'j')   \
+PLORE_X(K,                                   "k",             'k')   \
+PLORE_X(L,                                   "l",             'l')   \
+PLORE_X(M,                                   "m",             'm')   \
+PLORE_X(N,                                   "n",             'n')   \
+PLORE_X(O,                                   "o",             'o')   \
+PLORE_X(P,                                   "p",             'p')   \
+PLORE_X(Q,                                   "q",             'q')   \
+PLORE_X(R,                                   "r",             'r')   \
+PLORE_X(S,                                   "s",             's')   \
+PLORE_X(T,                                   "t",             't')   \
+PLORE_X(U,                                   "u",             'u')   \
+PLORE_X(V,                                   "v",             'v')   \
+PLORE_X(W,                                   "w",             'w')   \
+PLORE_X(X,                                   "x",             'x')   \
+PLORE_X(Y,                                   "y",             'y')   \
+PLORE_X(Z,                                   "z",             'z')   \
+PLORE_X(Zero,                                "0",             '0')   \
+PLORE_X(One,                                 "1",             '1')   \
+PLORE_X(Two,                                 "2",             '2')   \
+PLORE_X(Three,                               "3",             '3')   \
+PLORE_X(Four,                                "4",             '4')   \
+PLORE_X(Five,                                "5",             '5')   \
+PLORE_X(Six,                                 "6",             '6')   \
+PLORE_X(Seven,                               "7",             '7')   \
+PLORE_X(Eight,                               "8",             '8')   \
+PLORE_X(Nine,                                "9",             '9')   \
+PLORE_X(Space,                               "<space>",       ' ')   \
+PLORE_X(Return,                              "<ret>",         '\r')  \
+PLORE_X(Colon,                               ":",             ':')   \
+PLORE_X(SemiColon,                           ";",             ';')   \
+PLORE_X(QuestionMark,                        "?",             '?')   \
+PLORE_X(ExclamationMark,                     "!",             '!')   \
+PLORE_X(At,                                  "@",             '@')   \
+PLORE_X(Percent,                             "%",             '%')   \
+PLORE_X(Dollar,                              "$",             '$')   \
+PLORE_X(Caret,                               "^",             '^')   \
+PLORE_X(Tilde,                               "~",             '~')   \
+PLORE_X(Ampersand,                           "&",             '&')   \
+PLORE_X(Asterisk,                            "*",             '*')   \
+PLORE_X(ParenOpen,                           "(",             '(')   \
+PLORE_X(ParenClosed,                         ")",             ')')   \
+PLORE_X(BracketOpen,                         "[",             '[')   \
+PLORE_X(BracketClosed,                       "]",             ']')   \
+PLORE_X(BraceOpen,                           "{",             '{')   \
+PLORE_X(BraceClosed,                         "}",             '}')   \
+PLORE_X(Minus,                               "-",             '-')   \
+PLORE_X(Slash,                               "/",             '/')   \
+PLORE_X(BackSlash,                           "\\",            '\\')  \
+PLORE_X(Pipe,                                "|",             '|')   \
+PLORE_X(Quote,                               "'",             '\'')  \
+PLORE_X(DoubleQuote,                         "\"",            '"')   \
+PLORE_X(RightArrow,                          ">",             '>')   \
+PLORE_X(LeftArrow,                           "<",             '<')   \
+PLORE_X(Period,                              ".",             '.')   \
+PLORE_X(Comma,                               ",",             ',')   \
+PLORE_X(Equals,                              "=",             '=')   \
+PLORE_X(Backtick,                            "`",             '`')   \
+PLORE_X(Plus,                                "+",             '+')   \
+PLORE_X(PrintableCharacterCount,             "<debug>",       128)   \
+PLORE_X(Ctrl,                                "<ctrl>",        129)   \
+PLORE_X(Shift,                               "<shift>",       130)   \
+PLORE_X(MouseLeft,                           "<mouse-left>",  131)   \
+PLORE_X(MouseRight,                          "<mouse-right>", 132)   \
+PLORE_X(Backspace,                           "<backspace>",   0x8)   \
+PLORE_X(Tab,                                 "<tab>",         0x9)   
 
-// MAINTENANCE(Evan): None of the symbolic strings should be larger then 8 bytes, including the null terminator.
+// MAINTENANCE(Evan): None of the symbolic strings should be larger then 32 bytes, including the null terminator.
 
 #define PLORE_X(_Ignored1, String, _Ignored2) \
 String,
@@ -120,6 +144,8 @@ typedef struct keyboard_and_mouse {
 	b64 sKeys[PloreKey_Count]; // Shift down while this key was pressed.
 	b64 bKeys[PloreKey_Count]; // Buffered presses this frame.
 	b64 dKeys[PloreKey_Count]; // Down this frame.
+	char TextInput[256];
+	u64 TextInputCount;
 	v2 MouseP;
     uint32 MouseWheel;
 	b32 CursorIsShowing;
