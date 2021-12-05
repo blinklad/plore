@@ -597,8 +597,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			BufferSize += StringPrintSized(Buffer, ArrayCount(Buffer), "ISearch: ");
 			BufferSize += StringPrintSized(Buffer+BufferSize, ArrayCount(Buffer), VimKeysToString(S, Size, VimContext));
 			
-			Y += FooterHeight + 3*PadY;
-			H -= (FooterHeight + 3*PadY);
+			Y += FooterHeight + 5*PadY;
+			H -= (FooterHeight + 5*PadY);
 			
 			if (Button(State->VimguiContext, (vimgui_button_desc) {
 							   .ID = (u64) Buffer,
