@@ -660,7 +660,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 					}
 				}
 				
-				Y -= 20;
+				H -= 20;
 			}
 			
 			plore_file *CursorFile = &State->DirectoryState.Cursor.File;
