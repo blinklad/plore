@@ -83,7 +83,31 @@ MakeCommand(plore_vim_context *Context) {
 						Result.Command.Type = VimBindings[Candidate].Type;
 						Result.Command.Shell = VimBindings[Candidate].Shell;
 						break;
+						
+					// NOTE(Evan): Buffered input won't pass MemoryCompare() comparisons.
+					// BUT, if it would have passed otherwise, we should clear the command buffer.
+					} else if (C->DisableBufferedInput) {
+						vim_key NonBufferedCommand = *C;
+						NonBufferedCommand.DisableBufferedInput = false;
+						
+						b64 NonBufferedCommandIsValid = MemoryCompare(VimBindings[Candidate].Keys, 
+																	  &NonBufferedCommand, 
+																	  NonScalarEntries * sizeof(vim_key)) == 0;
+						if (NonBufferedCommandIsValid) {
+							if (VimBindings[Candidate].DisableBufferedInput) {
+								PrintLine("Non-buffered command is valid, but buffered input is disabled - clearing command buffer.");
+								Result.Command.Type = VimCommandType_None;
+								Result.CandidateCount = 0;
+								break;
+							} else {
+								PrintLine("Buffered command is valid and enabled.");
+								Result.Command.Type = VimBindings[Candidate].Type;
+								Result.Command.Shell = VimBindings[Candidate].Shell;
+								break;
+							}
+						}
 					}
+				
 				}
 			}
 		}

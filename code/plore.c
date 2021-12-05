@@ -228,26 +228,22 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	// TODO(Evan): File watching so this function doesn't need to be called eagerly.
 	SynchronizeCurrentDirectory(State->FileContext, &State->DirectoryState);
 	
-	#if 0
 	// NOTE(Evan): Buffered input.
 #define PLORE_X(Key, _Ignored1, _Ignored2) local u64 Key##Count = 0;
 	PLORE_KEYBOARD_AND_MOUSE
 #undef PLORE_X
 	
 #define PLORE_X(Key, _Ignored1, _Ignored2) \
-	if (BufferedInput.##Key##IsDown) Key##Count++;                    \
+if (BufferedInput.dKeys[PloreKey_##Key]) { PrintLine("KEY WAS DOWN"); Key##Count++; }            \
 	else Key##Count = 0;                                              \
 	if (Key##Count > 20) { Key##Count = 10; }                         \
 	else if (Key##Count == 20) {                                      \
-		BufferedInput.##Key##IsPressed = true;                        \
 		BufferedInput.pKeys[PloreKey_##Key##] = true;                 \
 		BufferedInput.bKeys[PloreKey_##Key##] = true;                 \
 	}
 	
 	PLORE_KEYBOARD_AND_MOUSE
 #undef PLORE_X
-	
-#endif
 	
 	if (BufferedInput.sKeys[PloreKey_Space]) {
 		PrintLine("SHIFT + SPACE!");
@@ -256,7 +252,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	if (VimContext->CommandKeyCount < ArrayCount(VimContext->CommandKeys)) {
 		for (plore_key K = 0; K < ArrayCount(BufferedInput.pKeys); K++) {
 			if (BufferedInput.pKeys[K] && (K != PloreKey_Shift && K != PloreKey_Ctrl)) {
-				vim_key TheKey = { .Input = K };
+				vim_key TheKey = { .Input = K, .DisableBufferedInput = BufferedInput.bKeys[K] };
 				PrintLine("Key %s was given to vim command keys.", PloreKeyStrings[K]);
 				if (BufferedInput.sKeys[K]) {
 					PrintLine("shift modifier");
@@ -644,7 +640,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 						
 						u64 ID = Candidate->Shell ? (u64) Candidate->Shell : (u64) CandidateString + Candidate->Type;
 						
-						PrintLine("{ CandidateString : %s, ID : %d", CandidateString, ID);
 						if (Button(State->VimguiContext, (vimgui_button_desc) {
 										   .ID = ID,
 										   .Title = CandidateString,
