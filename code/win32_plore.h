@@ -3,11 +3,11 @@
 
 #define _CRT_SECURE_NO_WARNINGS
 #define _CRT_NONSTDC_NO_DEPRECATE
-#include <Windows.h> // the kitchen sink
+#include <Windows.h>  // the kitchen sink
 #include <windowsx.h> // GET_X_LPARAM, GET_Y_LPARAM
-#include <shlwapi.h> // PathRemoveFileSpecA, PathRemoveBackslash
+#include <shlwapi.h>  // PathRemoveFileSpecA, PathRemoveBackslash
 #include <shellapi.h> // ShellExecuteA
-#include <fcntl.h> // stdin, stdout, _O_TEXT
+#include <fcntl.h>    // stdin, stdout, _O_TEXT
 #include <synchapi.h> // CRITICAL_SECTION, (Initialise|Enter|Leave)CriticalSection
 
 #if defined(PLORE_INTERNAL)
