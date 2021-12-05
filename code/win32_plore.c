@@ -770,14 +770,12 @@ internal void
 WindowsProcessMessages(windows_context *Context, keyboard_and_mouse *ThisFrame) {
 	MSG Message = {0};
 	
-	#define PROCESS_KEY(SymbolicName, Name)                                                                        \
-	case SymbolicName: {                                                                                           \
-		ThisFrame->##Name##IsDown = IsDown;                                                                        \
-		ThisFrame->##Name##WasDown = Message.lParam & (1 << 30);                                                   \
-		ThisFrame->##Name##IsPressed = (ThisFrame->##Name##IsDown) && !(ThisFrame->##Name##WasDown);               \
-		ThisFrame->pKeys[PloreKey_##Name] = ThisFrame->##Name##IsPressed;                                          \
-		ThisFrame->sKeys[PloreKey_##Name] = ThisFrame->##Name##IsPressed && (GetAsyncKeyState(VK_SHIFT) & 0x8000); \
-		WindowsDebugPrintLine("Pressed " #Name);                                                                   \
+	#define PROCESS_KEY(SymbolicName, Name)                                                                             \
+	case SymbolicName: {                                                                                                \
+		ThisFrame->dKeys[PloreKey_##Name] = IsDown;                                                                     \
+		ThisFrame->pKeys[PloreKey_##Name] = IsDown && !(Message.lParam & (1 << 30));                                    \
+		ThisFrame->sKeys[PloreKey_##Name] = ThisFrame->pKeys[PloreKey_##Name] && (GetAsyncKeyState(VK_SHIFT) & 0x8000); \
+		WindowsDebugPrintLine("Pressed " #Name);                                                                        \
 	} break;
 	
 	while (PeekMessageA(&Message, 0, 0, 0, PM_REMOVE)) {
@@ -1111,8 +1109,8 @@ int WinMain (
 				.X = P.x,
 				.Y = P.y,
 			};
-			GlobalPloreInput.ThisFrame.MouseLeftIsDown    = GetKeyState(VK_LBUTTON) & (1 << 15);
-			GlobalPloreInput.ThisFrame.MouseLeftIsPressed = GlobalPloreInput.ThisFrame.MouseLeftIsDown && !(GlobalPloreInput.LastFrame.MouseLeftIsDown);
+			GlobalPloreInput.ThisFrame.dKeys[PloreKey_MouseLeft] = GetKeyState(VK_LBUTTON) & (1 << 15);
+			GlobalPloreInput.ThisFrame.pKeys[PloreKey_MouseLeft] = (GetKeyState(VK_LBUTTON) & (1 << 15)) && !(GlobalPloreInput.LastFrame.dKeys[PloreKey_MouseLeft]);
 		}		
 		
 		windows_timer CurrentTimer = WindowsGetTime();
@@ -1158,7 +1156,7 @@ int WinMain (
 		
 		GlobalPloreInput.LastFrame = GlobalPloreInput.ThisFrame;
 #define PLORE_X(Name, _Ignored1, _Ignored2) \
-GlobalPloreInput.ThisFrame.##Name##IsDown = GlobalPloreInput.LastFrame.##Name##IsDown || GlobalPloreInput.ThisFrame.##Name##IsPressed;
+		GlobalPloreInput.ThisFrame.dKeys[PloreKey_##Name] = GlobalPloreInput.LastFrame.dKeys[PloreKey_##Name] || GlobalPloreInput.ThisFrame.pKeys[PloreKey_##Name];
 		GlobalPloreInput.ThisFrame = (keyboard_and_mouse) {0};
 		PLORE_KEYBOARD_AND_MOUSE;
 #undef PLORE_X

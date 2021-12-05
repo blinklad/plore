@@ -6,8 +6,9 @@
 #define VIM_COMMANDS \
 PLORE_X(None,           "None")            \
 PLORE_X(Incomplete,     "Incomplete")      \
-PLORE_X(ISearchMode,    "ISearch Mode")    \
 PLORE_X(NormalMode,     "Normal Mode")     \
+PLORE_X(ISearchMode,    "ISearch Mode")    \
+PLORE_X(CommandMode,    "Command Mode")    \
 PLORE_X(MoveLeft,       "Move Left")       \
 PLORE_X(MoveRight,      "Move Right")      \
 PLORE_X(MoveUp,         "Move Up")         \
@@ -205,6 +206,15 @@ global vim_binding VimBindings[] = {
 	},
 	{
 		.Type = VimCommandType_JumpBottom,
+		.Keys = {
+			{
+				.Input = PloreKey_G,
+				.Modifier = PloreKey_Shift,
+			},
+		}
+	},
+	{
+		.Type = VimCommandType_CommandMode,
 		.Keys = {
 			{
 				.Input = PloreKey_G,

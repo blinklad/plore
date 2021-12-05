@@ -247,7 +247,7 @@ Image(plore_vimgui_context *Context, vimgui_image_desc Desc) {
 	if (IsWithinRectangleInclusive(Context->ThisFrame.Input.MouseP, Desc.Rect)) {
 		SetHotWindow(Context, Window);
 		Context->HotWidgetID = MyID;
-		if (Context->ThisFrame.Input.MouseLeftIsPressed) {
+		if (Context->ThisFrame.Input.pKeys[PloreKey_MouseLeft]) {
 			SetActiveWindow(Context, Window);
 			Context->ActiveWidgetID = MyID;
 			Result = true;
@@ -329,7 +329,7 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	if (IsWithinRectangleInclusive(Context->ThisFrame.Input.MouseP, Desc.Rect)) {
 		SetHotWindow(Context, Window);
 		Context->HotWidgetID = MyID;
-		if (Context->ThisFrame.Input.MouseLeftIsPressed) {
+		if (Context->ThisFrame.Input.pKeys[PloreKey_MouseLeft]) {
 			SetActiveWindow(Context, Window);
 			Context->ActiveWidgetID = MyID;
 			Result = true;

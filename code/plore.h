@@ -77,12 +77,17 @@ PLORE_X(Nine,             "9",             '9')   \
 PLORE_X(Plus,             "+",             '+')   \
 PLORE_X(Minus,            "-",             '-')   \
 PLORE_X(Slash,            "/",             '/')   \
-PLORE_X(Space,            "<space>",       ' ')  \
+PLORE_X(BackSlash,        "\\",            '\\')  \
+PLORE_X(Space,            "<space>",       ' ')   \
 PLORE_X(Return,           "<ret>",         '\r')  \
-PLORE_X(Ctrl,             "<ctrl>",        '$')  \
-PLORE_X(Shift,            "<shift>",       '$')  \
-PLORE_X(MouseLeft,        "<m-l>",         '$')  \
-PLORE_X(MouseRight,       "<m-r>",         '$')  \
+PLORE_X(Colon,            ":",             ':')   \
+PLORE_X(SemiColon,        ";",             ';')   \
+PLORE_X(QuestionMark,     "?",             '?')   \
+PLORE_X(ExclamationMark,  "!",             '!')   \
+PLORE_X(Ctrl,             "<ctrl>",        '$')   \
+PLORE_X(Shift,            "<shift>",       '$')   \
+PLORE_X(MouseLeft,        "<m-l>",         '$')   \
+PLORE_X(MouseRight,       "<m-r>",         '$')   \
 PLORE_X(Backspace,        "<backspace>",   '$')     
 
 // MAINTENANCE(Evan): None of the symbolic strings should be larger then 8 bytes, including the null terminator.
@@ -110,13 +115,7 @@ typedef enum plore_key {
 } plore_key;
 #undef PLORE_X
 
-#define PLORE_X(Name, _Ignored1, _Ignored2) \
-	b32 Name##IsPressed;  \
-	b32 Name##IsDown;     \
-	b32 Name##WasDown;
 typedef struct keyboard_and_mouse {
-	PLORE_KEYBOARD_AND_MOUSE
-		
 	b64 pKeys[PloreKey_Count]; // Presses this frame.
 	b64 sKeys[PloreKey_Count]; // Shift down while this key was pressed.
 	b64 bKeys[PloreKey_Count]; // Buffered presses this frame.
@@ -125,7 +124,6 @@ typedef struct keyboard_and_mouse {
     uint32 MouseWheel;
 	b32 CursorIsShowing;
 } keyboard_and_mouse;
-#undef PLORE_X
 
 typedef struct plore_input {
 	keyboard_and_mouse LastFrame;

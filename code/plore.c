@@ -228,6 +228,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	// TODO(Evan): File watching so this function doesn't need to be called eagerly.
 	SynchronizeCurrentDirectory(State->FileContext, &State->DirectoryState);
 	
+	#if 0
 	// NOTE(Evan): Buffered input.
 #define PLORE_X(Key, _Ignored1, _Ignored2) local u64 Key##Count = 0;
 	PLORE_KEYBOARD_AND_MOUSE
@@ -245,6 +246,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	
 	PLORE_KEYBOARD_AND_MOUSE
 #undef PLORE_X
+	
+#endif
 	
 	if (BufferedInput.sKeys[PloreKey_Space]) {
 		PrintLine("SHIFT + SPACE!");
@@ -661,20 +664,16 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			}
 			
 			plore_file *CursorFile = &State->DirectoryState.Cursor.File;
-			char *CursorState = "";
-			if (IsSelected(FileContext, &CursorFile->Path)) CursorState = "selected";
-			if (IsYanked(FileContext, &CursorFile->Path)) CursorState = "yanked";
 			
 			char CursorInfo[512] = {0};
 			StringPrintSized(CursorInfo, 
 							 ArrayCount(CursorInfo),
-						     "[%s] %s 01-02-03 %s %s", 
+						     "[%s] %s 01-02-03 >>%s", 
 						     (CursorFile->Type == PloreFileNode_Directory) ? "directory" : "file", 
 						     CursorFile->Path.FilePart,
 							 (VimContext->Mode == VimMode_Normal ? 
 								 PloreKeysToString(&State->FrameArena, VimContext->CommandKeys, VimContext->CommandKeyCount)
-							  :   ""),
-							 CursorState
+							  :   "")
 							 );
 			
 			if (Button(State->VimguiContext, (vimgui_button_desc) {
