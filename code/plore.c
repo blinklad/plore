@@ -404,7 +404,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 										if (CurrentResult.Cursor->Cursor == 0) {
 											CurrentResult.Cursor->Cursor = State->DirectoryState.Current.Count-Magnitude;
 										} else {
-											CurrentResult.Cursor->Cursor -= Magnitude;
+											CurrentResult.Cursor->Cursor = (CurrentResult.Cursor->Cursor - Magnitude) % State->DirectoryState.Current.Count;
 										}
 										
 										PushVimCommand(VimContext, Command);
