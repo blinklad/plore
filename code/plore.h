@@ -117,20 +117,13 @@ PLORE_X(Backspace,                           "<backspace>",   0x8)   \
 PLORE_X(Tab,                                 "<tab>",         0x9)   
 
 // MAINTENANCE(Evan): None of the symbolic strings should be larger then 32 bytes, including the null terminator.
-
+#define PLORE_KEY_STRING_SIZE 32
+#if 1
 #define PLORE_X(_Ignored1, String, _Ignored2) \
-String,
-char *PloreKeyStrings[] = {
-	PLORE_KEYBOARD_AND_MOUSE
-};
+StaticAssert(sizeof(String) < PLORE_KEY_STRING_SIZE, String " plore key string greater than allowed size");
+PLORE_KEYBOARD_AND_MOUSE
 #undef PLORE_X
-
-#define PLORE_X(_Ignored1, _Ignored2, Character) \
-Character,
-char PloreKeyCharacters[] = {
-	PLORE_KEYBOARD_AND_MOUSE
-};
-#undef PLORE_X
+#endif
 
 #define PLORE_X(Name, _Ignored1, _Ignored2) \
 PloreKey_##Name,
@@ -139,6 +132,28 @@ typedef enum plore_key {
 	PloreKey_Count,
 	_PloreKey_ForceU64 = 0xFFFFFFFF,
 } plore_key;
+#undef PLORE_X
+
+#define PLORE_X(Key, _Ignored1, Char) { PloreKey_##Key, Char },
+typedef struct plore_key_lookup {
+	plore_key K;
+	char C;
+} plore_key_lookup;
+plore_key_lookup PloreKeyLookup[] = {
+	PLORE_KEYBOARD_AND_MOUSE
+};
+#undef PLORE_X
+
+#define PLORE_X(_Ignored1, String, _Ignored2) String,
+char *PloreKeyStrings[] = {
+	PLORE_KEYBOARD_AND_MOUSE
+};
+#undef PLORE_X
+
+#define PLORE_X(_Ignored1, _Ignored2, Character) Character,
+char PloreKeyCharacters[] = {
+	PLORE_KEYBOARD_AND_MOUSE
+};
 #undef PLORE_X
 
 typedef struct keyboard_and_mouse {
