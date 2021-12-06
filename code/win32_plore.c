@@ -848,7 +848,7 @@ WindowsProcessMessages(windows_context *Context, keyboard_and_mouse *ThisFrame) 
 					ThisFrame->TextInput[ThisFrame->TextInputCount++] = C;
 				}
 				
-				StaticAssert(PloreKey_A == 1); // NOTE(Evan): We assume PloreKey_None is 0, and A-Z, 0-9 follow contiguously.
+				StaticAssert(PloreKey_A == 1, "Assuming PloreKey_A-Z|0-9 follow contiguously.");
 				plore_key Key = 0;
 				if (C >= 'A' && C <= 'Z') {
 					Key = PloreKey_None + Message.wParam - 'A' + 1;
