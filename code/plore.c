@@ -110,6 +110,20 @@ VimBindingToString(char *Buffer, u64 BufferSize, vim_binding *Binding);
 internal void
 SynchronizeCurrentDirectory(plore_file_context *FileContext, plore_current_directory_state *CurrentState);
 
+internal plore_key
+GetKey(char C) {
+	plore_key Result = 0;
+	for (u64 K = 0; K < ArrayCount(PloreKeyLookup); K++) {
+		plore_key_lookup Lookup = PloreKeyLookup[K];
+		if (Lookup.C == C || (Lookup.C == ToLower(C))) {
+			Result = Lookup.K;
+			break;
+		} 
+	}
+	
+	return(Result);
+}
+
 #if defined(PLORE_INTERNAL)
 #include "plore_debug.c"
 #endif
@@ -940,7 +954,7 @@ SynchronizeCurrentDirectory(plore_file_context *FileContext, plore_current_direc
 
 internal char *
 PloreKeysToString(memory_arena *Arena, vim_key *Keys, u64 KeyCount) {
-	u64 Size = KeyCount*8+1;
+	u64 Size = KeyCount*PLORE_KEY_STRING_SIZE+1;
 	u64 Count = 0;
 	if (!KeyCount || !Keys) return("");
 	
@@ -962,9 +976,10 @@ VimKeysToString(char *Buffer, u64 BufferSize, plore_vim_context *Context) {
 	vim_key *Key = Context->CommandKeys;
 	u64 Count = 0;
 	while (Key->Input) {
-		*S++ = PloreKeyCharacters[Key++->Input];
-		Count++;
-		if (Count == BufferSize-1) break;
+		char C = PloreKeyCharacters[Key->Input];
+		if (Key++->Modifier == PloreKey_Shift && IsAlpha(C)) C = ToUpper(C); 
+		*S++ = C;
+		if (Count++ == BufferSize-1) break;
 	}
 	
 	return(Buffer);
@@ -980,7 +995,7 @@ VimBindingToString(char *Buffer, u64 BufferSize, vim_binding *Binding) {
 	while (Key->Input) {
 		char C = PloreKeyCharacters[Key->Input];
 		if (Key->Modifier == PloreKey_Shift) {
-			C -= 32;
+			C = ToUpper(C);
 		}
 		*S++ = C;
 		Count++;
