@@ -180,8 +180,6 @@ HashString(char *String) {
 }
 
 
-
-
 #define PloreSort(Items, Count, type)                          \
 for (u64 I = 0; I < Count-1; I++) {                            \
 	for (u64 J = 0; J < Count-I-1; J++) {                      \
