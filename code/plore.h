@@ -93,10 +93,10 @@ PLORE_X(BracketOpen,                         "[",             '[')   \
 PLORE_X(BracketClosed,                       "]",             ']')   \
 PLORE_X(BraceOpen,                           "{",             '{')   \
 PLORE_X(BraceClosed,                         "}",             '}')   \
-PLORE_X(Minus,                               "-",             '-')   \
 PLORE_X(Slash,                               "/",             '/')   \
 PLORE_X(BackSlash,                           "\\",            '\\')  \
 PLORE_X(Pipe,                                "|",             '|')   \
+PLORE_X(Underscore,                          "_",             '_')   \
 PLORE_X(Quote,                               "'",             '\'')  \
 PLORE_X(DoubleQuote,                         "\"",            '"')   \
 PLORE_X(RightArrow,                          ">",             '>')   \
@@ -106,6 +106,8 @@ PLORE_X(Comma,                               ",",             ',')   \
 PLORE_X(Equals,                              "=",             '=')   \
 PLORE_X(Backtick,                            "`",             '`')   \
 PLORE_X(Plus,                                "+",             '+')   \
+PLORE_X(Minus,                               "-",             '-')   \
+PLORE_X(Pound,                               "#",             '#')   \
 PLORE_X(PrintableCharacterCount,             "<debug>",       128)   \
 PLORE_X(Ctrl,                                "<ctrl>",        129)   \
 PLORE_X(Shift,                               "<shift>",       130)   \
