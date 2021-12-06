@@ -587,7 +587,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			u64 Size = 128;
 			char *S = PushBytes(&State->FrameArena, Size);
 			BufferSize += StringPrintSized(Buffer, ArrayCount(Buffer), "ISearch: ");
-			BufferSize += StringPrintSized(Buffer+BufferSize, ArrayCount(Buffer), VimKeysToString(S, Size, VimContext));
+			BufferSize += StringPrintSized(Buffer+BufferSize, ArrayCount(Buffer), "%s", VimKeysToString(S, Size, VimContext));
 			
 			Y += FooterHeight + 5*PadY;
 			H -= (FooterHeight + 5*PadY);
@@ -954,9 +954,14 @@ VimKeysToString(char *Buffer, u64 BufferSize, plore_vim_context *Context) {
 	char *S = Buffer;
 	vim_key *Key = Context->CommandKeys;
 	u64 Count = 0;
+	Assert(BufferSize >= 3);
 	while (Key->Input) {
 		char C = PloreKeyCharacters[Key->Input];
 		if (Key++->Modifier == PloreKey_Shift && IsAlpha(C)) C = ToUpper(C); 
+		// NOTE(Evan): Escape printf specifier!
+		if (C == '%' && Count < BufferSize-2) {
+			*S++ = '%';
+		}
 		*S++ = C;
 		if (Count++ == BufferSize-1) break;
 	}
