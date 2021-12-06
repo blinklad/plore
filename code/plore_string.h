@@ -27,6 +27,39 @@ IsAlpha(char C) {
 }
 
 internal b64
+IsUpper(char C) {
+	b64 Result = (C >= 'A' && C <= 'Z');
+	return(Result);
+}
+
+
+internal b64
+IsLower(char C) {
+	b64 Result = (C >= 'a' && C <= 'z');
+	return(Result);
+}
+
+
+internal char
+ToLower(char C) {
+	char Result = C;
+	if (IsUpper(C)) {
+		Result += 32;
+	}
+	return(Result);
+}
+
+internal char
+ToUpper(char C) {
+	char Result = C;
+	if (IsLower(C)) {
+		Result -= 32;
+	}
+	return(Result);
+}
+
+
+internal b64
 IsNumeric(char C) {
 	b64 Result = (C >= '0' && C <= '9');
 	return(Result);
