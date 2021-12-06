@@ -55,7 +55,6 @@ typedef struct vim_command {
 typedef struct vim_key {
 	plore_key Input;
 	plore_key Modifier;
-	b64 DisableBufferedInput;
 } vim_key;
 
 
@@ -72,7 +71,6 @@ typedef struct plore_vim_context {
 typedef struct vim_binding {
 	vim_key Keys[32];
 	vim_command_type Type;
-	b64 DisableBufferedInput; // NOTE(Evan): Prevents buffered input and key-repeat from triggering this command.
 	char *Shell;
 } vim_binding;
 
@@ -162,7 +160,6 @@ global vim_binding VimBindings[] = {
 	},
 	{
 		.Type = VimCommandType_MoveRight,
-		.DisableBufferedInput = true,
 		.Keys = {
 			{
 				.Input = PloreKey_L,
