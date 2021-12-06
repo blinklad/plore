@@ -242,33 +242,20 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	// TODO(Evan): File watching so this function doesn't need to be called eagerly.
 	SynchronizeCurrentDirectory(State->FileContext, &State->DirectoryState);
 	
-	typedef struct buffered_key {
-		plore_key Key;
-		plore_key Modifier;
-	} buffered_key;
-	
-	buffered_key BufferedKeys[64] = {0};
+	vim_key BufferedKeys[64] = {0};
 	u64 BufferedKeyCount = 0;
 	
-	for (u64 T = 0; T < BufferedInput.TextInputCount; T++) {
-		char C = BufferedInput.TextInput[T];
-		plore_key K = GetKey(C);
-		plore_key M = 0;
-		if (IsUpper(C)) M = PloreKey_Shift;
-		
-		BufferedKeys[BufferedKeyCount++] = (buffered_key) { K, M };
-	}
-	
 	b64 DidInput = false;
-	for (u64 K = 0; K < BufferedKeyCount; K++) {
+	for (u64 K = 0; K < BufferedInput.TextInputCount; K++) {
 		if (VimContext->CommandKeyCount == VimContext->MaxCommandCount) break;
 		
-		buffered_key BK = BufferedKeys[K];
-		vim_key TheKey = { 
-			.Input = BK.Key, 
-			.Modifier = BK.Modifier,
+		char C = BufferedInput.TextInput[K];
+		plore_key PK = GetKey(C);
+		VimContext->CommandKeys[VimContext->CommandKeyCount++] = (vim_key) { 
+			.Input = PK, 
+			.Modifier = BufferedInput.sKeys[PK] ? PloreKey_Shift : PloreKey_None,
 		};
-		VimContext->CommandKeys[VimContext->CommandKeyCount++] = TheKey;
+		
 		DidInput = true;
 	}
 	
