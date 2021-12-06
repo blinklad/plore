@@ -242,42 +242,34 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	// TODO(Evan): File watching so this function doesn't need to be called eagerly.
 	SynchronizeCurrentDirectory(State->FileContext, &State->DirectoryState);
 	
-	// NOTE(Evan): Buffered input.
-#define PLORE_X(Key, _Ignored1, _Ignored2) local u64 Key##Count = 0;
-	PLORE_KEYBOARD_AND_MOUSE
-#undef PLORE_X
+	typedef struct buffered_key {
+		plore_key Key;
+		plore_key Modifier;
+	} buffered_key;
 	
-#define PLORE_X(Key, _Ignored1, _Ignored2) \
-if (BufferedInput.dKeys[PloreKey_##Key]) { PrintLine("KEY WAS DOWN"); Key##Count++; }            \
-	else Key##Count = 0;                                              \
-	if (Key##Count > 20) { Key##Count = 10; }                         \
-	else if (Key##Count == 20) {                                      \
-		BufferedInput.pKeys[PloreKey_##Key##] = true;                 \
-		BufferedInput.bKeys[PloreKey_##Key##] = true;                 \
+	buffered_key BufferedKeys[64] = {0};
+	u64 BufferedKeyCount = 0;
+	
+	for (u64 T = 0; T < BufferedInput.TextInputCount; T++) {
+		char C = BufferedInput.TextInput[T];
+		plore_key K = GetKey(C);
+		plore_key M = 0;
+		if (IsUpper(C)) M = PloreKey_Shift;
+		
+		BufferedKeys[BufferedKeyCount++] = (buffered_key) { K, M };
 	}
 	
-	PLORE_KEYBOARD_AND_MOUSE
-#undef PLORE_X
-	
-	if (BufferedInput.sKeys[PloreKey_Space]) {
-		PrintLine("SHIFT + SPACE!");
-	}
 	b64 DidInput = false;
-	if (VimContext->CommandKeyCount < ArrayCount(VimContext->CommandKeys)) {
-		for (plore_key K = 0; K < ArrayCount(BufferedInput.pKeys); K++) {
-			if (BufferedInput.pKeys[K] && (K != PloreKey_Shift && K != PloreKey_Ctrl)) {
-				vim_key TheKey = { .Input = K, .DisableBufferedInput = BufferedInput.bKeys[K] };
-				PrintLine("Key %s was given to vim command keys.", PloreKeyStrings[K]);
-				if (BufferedInput.sKeys[K]) {
-					PrintLine("shift modifier");
-					TheKey.Modifier = PloreKey_Shift;
-				}
-				
-				VimContext->CommandKeys[VimContext->CommandKeyCount++] = TheKey;
-				DidInput = true;
-				break;
-			}
-		}
+	for (u64 K = 0; K < BufferedKeyCount; K++) {
+		if (VimContext->CommandKeyCount == VimContext->MaxCommandCount) break;
+		
+		buffered_key BK = BufferedKeys[K];
+		vim_key TheKey = { 
+			.Input = BK.Key, 
+			.Modifier = BK.Modifier,
+		};
+		VimContext->CommandKeys[VimContext->CommandKeyCount++] = TheKey;
+		DidInput = true;
 	}
 	
 	local b64 AteCommands = 0;
