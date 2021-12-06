@@ -69,10 +69,10 @@ ToggleFlag(b64 Flags, b64 Flag) {
 
 #if defined(PLORE_INTERNAL)
 #define Assert(X) if (!(X)) { __debugbreak();}
-#define StaticAssert(X) static u8 _StaticAssertArray[(X ? 1:-1)];
+#define StaticAssert(X, M) static_assert(X, M)
 #else
 #define Assert(X) 
-#define StaticAssert(X)
+#define StaticAssert(X, M)
 #endif
 
 
