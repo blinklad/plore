@@ -797,40 +797,9 @@ WindowsProcessMessages(windows_context *Context, keyboard_and_mouse *ThisFrame) 
 					WindowsToggleFullscreen();
 				} else {
 					WPARAM C = Message.wParam;
-					b64 Numeric = C >= '0' && C <= '9';
-					b64 Alpha = C >= 'A' && C <= 'Z';
-				
-					if (Alpha || Numeric) {
-						plore_key Key = 0;
-						if (Alpha) {
-							Key = PloreKey_None + Message.wParam - 'A' + 1;
-						} else if (Numeric) {
-							Key = PloreKey_Z    + Message.wParam - '0' + 1;
-						}
-						Assert(Key);
-						
-						b64 IsPressed = !(Message.lParam & (1 << 30));
-						b64 IsDown = Message.message == WM_KEYDOWN;
-						
-						PrintLine("%c is %s", C, IsDown ? "down" : "not down");
-						ThisFrame->dKeys[Key] = IsDown;
-						ThisFrame->pKeys[Key] = IsPressed;
-					}
-					
 					TranslateMessage(&Message);
 					DispatchMessage(&Message);
 				} 
-				#if 0
-					PROCESS_KEY(VK_OEM_2, Slash);
-					PROCESS_KEY(VK_RETURN, Return);
-					PROCESS_KEY(VK_SPACE, Space);
-					PROCESS_KEY(VK_CONTROL, Ctrl);
-					PROCESS_KEY(VK_SHIFT, Shift);
-					PROCESS_KEY(VK_OEM_MINUS, Minus);
-					PROCESS_KEY(VK_OEM_PLUS, Plus);
-					PROCESS_KEY(VK_BACK, Backspace);
-				#endif
-	            
 	        } break;
 	        
 	        // TODO(Evan): Mouse wheel!
@@ -863,20 +832,16 @@ WindowsProcessMessages(windows_context *Context, keyboard_and_mouse *ThisFrame) 
 					
 					switch (C) {
 						PLORE_KEYBOARD_AND_MOUSE
-							#undef PLORE_X
+						#undef PLORE_X
 					}
 				}
 				Assert(Key && Key < PloreKey_Count);
 				
 				b64 IsPressed = !(Message.lParam & (1 << 30)); // NOTE(Evan): 0 is pressed, 1 is released
 				b64 IsDown = (Message.lParam & (1 << 29));
-				#if 1
-//				ThisFrame->dKeys[Key] = IsDown;
+				ThisFrame->dKeys[Key] = IsDown;
 				ThisFrame->pKeys[Key] = IsPressed;
 				ThisFrame->sKeys[Key] = ThisFrame->pKeys[Key] && (GetAsyncKeyState(VK_SHIFT) & 0x8000); // @Cleanup
-				
-				#endif
-				WindowsDebugPrintLine("WM_CHAR : %c %s", Message.wParam, IsPressed ? " pressed " : " not pressed");
 			} break;
 			default: {
 				TranslateMessage(&Message);
