@@ -279,7 +279,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 									if (FileContext->SelectedCount) { // Yank selection if there is any.
 										MemoryCopy(FileContext->Selected, FileContext->Yanked, sizeof(FileContext->Yanked));
 										FileContext->YankedCount = FileContext->SelectedCount;
-										DrawText("Yanked %d guys.", FileContext->YankedCount);
 											
 										PushVimCommand(VimContext, (vim_command) {
 														   .Type = VimCommandType_Yank,
@@ -289,7 +288,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								} break;
 								case VimCommandType_ClearYank: {
 									if (FileContext->YankedCount) {
-										DrawText("Unyanked %d guys", FileContext->YankedCount);
 										FileContext->YankedCount = 0;
 										FileContext->SelectedCount = 0;
 										PushVimCommand(VimContext, (vim_command) {
@@ -854,7 +852,6 @@ ToggleSelected(plore_file_context *Context, plore_path *Selectee) {
 	
 	// NOTE(Evan): Otherwise, add it to the list.
 	Context->Selected[Context->SelectedCount++] = *Selectee;
-	DrawText("There are now %d selected items.", Context->SelectedCount);
 }
 
 
