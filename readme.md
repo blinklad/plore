@@ -48,7 +48,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
    - ~Focus~
    - Better primitive lists (curves, bitmaps)
    - Floating windows
-   - More widgets (dropdowns, textfields)
+   - More widgets: labels, dropdowns, textfields.
    - Global font scale.
    - Everything could look a lot nicer.
 * Changing assertions to error codes to prevent crashing when a stabler version is made.
