@@ -9,6 +9,7 @@ PLORE_X(Incomplete,     "Incomplete")      \
 PLORE_X(NormalMode,     "Normal Mode")     \
 PLORE_X(ISearchMode,    "ISearch Mode")    \
 PLORE_X(CommandMode,    "Command Mode")    \
+PLORE_X(CompleteCommand,"Complete Mode")   \
 PLORE_X(MoveLeft,       "Move Left")       \
 PLORE_X(MoveRight,      "Move Right")      \
 PLORE_X(MoveUp,         "Move Up")         \
@@ -41,6 +42,7 @@ char *VimCommandStrings[] = {
 typedef enum vim_mode {
 	VimMode_Normal,
 	VimMode_ISearch,
+	VimMode_Command,
 	VimMode_Count,
 	_VimMode_ForceU64 = 0xFFFFFFFF,
 } vim_mode;
@@ -62,10 +64,9 @@ typedef struct plore_vim_context {
 	vim_key CommandKeys[32];
 	u64 CommandKeyCount;
 	u64 MaxCommandCount; // @Hardcode
-	
-	vim_command VimCommandHistory[10];
-	u64 VimCommandHistoryCount;
 	vim_mode Mode;
+	char Shell[256];
+	u64 ShellCount;
 } plore_vim_context;
 
 typedef struct vim_binding {
@@ -214,8 +215,7 @@ global vim_binding VimBindings[] = {
 		.Type = VimCommandType_CommandMode,
 		.Keys = {
 			{
-				.Input = PloreKey_G,
-				.Modifier = PloreKey_Shift,
+				.Input = PloreKey_Semicolon,
 			},
 		}
 	},
