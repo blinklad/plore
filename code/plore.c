@@ -449,6 +449,10 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 									Platform->SetCurrentDirectory(Command.Shell);
 								} break;
 								
+								case VimCommandType_CommandMode: {
+									VimContext->Mode = VimMode_Command;
+								} break;
+								
 								InvalidDefaultCase;
 							}
 						} break;
@@ -457,6 +461,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							switch (Command.Type) {
 								case VimCommandType_Incomplete:
 								case VimCommandType_CompleteSearch: {
+									// NOTE(Evan): Set the text filter that's used below and in the GUI.
 									VimKeysToString(State->DirectoryState.Filter, 
 												    ArrayCount(State->DirectoryState.Filter), 
 												    VimContext);
@@ -483,6 +488,24 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								} break;
 							}
 						} break;
+						
+						case VimMode_Command: {
+							switch (Command.Type) {
+								case VimCommandType_Incomplete:
+								case VimCommandType_CompleteCommand: {
+									VimContext->ShellCount = VimKeysToString(VimContext->Shell, ArrayCount(VimContext->Shell), VimContext).BytesWritten;
+									if (Command.Type == VimCommandType_CompleteCommand) {
+										VimContext->Mode = VimMode_Normal;
+										Platform->RunShell(VimContext->Shell, NULL);
+										
+										MemoryClear(VimContext->Shell, ArrayCount(VimContext->Shell));
+										VimContext->ShellCount = 0;
+									}
+								} break;
+							}
+						} break;
+						
+						InvalidDefaultCase;
 						
 					}
 					
@@ -552,7 +575,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	if (VimContext->Mode == VimMode_ISearch) {
 		u64 Size = 128;
 		char *Buffer = PushBytes(&State->FrameArena, Size);
-		FilterText = VimKeysToString(Buffer, Size, VimContext);			
+		FilterText = VimKeysToString(Buffer, Size, VimContext).Buffer;
 	}
 	
 	typedef struct image_preview_handle {
@@ -575,7 +598,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			u64 Size = 128;
 			char *S = PushBytes(&State->FrameArena, Size);
 			BufferSize += StringPrintSized(Buffer, ArrayCount(Buffer), "ISearch: ");
-			BufferSize += StringPrintSized(Buffer+BufferSize, ArrayCount(Buffer), "%s", VimKeysToString(S, Size, VimContext));
+			BufferSize += StringPrintSized(Buffer+BufferSize, ArrayCount(Buffer), "%s", VimKeysToString(S, Size, VimContext).Buffer);
 			
 			Y += FooterHeight + 5*PadY;
 			H -= (FooterHeight + 5*PadY);
@@ -593,7 +616,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		}
 #endif
 		
-		// NOTE(Evan): Cursor information, appears at bottom of screen.
 #if 1
 		if (State->DirectoryState.Cursor.Valid) {
 			// NOTE(Evan): If we didn't eat the command and there are candidates, list them!
@@ -639,17 +661,43 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 				H -= 20;
 			}
 			
-			plore_file *CursorFile = &State->DirectoryState.Cursor.File;
 			
+			// NOTE(Evan): Cursor information, appears at bottom of screen.
+			plore_file *CursorFile = &State->DirectoryState.Cursor.File;
 			char CursorInfo[512] = {0};
+			char *CommandString = "";
+			
+			local f64 Tick = 0;
+			local b64 DoBlink = true; 
+			
+			Tick += PloreInput->DT;
+			if (Tick > 0.3f) {
+				DoBlink = !DoBlink;
+				Tick = 0;
+			}
+			
+			if (DidInput || VimContext->Mode != VimMode_Command) {
+				DoBlink = true;
+				Tick = 0;
+			}
+			
+			switch (VimContext->Mode) {
+				case VimMode_Normal: {
+					PloreKeysToString(&State->FrameArena, VimContext->CommandKeys, VimContext->CommandKeyCount);
+				} break;
+				
+				case VimMode_Command: {
+					CommandString = VimContext->Shell;
+				} break;
+			}
+			
 			StringPrintSized(CursorInfo, 
 							 ArrayCount(CursorInfo),
-						     "[%s] %s 01-02-03 >>%s", 
+						     "[%s] %s 01-02-03 >>%s%s", 
 						     (CursorFile->Type == PloreFileNode_Directory) ? "directory" : "file", 
 						     CursorFile->Path.FilePart,
-							 (VimContext->Mode == VimMode_Normal ? 
-								 PloreKeysToString(&State->FrameArena, VimContext->CommandKeys, VimContext->CommandKeyCount)
-							  :   "")
+							 CommandString,
+							 (DoBlink ?  "" : "|")
 							 );
 			
 			if (Button(State->VimguiContext, (vimgui_button_desc) {
@@ -936,8 +984,12 @@ PloreKeysToString(memory_arena *Arena, vim_key *Keys, u64 KeyCount) {
 }
 
 // NOTE(Evan): Does not skip unprintable characters.
-internal char *
+internal vim_keys_to_string_result
 VimKeysToString(char *Buffer, u64 BufferSize, plore_vim_context *Context) {
+	vim_keys_to_string_result Result = {
+		.Buffer = Buffer,
+	};
+	
 	char *S = Buffer;
 	vim_key *Key = Context->CommandKeys;
 	u64 Count = 0;
@@ -947,13 +999,15 @@ VimKeysToString(char *Buffer, u64 BufferSize, plore_vim_context *Context) {
 		if (Key++->Modifier == PloreKey_Shift && IsAlpha(C)) C = ToUpper(C); 
 		// NOTE(Evan): Escape printf specifier!
 		if (C == '%' && Count < BufferSize-2) {
-			*S++ = '%';
+			*S++ = '%', Result.BytesWritten++;
 		}
-		*S++ = C;
-		if (Count++ == BufferSize-1) break;
+		*S++ = C, Result.BytesWritten++;
+		if (Count++ == BufferSize-2) break;
 	}
+	*S = '\0';
 	
-	return(Buffer);
+	
+	return(Result);
 }
 
 // NOTE(Evan): Does not skip unprintable characters.
