@@ -101,7 +101,11 @@ ToggleSelected(plore_file_context *Context, plore_path *Selectee);
 internal char *
 PloreKeysToString(memory_arena *Arena, vim_key *Keys, u64 KeyCount);
 
-internal char *
+typedef struct vim_keys_to_string_result {
+	char *Buffer;
+	u64 BytesWritten;
+} vim_keys_to_string_result;
+internal vim_keys_to_string_result
 VimKeysToString(char *Buffer, u64 BufferSize, plore_vim_context *Context);
 	
 internal char *
@@ -280,9 +284,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 										MemoryCopy(FileContext->Selected, FileContext->Yanked, sizeof(FileContext->Yanked));
 										FileContext->YankedCount = FileContext->SelectedCount;
 											
-										PushVimCommand(VimContext, (vim_command) {
-														   .Type = VimCommandType_Yank,
-													   });
 									} 
 								
 								} break;
@@ -290,9 +291,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 									if (FileContext->YankedCount) {
 										FileContext->YankedCount = 0;
 										FileContext->SelectedCount = 0;
-										PushVimCommand(VimContext, (vim_command) {
-														   .Type = VimCommandType_ClearYank,
-													   });
 									}
 									// TODO(Evan): Invalidate the yankees' directory's cursor.
 								} break;
@@ -321,9 +319,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 										}
 										DrawText("Pasted %d items!", PastedCount);
 										
-										PushVimCommand(VimContext, (vim_command) {
-														   .Type = VimCommandType_Paste,
-													   });
 										
 										FileContext->YankedCount = 0;
 										MemoryClear(FileContext->Yanked, sizeof(FileContext->Yanked));
@@ -348,7 +343,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 										if (Platform->IsPathTopLevel(Buffer, PLORE_MAX_PATH)) break;
 									}
 									Command.Scalar = ScalarCount;
-									PushVimCommand(VimContext, Command);
 								} break;
 								
 								case VimCommandType_MoveRight: {
@@ -381,7 +375,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 										
 									}
 									Command.Scalar = ScalarCount;
-									PushVimCommand(VimContext, Command);
 								} break;
 								
 								case VimCommandType_MoveUp: {
@@ -394,7 +387,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 											CurrentResult.Cursor->Cursor = (CurrentResult.Cursor->Cursor - Magnitude) % State->DirectoryState.Current.Count;
 										}
 										
-										PushVimCommand(VimContext, Command);
 									}
 								} break;
 								
@@ -404,7 +396,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 										u64 Magnitude = Command.Scalar % State->DirectoryState.Current.Count;
 										
 										CurrentResult.Cursor->Cursor = (CurrentResult.Cursor->Cursor + Magnitude) % State->DirectoryState.Current.Count;
-										PushVimCommand(VimContext, Command);
 									}
 								} break;
 								
@@ -432,7 +423,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 										if (CursorResult.Cursor->Cursor == StartScalar) break;
 									}
 									
-									PushVimCommand(VimContext, Command);
 								} break;
 								
 								case VimCommandType_JumpTop: {
