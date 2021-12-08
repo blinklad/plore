@@ -111,7 +111,7 @@ typedef PLATFORM_GET_DIRECTORY_ENTRIES(platform_get_directory_entries);
 typedef PLATFORM_MOVE_FILE(platform_move_file);
 
 
-#define PLATFORM_RUN_SHELL(name) b64 name(char *Command, char *FileTarget)
+#define PLATFORM_RUN_SHELL(name) b64 name(char *Command, char *Args)
 typedef PLATFORM_RUN_SHELL(platform_run_shell);
 
 // NOTE(Evan): Platform API
