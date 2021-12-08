@@ -77,7 +77,7 @@ PLORE_X(Nine,                                "9",             '9')   \
 PLORE_X(Space,                               "<space>",       ' ')   \
 PLORE_X(Return,                              "<ret>",         '\r')  \
 PLORE_X(Colon,                               ":",             ':')   \
-PLORE_X(SemiColon,                           ";",             ';')   \
+PLORE_X(Semicolon,                           ";",             ';')   \
 PLORE_X(QuestionMark,                        "?",             '?')   \
 PLORE_X(ExclamationMark,                     "!",             '!')   \
 PLORE_X(At,                                  "@",             '@')   \
