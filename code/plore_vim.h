@@ -3,28 +3,28 @@
 #ifndef PLORE_VIM_H
 #define PLORE_VIM_H
 
-#define VIM_COMMANDS \
-PLORE_X(None,           "None")            \
-PLORE_X(Incomplete,     "Incomplete")      \
-PLORE_X(NormalMode,     "Normal Mode")     \
-PLORE_X(ISearchMode,    "ISearch Mode")    \
-PLORE_X(CommandMode,    "Command Mode")    \
-PLORE_X(CompleteCommand,"Complete Mode")   \
-PLORE_X(MoveLeft,       "Move Left")       \
-PLORE_X(MoveRight,      "Move Right")      \
-PLORE_X(MoveUp,         "Move Up")         \
-PLORE_X(MoveDown,       "Move Down")       \
-PLORE_X(Yank,           "Yank")            \
-PLORE_X(ClearYank,      "Clear Yank")      \
-PLORE_X(Paste,          "Paste")           \
-PLORE_X(SelectUp,       "Select Up")       \
-PLORE_X(SelectDown,     "Select Down")     \
-PLORE_X(JumpTop,        "Jump To Top")     \
-PLORE_X(JumpBottom,     "Jump To Bottom")  \
-PLORE_X(CompleteSearch, "Complete Search") \
-PLORE_X(ChangeDirectory,"Change Directory")
+struct plore_vim_context;
+typedef struct plore_vim_context plore_vim_context;
 
-#define PLORE_X(Name, _Ignored) VimCommandType_##Name,
+#define VIM_COMMANDS \
+PLORE_X(None,            "none",             "None")            \
+PLORE_X(Incomplete,      "incomplete",       "Incomplete")      \
+PLORE_X(CompleteInsert,  "complete_insert",  "Complete Insert") \
+PLORE_X(MoveLeft,        "move_left",        "Move Left")       \
+PLORE_X(MoveRight,       "move_right",       "Move Right")      \
+PLORE_X(MoveUp,          "move_up",          "Move Up")         \
+PLORE_X(MoveDown,        "move_down",        "Move Down")       \
+PLORE_X(Yank,            "yank",             "Yank")            \
+PLORE_X(ClearYank,       "clear_yank",       "Clear Yank")      \
+PLORE_X(Paste,           "paste",            "Paste")           \
+PLORE_X(SelectUp,        "select_up",        "Select Up")       \
+PLORE_X(SelectDown,      "select_down",      "Select Down")     \
+PLORE_X(JumpTop,         "jump_top",         "Jump To Top")     \
+PLORE_X(JumpBottom,      "jump_bottom",      "Jump To Bottom")  \
+PLORE_X(ISearch,         "isearch",          "ISearch")         \
+PLORE_X(ChangeDirectory, "change_directory", "Change Directory")
+
+#define PLORE_X(Name, Ignored1, _Ignored2) VimCommandType_##Name,
 typedef enum vim_command_type {
 	VIM_COMMANDS
 	#undef PLORE_X
