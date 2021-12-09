@@ -33,23 +33,24 @@ typedef enum vim_command_type {
 } vim_command_type;
 
 
-#define PLORE_X(_Ignored, String) String,
+#define PLORE_X(_Ignored1, _Ignored2, String) String,
 char *VimCommandStrings[] = {
 	VIM_COMMANDS
 };
 #undef PLORE_X
 
 typedef enum vim_mode {
+	VimMode_None,
 	VimMode_Normal,
-	VimMode_ISearch,
-	VimMode_Command,
+	VimMode_Insert,
 	VimMode_Count,
 	_VimMode_ForceU64 = 0xFFFFFFFF,
 } vim_mode;
 
 typedef struct vim_command {
-	u64 Scalar;
 	vim_command_type Type;
+	vim_mode Mode;
+	u64 Scalar;
 	char *Shell;
 } vim_command;
 
@@ -59,19 +60,19 @@ typedef struct vim_key {
 	plore_key Modifier;
 } vim_key;
 
-
 typedef struct plore_vim_context {
 	vim_key CommandKeys[32];
 	u64 CommandKeyCount;
 	u64 MaxCommandCount; // @Hardcode
 	vim_mode Mode;
-	char Shell[256];
-	u64 ShellCount;
+	vim_command ActiveCommand;
+	memory_arena CommandArena;
 } plore_vim_context;
 
 typedef struct vim_binding {
 	vim_key Keys[32];
 	vim_command_type Type;
+	vim_mode Mode;
 	char *Shell;
 } vim_binding;
 
@@ -120,6 +121,17 @@ global vim_binding VimBindings[] = {
 			},
 			{
 				.Input = PloreKey_P,
+			},
+		}
+	},
+	{
+		.Type = VimCommandType_ChangeDirectory,
+		.Keys = {
+			{
+				.Input = PloreKey_C,
+			},
+			{
+				.Input = PloreKey_D,
 			},
 		}
 	},
@@ -184,7 +196,7 @@ global vim_binding VimBindings[] = {
 		}
 	},
 	{
-		.Type = VimCommandType_ISearchMode,
+		.Type = VimCommandType_ISearch,
 		.Keys = {
 			{
 				.Input = PloreKey_Slash,
@@ -211,6 +223,7 @@ global vim_binding VimBindings[] = {
 			},
 		}
 	},
+	#if 0
 	{
 		.Type = VimCommandType_CommandMode,
 		.Keys = {
@@ -219,7 +232,11 @@ global vim_binding VimBindings[] = {
 			},
 		}
 	},
+	#endif
 };
 
+
+typedef void vim_command_function(plore_state *State, plore_vim_context *VimContext, plore_file_context *FileContext, vim_command Command);
+#define PLORE_VIM_COMMAND(CommandName) void Do##CommandName(plore_state *State, plore_vim_context *VimContext, plore_file_context *FileContext, vim_command Command)
 
 #endif //PLORE_VIM_H
