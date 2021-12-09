@@ -457,13 +457,25 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		
 		// NOTE(Evan): ISearch, appears at top of screen.
 #if 1
-		if (VimContext->ActiveCommand.Type == VimCommandType_ISearch) {
+		if (VimContext->Mode == VimMode_Insert) {
+			char *InsertPrompt = "";
+			
+			switch (VimContext->ActiveCommand.Type) {
+				case VimCommandType_ISearch: {
+					InsertPrompt = "ISearch: ";
+				} break;
+				case VimCommandType_ChangeDirectory: {
+					InsertPrompt = "Change directory to? ";
+				} break;
+				
+				InvalidDefaultCase;
+			}
 			char Buffer[128] = {0};
 			u64 BufferSize = 0;
 			
 			u64 Size = 128;
 			char *S = PushBytes(&State->FrameArena, Size);
-			BufferSize += StringPrintSized(Buffer, ArrayCount(Buffer), "ISearch: ");
+			BufferSize += StringPrintSized(Buffer, ArrayCount(Buffer), InsertPrompt);
 			BufferSize += StringPrintSized(Buffer+BufferSize, ArrayCount(Buffer), 
 										   "%s%s", 
 										   VimKeysToString(S, Size, VimContext).Buffer,
@@ -535,28 +547,18 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			plore_file *CursorFile = &State->DirectoryState.Cursor.File;
 			char CursorInfo[512] = {0};
 			char *CommandString = "";
-			char *InsertPrompt = "";
 			
 			switch (VimContext->Mode) {
 				case VimMode_Normal: {
 					CommandString = PloreKeysToString(&State->FrameArena, VimContext->CommandKeys, VimContext->CommandKeyCount);
 				} break;
-				
-				case VimMode_Insert: {
-					switch (VimContext->ActiveCommand.Type) {
-						case VimCommandType_ChangeDirectory: {
-							InsertPrompt = "Change directory to?";
-						} break;
-					}
-				} break;
 			}
 			
 			StringPrintSized(CursorInfo, 
 							 ArrayCount(CursorInfo),
-						     "[%s] %s 01-02-03 %s >>%s", 
+						     "[%s] %s 01-02-03 >>%s", 
 						     (CursorFile->Type == PloreFileNode_Directory) ? "directory" : "file", 
 						     CursorFile->Path.FilePart,
-							 InsertPrompt,
 							 CommandString
 							 );
 			
