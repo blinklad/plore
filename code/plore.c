@@ -1,4 +1,9 @@
 #include "plore.h"
+
+#if defined(PLORE_INTERNAL)
+internal void DrawText(char *Format, ...);
+#endif
+
 #include "plore_string.h"
 #include "plore_vimgui.h"
 #include "plore_vim.h"
@@ -133,9 +138,9 @@ GetKey(char C) {
 #endif
 
 #include "plore_memory.c"
+#include "plore_table.c"
 #include "plore_vim.c"
 #include "plore_vimgui.c"
-#include "plore_table.c"
 
 internal void 
 PlatformInit(platform_api *PlatformAPI) {
@@ -146,7 +151,6 @@ PlatformInit(platform_api *PlatformAPI) {
 
 u8 FontBuffer[1<<21];
 u8 TempBitmap[512*512];
-
 
 // NOTE(Evan): This is hacked in here just so we can figure out what the program should do!
 internal plore_font * 
