@@ -215,7 +215,9 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 #endif
 		
 		State->VimContext = PushStruct(&State->Arena, plore_vim_context);
+		State->VimContext->CommandArena = SubArena(&State->Memory->PermanentStorage, Kilobytes(1), 16);
 		State->VimContext->MaxCommandCount = 32; // @Hack
+		State->VimContext->Mode = VimMode_Normal;
 		
 		State->RenderList = PushStruct(&State->Arena, plore_render_list);
 		State->RenderList->Font = State->Font;
@@ -277,235 +279,79 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		CommandThisFrame = MakeCommand(VimContext);
 		CommandCandidates = CommandThisFrame;
 		vim_command Command = CommandThisFrame.Command;
-		if (Command.Type != VimCommandType_None) {
+		
+		if (Command.Mode) {
+			switch (Command.Mode) {
+				// NOTE(Evan): We need to cleanup the active command at one point, but it's not clear exactly where.
+				// Right now we are just using the mode switch boundary.
+				case VimMode_Normal: {
+					VimContext->Mode = VimMode_Normal;
+					SetActiveCommand(VimContext, Command);
+				} break;
+				case VimMode_Insert: {
+					VimContext->Mode = VimMode_Insert;
+					SetActiveCommand(VimContext, Command);
+				} break;
+			}
+			
+			AteCommands = true;
+		}
+		
+		if (Command.Type) {
 			switch (State->InteractState) {
 				case (InteractState_FileExplorer): {
 					switch (VimContext->Mode) {
 						case VimMode_Normal: {
 							switch (Command.Type) {
-								case VimCommandType_Yank: {
-									if (FileContext->SelectedCount) { // Yank selection if there is any.
-										MemoryCopy(FileContext->Selected, FileContext->Yanked, sizeof(FileContext->Yanked));
-										FileContext->YankedCount = FileContext->SelectedCount;
-											
-									} 
-								
-								} break;
-								case VimCommandType_ClearYank: {
-									if (FileContext->YankedCount) {
-										FileContext->YankedCount = 0;
-										FileContext->SelectedCount = 0;
-									}
-									// TODO(Evan): Invalidate the yankees' directory's cursor.
-								} break;
-								case VimCommandType_Paste: {
-									if (FileContext->YankedCount) { // @Cleanup
-										u64 PastedCount = 0;
-										plore_file_listing *Current = &State->DirectoryState.Current;
-										u64 WeAreTopLevel = Platform->IsPathTopLevel(Current->File.Path.Absolute, PLORE_MAX_PATH);
-										for (u64 M = 0; M < FileContext->YankedCount; M++) {
-											plore_path *Movee = FileContext->Yanked + M;
-											
-											char NewPath[PLORE_MAX_PATH] = {0};
-											u64 BytesWritten = CStringCopy(Current->File.Path.Absolute, NewPath, PLORE_MAX_PATH);
-											Assert(BytesWritten < PLORE_MAX_PATH - 1);
-											if (!WeAreTopLevel) {
-												NewPath[BytesWritten++] = '\\';
-											}
-											CStringCopy(Movee->FilePart, NewPath + BytesWritten, PLORE_MAX_PATH);
-											
-											b64 DidMoveOk = Platform->MoveFile(Movee->Absolute, NewPath);
-											if (DidMoveOk) {
-												PastedCount++;
-											} else {
-												DrawText("Couldn't paste `%s`", Movee->FilePart);
-											}
-										}
-										DrawText("Pasted %d items!", PastedCount);
-										
-										
-										FileContext->YankedCount = 0;
-										MemoryClear(FileContext->Yanked, sizeof(FileContext->Yanked));
-										
-										FileContext->SelectedCount = 0;
-										MemoryClear(FileContext->Selected, sizeof(FileContext->Selected));
-									}
-								} break;
-								case VimCommandType_MoveLeft: {
-									u64 ScalarCount = 0;
-									while (Command.Scalar--) {
-										char Buffer[PLORE_MAX_PATH] = {0};
-										Platform->GetCurrentDirectory(Buffer, PLORE_MAX_PATH);
-										
-										Print("Moving up a directory, from %s ", Buffer);
-										Platform->PopPathNode(Buffer, PLORE_MAX_PATH, false);
-										PrintLine("to %s", Buffer);
-										
-										Platform->SetCurrentDirectory(Buffer);
-										ScalarCount++;
-										
-										if (Platform->IsPathTopLevel(Buffer, PLORE_MAX_PATH)) break;
-									}
-									Command.Scalar = ScalarCount;
-								} break;
-								
-								case VimCommandType_MoveRight: {
-									u64 WasGivenScalar = Command.Scalar > 1;
-									u64 ScalarCount = 0;
-									while (Command.Scalar--) {
-										plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(State->FileContext, &State->DirectoryState.Current.File.Path);
-										plore_file *CursorEntry = State->DirectoryState.Current.Entries + CursorResult.Cursor->Cursor;
-									
-										if (CursorEntry->Type == PloreFileNode_Directory) {
-											PrintLine("Moving down a directory, from %s to %s", 
-													  State->DirectoryState.Current.File.Path.Absolute, 
-													  CursorEntry->Path.Absolute);
-											Platform->SetCurrentDirectory(CursorEntry->Path.Absolute);
-											
-											ScalarCount++;
-											
-											if (Platform->IsPathTopLevel(CursorEntry->Path.Absolute, PLORE_MAX_PATH)) break;
-											else SynchronizeCurrentDirectory(State->FileContext, &State->DirectoryState);
-										} else if (!WasGivenScalar) {
-											if (CursorEntry->Extension != PloreFileExtension_Unknown) {
-												DrawText("Opening %s", CursorEntry->Path.FilePart);
-												Platform->RunShell(PloreFileExtensionHandlers[CursorEntry->Extension], CursorEntry->Path.Absolute);
-											} else {
-												DrawText("Unknown extension - specify a handler", CursorEntry->Path.FilePart);
-											}
-										}
-										
-										if (!State->DirectoryState.Current.Count) break;
-										
-									}
-									Command.Scalar = ScalarCount;
-								} break;
-								
-								case VimCommandType_MoveUp: {
-									if (State->DirectoryState.Current.Count) {
-										plore_file_listing_cursor_get_or_create_result CurrentResult = GetOrCreateCursor(State->FileContext, &State->DirectoryState.Current.File.Path);
-										u64 Magnitude = Command.Scalar % State->DirectoryState.Current.Count;
-										if (CurrentResult.Cursor->Cursor == 0) {
-											CurrentResult.Cursor->Cursor = State->DirectoryState.Current.Count-Magnitude;
-										} else {
-											CurrentResult.Cursor->Cursor = (CurrentResult.Cursor->Cursor - Magnitude) % State->DirectoryState.Current.Count;
-										}
-										
-									}
-								} break;
-								
-								case VimCommandType_MoveDown: {
-									if (State->DirectoryState.Current.Count) {
-										plore_file_listing_cursor_get_or_create_result CurrentResult = GetOrCreateCursor(State->FileContext, &State->DirectoryState.Current.File.Path);
-										u64 Magnitude = Command.Scalar % State->DirectoryState.Current.Count;
-										
-										CurrentResult.Cursor->Cursor = (CurrentResult.Cursor->Cursor + Magnitude) % State->DirectoryState.Current.Count;
-									}
-								} break;
-								
-								case VimCommandType_SelectDown:
-								case VimCommandType_SelectUp: {
-									i64 Direction = Command.Type == VimCommandType_SelectDown ? 1 : -1;
-									plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(State->FileContext, &State->DirectoryState.Current.File.Path);
-									plore_file *Selectee = State->DirectoryState.Current.Entries + CursorResult.Cursor->Cursor;
-									u64 ScalarCount = 0;
-									u64 StartScalar = CursorResult.Cursor->Cursor;
-									while (Command.Scalar--) {
-										ToggleSelected(FileContext, &State->DirectoryState.Cursor.File.Path);
-										if (Direction == +1) {
-											CursorResult.Cursor->Cursor = (CursorResult.Cursor->Cursor + 1) % State->DirectoryState.Current.Count;
-										} else {
-											if (CursorResult.Cursor->Cursor == 0) {
-												CursorResult.Cursor->Cursor = State->DirectoryState.Current.Count - 1;
-											} else {
-												CursorResult.Cursor->Cursor -= 1;
-											}
-										}
-										Selectee = State->DirectoryState.Current.Entries + CursorResult.Cursor->Cursor;
-										
-										ScalarCount++;
-										if (CursorResult.Cursor->Cursor == StartScalar) break;
-									}
-									
-								} break;
-								
-								case VimCommandType_JumpTop: {
-									plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(State->FileContext, &State->DirectoryState.Current.File.Path);
-									CursorResult.Cursor->Cursor = 0;
-								} break;
-								
-								case VimCommandType_JumpBottom: {
-									plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(State->FileContext, &State->DirectoryState.Current.File.Path);
-									if (State->DirectoryState.Current.Count) {
-										CursorResult.Cursor->Cursor = State->DirectoryState.Current.Count-1;
-									}
-								} break;
-								
-								case VimCommandType_ISearchMode: {
-									VimContext->Mode = VimMode_ISearch;
+								case VimCommandType_Yank: 
+								case VimCommandType_ClearYank: 
+								case VimCommandType_Paste: 
+								case VimCommandType_ChangeDirectory: 
+								case VimCommandType_JumpTop: 
+								case VimCommandType_SelectUp: 
+								case VimCommandType_MoveLeft: 
+								case VimCommandType_MoveRight: 
+								case VimCommandType_MoveUp: 
+								case VimCommandType_MoveDown: 
+								case VimCommandType_SelectDown: 
+								case VimCommandType_ISearch: 
+								case VimCommandType_JumpBottom:  {
+									VimCommands[Command.Type](State, VimContext, FileContext, Command);
 								} break;
 								
 								case VimCommandType_Incomplete: {
-									PrintLine("Incomplete command");
+									VimKeysToString(State->DirectoryState.Filter, 
+													ArrayCount(State->DirectoryState.Filter), 
+													VimContext);
 								} break;
-								
-								case VimCommandType_ChangeDirectory: {
-									Platform->SetCurrentDirectory(Command.Shell);
-								} break;
-								
-								case VimCommandType_CommandMode: {
-									VimContext->Mode = VimMode_Command;
-								} break;
-								
 								InvalidDefaultCase;
 							}
 						} break;
 						
-						case VimMode_ISearch: {
+						case VimMode_Insert: {
 							switch (Command.Type) {
-								case VimCommandType_Incomplete:
-								case VimCommandType_CompleteSearch: {
-									// NOTE(Evan): Set the text filter that's used below and in the GUI.
+								case VimCommandType_Incomplete: {
 									VimKeysToString(State->DirectoryState.Filter, 
-												    ArrayCount(State->DirectoryState.Filter), 
-												    VimContext);
-									
-									if (Command.Type == VimCommandType_CompleteSearch) {
-										VimContext->Mode = VimMode_Normal;
-										if (State->DirectoryState.Current.Count) {
-											for (u64 F = 0; F < State->DirectoryState.Current.Count; F++) {
-												plore_file *File = State->DirectoryState.Current.Entries + F;
-												
-												if (Substring(File->Path.FilePart, State->DirectoryState.Filter).IsContained) {
-													plore_file_listing_cursor *CurrentCursor = GetCursor(State->FileContext, State->DirectoryState.Current.File.Path.Absolute);
-													CurrentCursor->Cursor = F;
-													MemoryClear(State->DirectoryState.Filter, ArrayCount(State->DirectoryState.Filter));
-													break;
-												}
-											}
-										}
-									}
-								}; break;
+													ArrayCount(State->DirectoryState.Filter), 
+													VimContext);
+								} break;
 								
-								case VimCommandType_NormalMode: {
+								case VimCommandType_CompleteInsert: {
+									Assert(VimContext->ActiveCommand.Type);
+									
+									// TODO(Evan): Flag for "insertion complete", so there isn't infinite looping.
+									u64 Size = 512;
+									VimContext->ActiveCommand.Shell = PushBytes(&VimContext->CommandArena, Size);
+									VimKeysToString(VimContext->ActiveCommand.Shell, Size, VimContext);
+									
+									VimCommands[VimContext->ActiveCommand.Type](State, VimContext, FileContext, VimContext->ActiveCommand);
+									ClearArena(&VimContext->CommandArena);
+									AteCommands = true;
 									VimContext->Mode = VimMode_Normal;
+									VimContext->ActiveCommand = ClearStruct(vim_command);
 								} break;
-							}
-						} break;
-						
-						case VimMode_Command: {
-							switch (Command.Type) {
-								case VimCommandType_Incomplete:
-								case VimCommandType_CompleteCommand: {
-									VimContext->ShellCount = VimKeysToString(VimContext->Shell, ArrayCount(VimContext->Shell), VimContext).BytesWritten;
-									if (Command.Type == VimCommandType_CompleteCommand) {
-										VimContext->Mode = VimMode_Normal;
-										Platform->RunShell(VimContext->Shell, NULL);
-										
-										MemoryClear(VimContext->Shell, ArrayCount(VimContext->Shell));
-										VimContext->ShellCount = 0;
-									}
-								} break;
+								
+								InvalidDefaultCase;
 							}
 						} break;
 						
@@ -576,7 +422,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	};
 	
 	char *FilterText = 0;
-	if (VimContext->Mode == VimMode_ISearch) {
+	if (VimContext->ActiveCommand.Type == VimCommandType_ISearch) {
 		u64 Size = 128;
 		char *Buffer = PushBytes(&State->FrameArena, Size);
 		FilterText = VimKeysToString(Buffer, Size, VimContext).Buffer;
@@ -593,16 +439,35 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 					   .Rect = { .P = V2(0, 0), .Span = { PlatformAPI->WindowDimensions.X, PlatformAPI->WindowDimensions.Y - FooterHeight } },
 			   })) {
 		
+		// NOTE(Evan): Cursor state.
+		local f64 Tick = 0;
+		local b64 DoBlink = false; 
+		
+		Tick += PloreInput->DT;
+		if (Tick > 0.3f) {
+			DoBlink = !DoBlink;
+			Tick = 0;
+		}
+		
+		if (DidInput) {
+			DoBlink = true;
+			Tick = 0;
+		}
+		
+		
 		// NOTE(Evan): ISearch, appears at top of screen.
 #if 1
-		if (VimContext->Mode == VimMode_ISearch) {
+		if (VimContext->ActiveCommand.Type == VimCommandType_ISearch) {
 			char Buffer[128] = {0};
 			u64 BufferSize = 0;
 			
 			u64 Size = 128;
 			char *S = PushBytes(&State->FrameArena, Size);
 			BufferSize += StringPrintSized(Buffer, ArrayCount(Buffer), "ISearch: ");
-			BufferSize += StringPrintSized(Buffer+BufferSize, ArrayCount(Buffer), "%s", VimKeysToString(S, Size, VimContext).Buffer);
+			BufferSize += StringPrintSized(Buffer+BufferSize, ArrayCount(Buffer), 
+										   "%s%s", 
+										   VimKeysToString(S, Size, VimContext).Buffer,
+										   (DoBlink ? "|" : ""));
 			
 			Y += FooterHeight + 5*PadY;
 			H -= (FooterHeight + 5*PadY);
@@ -670,38 +535,29 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			plore_file *CursorFile = &State->DirectoryState.Cursor.File;
 			char CursorInfo[512] = {0};
 			char *CommandString = "";
-			
-			local f64 Tick = 0;
-			local b64 DoBlink = true; 
-			
-			Tick += PloreInput->DT;
-			if (Tick > 0.3f) {
-				DoBlink = !DoBlink;
-				Tick = 0;
-			}
-			
-			if (DidInput || VimContext->Mode != VimMode_Command) {
-				DoBlink = true;
-				Tick = 0;
-			}
+			char *InsertPrompt = "";
 			
 			switch (VimContext->Mode) {
 				case VimMode_Normal: {
-					PloreKeysToString(&State->FrameArena, VimContext->CommandKeys, VimContext->CommandKeyCount);
+					CommandString = PloreKeysToString(&State->FrameArena, VimContext->CommandKeys, VimContext->CommandKeyCount);
 				} break;
 				
-				case VimMode_Command: {
-					CommandString = VimContext->Shell;
+				case VimMode_Insert: {
+					switch (VimContext->ActiveCommand.Type) {
+						case VimCommandType_ChangeDirectory: {
+							InsertPrompt = "Change directory to?";
+						} break;
+					}
 				} break;
 			}
 			
 			StringPrintSized(CursorInfo, 
 							 ArrayCount(CursorInfo),
-						     "[%s] %s 01-02-03 >>%s%s", 
+						     "[%s] %s 01-02-03 %s >>%s", 
 						     (CursorFile->Type == PloreFileNode_Directory) ? "directory" : "file", 
 						     CursorFile->Path.FilePart,
-							 CommandString,
-							 (DoBlink ?  "" : "|")
+							 InsertPrompt,
+							 CommandString
 							 );
 			
 			if (Button(State->VimguiContext, (vimgui_button_desc) {
