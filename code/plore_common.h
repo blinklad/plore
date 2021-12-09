@@ -86,13 +86,7 @@ ToggleFlag(b64 Flags, b64 Flag) {
 	#endif
 #endif
 
-
-typedef struct plore_range {
-	void *Buffer;
-	u64 Size;
-} plore_range;
-
-#define PloreRange(Buffer) ((plore_range) {&Buffer, ArrayCount(Buffer)})
+#define ClearStruct(type) (type) {0}
 
 plore_inline void *
 MemoryClear(void *Memory, u64 ByteCount) {
