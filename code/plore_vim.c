@@ -104,7 +104,6 @@ MakeCommand(plore_vim_context *Context) {
 		
 		case VimMode_Insert: {
 			vim_key *LatestKey = PeekLatestKey(Context);
-			// @Cutnpaste from above
 			if (LatestKey) {
 				if (Context->CommandKeyCount == ArrayCount(Context->CommandKeys)) {
 					DrawText("Command key count reached, changing to normal mode.");
