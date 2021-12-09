@@ -377,7 +377,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	
 	SynchronizeCurrentDirectory(State->FileContext, &State->DirectoryState);
 	
-	
 	if (AteCommands) {
 		PrintLine("Clearing commands.");
 		AteCommands = false;
@@ -391,6 +390,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	//
 	u64 Cols = 3;
 	
+	f32 FileRowHeight = 36.0f;
 	f32 FooterPad = 0;
 	f32 FooterHeight = 60;
 	f32 fCols = (f32) Cols;
@@ -626,6 +626,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 										   .BackgroundColour = BackgroundColour,
 										   .TextColour = TextColour,
 										   .TextPad = V2(4, 0),
+										   .Rect = { .Span = { .H = FileRowHeight, } },
 										   })) {
 								// TODO(Evan): Change cursor to here?!
 								PrintLine("Button %s was clicked!", Listing->Entries[Row].Path.FilePart);

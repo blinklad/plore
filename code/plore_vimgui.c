@@ -306,11 +306,11 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	
 	
 	if (Desc.FillWidth) {
-		Desc.Rect = (rectangle) {0};
 		f32 TitlePad = 30.0f;
 		f32 ButtonStartY = Window->Rect.P.Y + TitlePad;
 		f32 RowPad = 4.0f;
-		f32 RowHeight = 36.0f;
+		f32 RowHeight = Desc.Rect.Span.H;
+		
 		
 		Desc.Rect.Span = (v2) {
 			.W = Window->Rect.Span.X,
@@ -321,6 +321,7 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 			.X = Window->Rect.P.X,
 			.Y = ButtonStartY + Window->RowCountThisFrame*RowHeight+1,
 		};
+		
 	} else {
 		Desc.Rect.P.X += Window->Rect.P.X;
 		Desc.Rect.P.Y += Window->Rect.P.Y;
