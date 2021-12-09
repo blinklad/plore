@@ -591,10 +591,28 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							   .ForceFocus           = Directory->Focus,
 							   .BackgroundColour     = WidgetColour_Primary,
 						   })) {
+				u64 PageMax = (u64) (Span.H / FileRowHeight);
+				u64 Cursor = 0;
+				u64 RowStart = Cursor;
+				u64 RowEnd = Listing->Count;
+				if (RowCursor) {
+					Cursor = RowCursor->Cursor;
+					u64 Page = (u64) (Cursor / PageMax);
+					RowStart = Page*PageMax;
+					
+					
+					u64 RowsAfter = Min(Cursor+PageMax, Listing->Count);
+					RowEnd = Clamp(Cursor + RowsAfter, 0, Listing->Count);
+					
+					if (Directory->Focus) {
+						PrintLine("Page %d", Page);
+						PrintLine("%d rows after", RowsAfter);
+					}
+				}
 				
 				switch (Listing->File.Type) {
 					case PloreFileNode_Directory: {
-						for (u64 Row = 0; Row < Listing->Count; Row++) {
+						for (u64 Row = RowStart; Row < RowEnd; Row++) {
 							
 							widget_colour BackgroundColour = 0;
 							text_colour TextColour = 0;
