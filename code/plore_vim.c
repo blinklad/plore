@@ -348,6 +348,12 @@ PLORE_VIM_COMMAND(ChangeDirectory) {
 	}
 }
 
+PLORE_VIM_COMMAND(Select) {
+	plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(State->FileContext, &State->DirectoryState.Current.File.Path);
+	plore_file *Selectee = State->DirectoryState.Current.Entries + CursorResult.Cursor->Cursor;
+	ToggleSelected(State->FileContext, &State->DirectoryState.Cursor.File.Path);
+}
+
 #define PLORE_X(Name, Ignored1, _Ignored2) Do##Name,
 vim_command_function *VimCommands[] = {
 	VIM_COMMANDS

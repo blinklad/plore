@@ -308,12 +308,13 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								case VimCommandType_Paste: 
 								case VimCommandType_ChangeDirectory: 
 								case VimCommandType_JumpTop: 
+								case VimCommandType_Select: 
+								case VimCommandType_SelectDown: 
 								case VimCommandType_SelectUp: 
 								case VimCommandType_MoveLeft: 
 								case VimCommandType_MoveRight: 
 								case VimCommandType_MoveUp: 
 								case VimCommandType_MoveDown: 
-								case VimCommandType_SelectDown: 
 								case VimCommandType_ISearch: 
 								case VimCommandType_JumpBottom:  {
 									VimCommands[Command.Type](State, VimContext, FileContext, Command);

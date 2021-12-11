@@ -17,6 +17,7 @@ PLORE_X(MoveDown,        "move_down",        "Move Down")       \
 PLORE_X(Yank,            "yank",             "Yank")            \
 PLORE_X(ClearYank,       "clear_yank",       "Clear Yank")      \
 PLORE_X(Paste,           "paste",            "Paste")           \
+PLORE_X(Select,          "select",           "Select")          \
 PLORE_X(SelectUp,        "select_up",        "Select Up")       \
 PLORE_X(SelectDown,      "select_down",      "Select Down")     \
 PLORE_X(JumpTop,         "jump_top",         "Jump To Top")     \
@@ -136,7 +137,7 @@ global vim_binding VimBindings[] = {
 		}
 	},
 	{
-		.Type = VimCommandType_SelectUp,
+		.Type = VimCommandType_SelectDown,
 		.Keys = {
 			{
 				.Input = PloreKey_Space,
@@ -145,13 +146,23 @@ global vim_binding VimBindings[] = {
 		}
 	},
 	{
-		.Type = VimCommandType_SelectDown,
+		.Type = VimCommandType_Select,
 		.Keys = {
 			{
 				.Input = PloreKey_Space,
 			},
 		}
 	},
+#if 0
+	{
+		.Type = VimCommandType_SelectUp,
+		.Keys = {
+			{
+				.Input = PloreKey_Space,
+			},
+		}
+	},
+#endif
 	{
 		.Type = VimCommandType_Paste,
 		.Keys = {
@@ -223,16 +234,6 @@ global vim_binding VimBindings[] = {
 			},
 		}
 	},
-	#if 0
-	{
-		.Type = VimCommandType_CommandMode,
-		.Keys = {
-			{
-				.Input = PloreKey_Semicolon,
-			},
-		}
-	},
-	#endif
 };
 
 
