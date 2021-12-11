@@ -216,7 +216,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		
 		State->VimContext = PushStruct(&State->Arena, plore_vim_context);
 		State->VimContext->CommandArena = SubArena(&State->Memory->PermanentStorage, Kilobytes(1), 16);
-		State->VimContext->MaxCommandCount = 32; // @Hack
 		State->VimContext->Mode = VimMode_Normal;
 		
 		State->RenderList = PushStruct(&State->Arena, plore_render_list);
@@ -257,7 +256,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	
 	b64 DidInput = false;
 	for (u64 K = 0; K < BufferedInput.TextInputCount; K++) {
-		if (VimContext->CommandKeyCount == VimContext->MaxCommandCount) break;
+		if (VimContext->CommandKeyCount == ArrayCount(VimContext->CommandKeys)) break;
 		
 		char C = BufferedInput.TextInput[K];
 		plore_key PK = GetKey(C);
@@ -340,16 +339,18 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								case VimCommandType_CompleteInsert: {
 									Assert(VimContext->ActiveCommand.Type);
 									
-									// TODO(Evan): Flag for "insertion complete", so there isn't infinite looping.
+									// NOTE(Evan): Copy insertion into the active command, then call the active command function before cleaning up.
 									u64 Size = 512;
 									VimContext->ActiveCommand.Shell = PushBytes(&VimContext->CommandArena, Size);
 									VimKeysToString(VimContext->ActiveCommand.Shell, Size, VimContext);
 									
 									VimCommands[VimContext->ActiveCommand.Type](State, VimContext, FileContext, VimContext->ActiveCommand);
 									ClearArena(&VimContext->CommandArena);
-									AteCommands = true;
 									VimContext->Mode = VimMode_Normal;
 									VimContext->ActiveCommand = ClearStruct(vim_command);
+									
+									// @Cleanup
+									AteCommands = true;
 								} break;
 								
 								InvalidDefaultCase;
@@ -359,29 +360,20 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 						InvalidDefaultCase;
 						
 					}
-					
-					if (Command.Type != VimCommandType_Incomplete) {
-						AteCommands = true;
-					}
-					
-			} break;
-				
+				} break;
 			}
-		} else if (!CommandThisFrame.CandidateCount) {
-			AteCommands = true;
 		}
 		
-		if (VimContext->CommandKeyCount == VimContext->MaxCommandCount) {
-			AteCommands = true;
-		}
+		b64 FinalizedCommand = (Command.Type && Command.Type != VimCommandType_Incomplete);
+		b64 NoPossibleCandidates = (!Command.Type && !CommandThisFrame.CandidateCount);
+		AteCommands = FinalizedCommand || NoPossibleCandidates;
 	}
 	
 	SynchronizeCurrentDirectory(State->FileContext, &State->DirectoryState);
 	
+	// NOTE(Evan): Clear the command buffer if its contents are no longer required.
 	if (AteCommands) {
-		PrintLine("Clearing commands.");
 		AteCommands = false;
-		
 		MemoryClear(VimContext->CommandKeys, sizeof(VimContext->CommandKeys));
 		VimContext->CommandKeyCount = 0;
 	}

@@ -64,7 +64,6 @@ typedef struct vim_key {
 typedef struct plore_vim_context {
 	vim_key CommandKeys[32];
 	u64 CommandKeyCount;
-	u64 MaxCommandCount; // @Hardcode
 	vim_mode Mode;
 	vim_command ActiveCommand;
 	memory_arena CommandArena;
