@@ -24,6 +24,11 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
    - OS-specific shell
    - Rename
    - Make directory
+   - Filter
+   - ~~isearch~~
+   - isearch_select
+   - isearch_select_all
+   - isearch_select_extension
 * ~~Command previews~~
 * Movement:
 - ~~Jump to top/bottom~~
