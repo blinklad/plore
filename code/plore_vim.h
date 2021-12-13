@@ -6,12 +6,8 @@
 struct plore_vim_context;
 typedef struct plore_vim_context plore_vim_context;
 
-// NOTE(Evan): Even with the X macro, we still need to define vim_bindings separately, _and_
-// the command dispatch needs to know which commands are usable in a given mode.
-// Revisit this metaprogramming approach in the future so there's fewer places involved with defining commands.
 #define VIM_COMMANDS \
 PLORE_X(None,            "none",             "None")             \
-PLORE_X(Insert,          "insert",           "Insert")           \
 PLORE_X(MoveLeft,        "move_left",        "Move Left")        \
 PLORE_X(MoveRight,       "move_right",       "Move Right")       \
 PLORE_X(MoveUp,          "move_up",          "Move Up")          \
@@ -26,7 +22,8 @@ PLORE_X(SelectUp,        "select_up",        "Select Up")        \
 PLORE_X(SelectDown,      "select_down",      "Select Down")      \
 PLORE_X(ISearch,         "isearch",          "ISearch")          \
 PLORE_X(ChangeDirectory, "change_directory", "Change Directory") \
-PLORE_X(RenameFile,      "rename_file",      "Rename File") 
+PLORE_X(RenameFile,      "rename_file",      "Rename File")      \
+PLORE_X(OpenFile,        "open_file",        "Open File") 
 
 #define PLORE_X(Name, Ignored1, _Ignored2) VimCommandType_##Name,
 typedef enum vim_command_type {
@@ -47,6 +44,7 @@ typedef enum vim_mode {
 	VimMode_None,
 	VimMode_Normal,
 	VimMode_Insert,
+	VimMode_Lister,
 	VimMode_Count,
 	_VimMode_ForceU64 = 0xFFFFFFFF,
 } vim_mode;

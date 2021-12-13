@@ -128,13 +128,16 @@ MakeCommand(plore_vim_context *Context) {
 		} break;
 		
 		case VimMode_Insert: {
+			Assert(Context->ActiveCommand.Type);
+			
 			vim_key *LatestKey = PeekLatestKey(Context);
 			if (LatestKey) {
 				if (Context->CommandKeyCount == ArrayCount(Context->CommandKeys)) {
 					DrawText("Command key count reached, changing to normal mode.");
-					Result.Command.Mode = VimMode_Normal;
+					Context->Mode = VimMode_Normal;
+					Context->ActiveCommand = ClearStruct(vim_command);
 				} else if (LatestKey->Input == PloreKey_Return) {
-					Result.Command.Type = VimCommandType_Insert;
+					Result.Command.Type = Context->ActiveCommand.Type;
 					Result.Command.State = VimCommandState_Finish;
 					Context->CommandKeys[--Context->CommandKeyCount] = ClearStruct(vim_key); // NOTE(Evan): Remove return from command buffer.
 				} else {
@@ -145,10 +148,37 @@ MakeCommand(plore_vim_context *Context) {
 						Context->CommandKeys[--Context->CommandKeyCount] = ClearStruct(vim_key);
 					} 
 					
-					Result.Command.Type = VimCommandType_Insert;
+					Result.Command.Type = Context->ActiveCommand.Type;
 					Result.Command.State = VimCommandState_Incomplete;
 				}
 			}
+		} break;
+		
+		case VimMode_Lister: {
+			Assert(Context->ActiveCommand.Type);
+			
+			Result.Command.Type = Context->ActiveCommand.Type;
+			vim_key *LatestKey = PeekLatestKey(Context);
+			
+			// @Cutnpaste from VimMode_Insert
+			// TODO(Evan): Lister doesn't support insertions, but it may be possible to fold other movement with insert mode.
+			if (LatestKey) {
+				if (Context->CommandKeyCount == ArrayCount(Context->CommandKeys)) {
+					DrawText("Command key count reached, changing to normal mode.");
+					Context->Mode = VimMode_Normal;
+					Context->ActiveCommand = ClearStruct(vim_command);
+				} else if (LatestKey->Input == PloreKey_Return) {
+					Result.Command.Type = Context->ActiveCommand.Type;
+					Result.Command.State = VimCommandState_Finish;
+					Context->CommandKeys[--Context->CommandKeyCount] = ClearStruct(vim_key); // NOTE(Evan): Remove return from command buffer.
+				} else {
+					// TODO(Evan): Lister cursor movement.
+					Result.Command.Type = Context->ActiveCommand.Type;
+					Result.Command.State = VimCommandState_Incomplete;
+				}
+			}
+			
+			
 		} break;
 		
 		InvalidDefaultCase;
@@ -159,19 +189,6 @@ MakeCommand(plore_vim_context *Context) {
 
 PLORE_VIM_COMMAND(None) {
 	Assert(!"None command function reached!");
-}
-
-PLORE_VIM_COMMAND(Insert) {
-	VimKeysToString(State->DirectoryState.Filter, 
-					ArrayCount(State->DirectoryState.Filter), 
-					VimContext->CommandKeys);
-	if (Command.Type == VimCommandType_Insert) {
-		VimContext->ActiveCommand.Shell = PloreKeysToString(&VimContext->CommandArena, 
-															VimContext->CommandKeys, 
-															VimContext->CommandKeyCount);
-		VimContext->Mode = VimMode_Normal;
-		VimContext->ActiveCommand = ClearStruct(vim_command);
-	}
 }
 
 PLORE_VIM_COMMAND(MoveLeft) {
@@ -210,9 +227,18 @@ PLORE_VIM_COMMAND(MoveRight) {
 			if (Platform->IsPathTopLevel(CursorEntry->Path.Absolute, PLORE_MAX_PATH)) return;
 			else SynchronizeCurrentDirectory(FileContext, &State->DirectoryState);
 		} else if (!WasGivenScalar) {
-			if (CursorEntry->Extension != PloreFileExtension_Unknown) {
-				DrawText("Opening %s", CursorEntry->Path.FilePart);
-				Platform->RunShell(PloreFileExtensionHandlers[CursorEntry->Extension], CursorEntry->Path.Absolute);
+			if (CursorEntry->Extension) {
+				u64 HandlerCount = GetHandlerCount(CursorEntry->Extension);
+				
+				if (HandlerCount > 1) {
+					SetActiveCommand(VimContext, (vim_command) {
+										 .Type = VimCommandType_OpenFile,
+									 });
+					VimContext->Mode = VimMode_Lister;
+					int BreakHere = 5;
+				} else {
+					Platform->RunShell(PloreFileExtensionHandlers[CursorEntry->Extension]->Shell, CursorEntry->Path.Absolute);
+				}
 			} else {
 				DrawText("Unknown extension - specify a handler", CursorEntry->Path.FilePart);
 			}
@@ -440,6 +466,21 @@ PLORE_VIM_COMMAND(Select) {
 	ToggleSelected(FileContext, &State->DirectoryState.Cursor.File.Path);
 }
 
+PLORE_VIM_COMMAND(OpenFile) {
+	switch (Command.State) {
+		case VimCommandState_Start: {
+			DrawText("start");
+		} break;
+		
+		case VimCommandState_Finish: {
+			DrawText("finish");
+			if (Command.Shell) {
+				DrawText("shell ok");
+			}
+		} break;
+	}
+}
+	
 #define PLORE_X(Name, Ignored1, _Ignored2) Do##Name,
 vim_command_function *VimCommands[] = {
 	VIM_COMMANDS

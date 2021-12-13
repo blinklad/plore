@@ -313,6 +313,10 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 					VimContext->Mode = VimMode_Insert;
 					SetActiveCommand(VimContext, Command);
 				} break;
+				
+				case VimMode_Lister: {
+					DrawText("Lister");
+				} break;
 			}
 			
 			ClearCommands(VimContext);
@@ -323,64 +327,52 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 				case (InteractState_FileExplorer): {
 					switch (VimContext->Mode) {
 						case VimMode_Normal: {
-							switch (Command.Type) {
-								case VimCommandType_Yank: 
-								case VimCommandType_ClearYank: 
-								case VimCommandType_Paste: 
-								case VimCommandType_ChangeDirectory: 
-								case VimCommandType_JumpTop: 
-								case VimCommandType_Select: 
-								case VimCommandType_SelectDown: 
-								case VimCommandType_SelectUp: 
-								case VimCommandType_MoveLeft: 
-								case VimCommandType_MoveRight: 
-								case VimCommandType_MoveUp: 
-								case VimCommandType_MoveDown: 
-								case VimCommandType_ISearch: 
-								case VimCommandType_RenameFile: 
-								case VimCommandType_JumpBottom:  {
-									VimCommands[Command.Type](State, VimContext, FileContext, Command);
+							VimCommands[Command.Type](State, VimContext, FileContext, Command);
+						} break;
+						
+						case VimMode_Insert: {
+							Assert(VimContext->ActiveCommand.Type);
+							
+							// NOTE(Evan): Mirror the insert state. 
+							VimContext->ActiveCommand.State = Command.State;
+							
+							switch (Command.State) {
+								case VimCommandState_Start: 
+								case VimCommandState_Incomplete: {
+									VimCommands[VimContext->ActiveCommand.Type](State, VimContext, FileContext, VimContext->ActiveCommand);
 								} break;
 								
+								case VimCommandState_Finish: {
+									DrawText("Finish");
+									// NOTE(Evan): Copy insertion into the active command, then call the active command function before cleaning up.
+									u64 Size = 512;
+									VimContext->ActiveCommand.Shell = PushBytes(&VimContext->CommandArena, Size);
+									VimKeysToString(VimContext->ActiveCommand.Shell, Size, VimContext->CommandKeys);
+									
+									
+									VimCommands[VimContext->ActiveCommand.Type](State, VimContext, FileContext, VimContext->ActiveCommand);
+									
+									ClearCommands(VimContext);
+									ClearArena(&VimContext->CommandArena);
+									VimContext->Mode = VimMode_Normal;
+									VimContext->ActiveCommand = ClearStruct(vim_command);
+								} break;
 								
 								InvalidDefaultCase;
 							}
 						} break;
 						
-						case VimMode_Insert: {
-							switch (Command.Type) {
-								case VimCommandType_Insert: {
-									Assert(VimContext->ActiveCommand.Type);
-									
-									// NOTE(Evan): Mirror the insert state. 
-									VimContext->ActiveCommand.State = Command.State;
-									
-									switch (Command.State) {
-										case VimCommandState_Start: 
-										case VimCommandState_Incomplete: {
-											VimCommands[VimContext->ActiveCommand.Type](State, VimContext, FileContext, VimContext->ActiveCommand);
-										} break;
-										
-										case VimCommandState_Finish: {
-											DrawText("Finish");
-											// NOTE(Evan): Copy insertion into the active command, then call the active command function before cleaning up.
-											u64 Size = 512;
-											VimContext->ActiveCommand.Shell = PushBytes(&VimContext->CommandArena, Size);
-											VimKeysToString(VimContext->ActiveCommand.Shell, Size, VimContext->CommandKeys);
-											
-											
-											VimCommands[VimContext->ActiveCommand.Type](State, VimContext, FileContext, VimContext->ActiveCommand);
-											
-											ClearCommands(VimContext);
-											ClearArena(&VimContext->CommandArena);
-											VimContext->Mode = VimMode_Normal;
-											VimContext->ActiveCommand = ClearStruct(vim_command);
-										} break;
-										
-										InvalidDefaultCase;
-									}
-									
-									
+						case VimMode_Lister: {
+							switch (Command.State) {
+								case VimCommandState_Start:
+								case VimCommandState_Incomplete: {
+									VimCommands[VimContext->ActiveCommand.Type](State, VimContext, FileContext, VimContext->ActiveCommand);
+								} break;
+								
+								case VimCommandState_Finish: {
+									DrawText("Incomplete");
+									VimContext->Mode = VimMode_Normal;
+									VimContext->ActiveCommand = ClearStruct(vim_command);
 								} break;
 								
 								InvalidDefaultCase;
@@ -518,6 +510,37 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							   .TextPad = V2(8, 12),
 						   })) {
 			}
+		} else if (VimContext->Mode == VimMode_Lister && VimContext->ActiveCommand.Type == VimCommandType_OpenFile) {
+			int BreakHere = 5;
+			plore_file_listing *Listing = &State->DirectoryState.Cursor;
+			plore_handler *Handlers = PloreFileExtensionHandlers[Listing->File.Extension];
+			u64 HandlerCount = 0;
+			for (u64 Handler = 0; Handler < PLORE_FILE_EXTENSION_HANDLER_MAX; Handler++) {
+				if (Handlers[Handler].Shell) {
+					HandlerCount++;
+					u64 HandlerSize = 256;
+					char *HandlerString = PushBytes(&State->FrameArena, HandlerSize);
+					StringPrintSized(HandlerString, HandlerSize, "%-32s",
+									 Handlers[Handler].Shell);
+					
+					u64 ID = (u64) Handlers[Handler].Shell;
+					
+					if (Button(State->VimguiContext, (vimgui_button_desc) {
+								   .ID = ID,
+								   .Title = HandlerString,
+								   .Rect = {
+									   .P = V2(PadX, PlatformAPI->WindowDimensions.Y - FooterHeight - HandlerCount*FooterHeight - 20),
+									   .Span = V2(PlatformAPI->WindowDimensions.X-2*PadX, FooterHeight + PadY)
+								   },
+								   .TextPad = V2(16, 8),
+							   })) {
+					}
+					
+					H -= FooterHeight;
+				}
+			}
+			
+			H -= 20;
 		}
 #endif
 		
