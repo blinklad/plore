@@ -117,6 +117,26 @@ Substring(char *S, char *Substring) {
 	return(Result);
 }
 
+internal char *
+StringConcatenate(char *Left, u64 LeftBufferSize, char *Right) {
+	char *Result = Left;
+	
+	u64 Length = StringLength(Left);
+	if (!LeftBufferSize)            return (Result);
+	if (Length == LeftBufferSize-1) return(Result);
+	
+	Left += Length;
+	u64 Count = LeftBufferSize -= Length;
+	
+	while (*Right) {
+		*Left++ = *Right++;
+		if (!Count--) break;
+	}
+	
+	if (*Left) *Left = '\0';
+	
+	return(Result);
+}
 
 internal b64
 CStringsAreEqualIgnoreCase(char *A, char *B) {
