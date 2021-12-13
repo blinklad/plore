@@ -111,7 +111,7 @@ typedef struct vim_keys_to_string_result {
 	u64 BytesWritten;
 } vim_keys_to_string_result;
 internal vim_keys_to_string_result
-VimKeysToString(char *Buffer, u64 BufferSize, plore_vim_context *Context);
+VimKeysToString(char *Buffer, u64 BufferSize, vim_key *Keys);
 	
 internal char *
 VimBindingToString(char *Buffer, u64 BufferSize, vim_binding *Binding);
@@ -119,6 +119,9 @@ VimBindingToString(char *Buffer, u64 BufferSize, vim_binding *Binding);
 internal void
 SynchronizeCurrentDirectory(plore_file_context *FileContext, plore_current_directory_state *CurrentState);
 
+internal plore_path *
+GetImpliedSelection(plore_state *State);
+	
 internal plore_key
 GetKey(char C) {
 	plore_key Result = 0;
@@ -141,6 +144,26 @@ GetKey(char C) {
 #include "plore_table.c"
 #include "plore_vim.c"
 #include "plore_vimgui.c"
+
+
+internal plore_path *
+GetImpliedSelection(plore_state *State) {
+	plore_path *Result = 0;
+	plore_file_context *FileContext = State->FileContext;
+	
+	if (FileContext->SelectedCount == 1) {
+		Result = &FileContext->Selected[0];
+	} else if (!FileContext->SelectedCount) {
+		plore_file_listing *Cursor = &State->DirectoryState.Cursor;
+		if (Cursor->Valid) {
+			if ((Cursor->File.Type == PloreFileNode_Directory && !Cursor->Count)) return(Result);
+			
+			Result = &GetOrCreateCursor(FileContext, &Cursor->File.Path).Cursor->Path;
+		}
+	}
+	
+	return(Result);
+}
 
 internal void 
 PlatformInit(platform_api *PlatformAPI) {
@@ -215,7 +238,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 #endif
 		
 		State->VimContext = PushStruct(&State->Arena, plore_vim_context);
-		State->VimContext->CommandArena = SubArena(&State->Memory->PermanentStorage, Kilobytes(1), 16);
+		State->VimContext->CommandArena = SubArena(&State->Arena, Kilobytes(1), 16);
 		State->VimContext->Mode = VimMode_Normal;
 		
 		State->RenderList = PushStruct(&State->Arena, plore_render_list);
@@ -268,7 +291,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		DidInput = true;
 	}
 	
-	local b64 AteCommands = 0;
 	//
 	// NOTE(Evan): Vim command processing
 	//
@@ -293,7 +315,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 				} break;
 			}
 			
-			AteCommands = true;
+			ClearCommands(VimContext);
 		}
 		
 		if (Command.Type) {
@@ -315,42 +337,50 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								case VimCommandType_MoveUp: 
 								case VimCommandType_MoveDown: 
 								case VimCommandType_ISearch: 
+								case VimCommandType_RenameFile: 
 								case VimCommandType_JumpBottom:  {
 									VimCommands[Command.Type](State, VimContext, FileContext, Command);
 								} break;
 								
-								case VimCommandType_Incomplete: {
-									VimKeysToString(State->DirectoryState.Filter, 
-													ArrayCount(State->DirectoryState.Filter), 
-													VimContext);
-								} break;
+								
 								InvalidDefaultCase;
 							}
 						} break;
 						
 						case VimMode_Insert: {
 							switch (Command.Type) {
-								case VimCommandType_Incomplete: {
-									VimKeysToString(State->DirectoryState.Filter, 
-													ArrayCount(State->DirectoryState.Filter), 
-													VimContext);
-								} break;
-								
-								case VimCommandType_CompleteInsert: {
+								case VimCommandType_Insert: {
 									Assert(VimContext->ActiveCommand.Type);
 									
-									// NOTE(Evan): Copy insertion into the active command, then call the active command function before cleaning up.
-									u64 Size = 512;
-									VimContext->ActiveCommand.Shell = PushBytes(&VimContext->CommandArena, Size);
-									VimKeysToString(VimContext->ActiveCommand.Shell, Size, VimContext);
+									// NOTE(Evan): Mirror the insert state. 
+									VimContext->ActiveCommand.State = Command.State;
 									
-									VimCommands[VimContext->ActiveCommand.Type](State, VimContext, FileContext, VimContext->ActiveCommand);
-									ClearArena(&VimContext->CommandArena);
-									VimContext->Mode = VimMode_Normal;
-									VimContext->ActiveCommand = ClearStruct(vim_command);
+									switch (Command.State) {
+										case VimCommandState_Start: 
+										case VimCommandState_Incomplete: {
+											VimCommands[VimContext->ActiveCommand.Type](State, VimContext, FileContext, VimContext->ActiveCommand);
+										} break;
+										
+										case VimCommandState_Finish: {
+											DrawText("Finish");
+											// NOTE(Evan): Copy insertion into the active command, then call the active command function before cleaning up.
+											u64 Size = 512;
+											VimContext->ActiveCommand.Shell = PushBytes(&VimContext->CommandArena, Size);
+											VimKeysToString(VimContext->ActiveCommand.Shell, Size, VimContext->CommandKeys);
+											
+											
+											VimCommands[VimContext->ActiveCommand.Type](State, VimContext, FileContext, VimContext->ActiveCommand);
+											
+											ClearCommands(VimContext);
+											ClearArena(&VimContext->CommandArena);
+											VimContext->Mode = VimMode_Normal;
+											VimContext->ActiveCommand = ClearStruct(vim_command);
+										} break;
+										
+										InvalidDefaultCase;
+									}
 									
-									// @Cleanup
-									AteCommands = true;
+									
 								} break;
 								
 								InvalidDefaultCase;
@@ -364,19 +394,15 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			}
 		}
 		
-		b64 FinalizedCommand = (Command.Type && Command.Type != VimCommandType_Incomplete);
+		b64 FinalizedCommand = (Command.Type && Command.State != VimCommandState_Incomplete);
 		b64 NoPossibleCandidates = (!Command.Type && !CommandThisFrame.CandidateCount);
-		AteCommands = FinalizedCommand || NoPossibleCandidates;
+		b64 NoActiveCommand = !VimContext->ActiveCommand.Type;
+		if ((FinalizedCommand || NoPossibleCandidates) && NoActiveCommand) {
+			ClearCommands(VimContext);
+		}
 	}
 	
 	SynchronizeCurrentDirectory(State->FileContext, &State->DirectoryState);
-	
-	// NOTE(Evan): Clear the command buffer if its contents are no longer required.
-	if (AteCommands) {
-		AteCommands = false;
-		MemoryClear(VimContext->CommandKeys, sizeof(VimContext->CommandKeys));
-		VimContext->CommandKeyCount = 0;
-	}
 	
 	//
 	// NOTE(Evan): GUI stuff.
@@ -414,11 +440,12 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		},
 	};
 	
+	// @Cleanup
 	char *FilterText = 0;
 	if (VimContext->ActiveCommand.Type == VimCommandType_ISearch) {
 		u64 Size = 128;
 		char *Buffer = PushBytes(&State->FrameArena, Size);
-		FilterText = VimKeysToString(Buffer, Size, VimContext).Buffer;
+		FilterText = VimKeysToString(Buffer, Size, VimContext->CommandKeys).Buffer;
 	}
 	
 	typedef struct image_preview_handle {
@@ -453,12 +480,16 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		if (VimContext->Mode == VimMode_Insert) {
 			char *InsertPrompt = "";
 			
+			// TODO(Evan): Commands re-organized by need for insertion or not.
 			switch (VimContext->ActiveCommand.Type) {
 				case VimCommandType_ISearch: {
 					InsertPrompt = "ISearch: ";
 				} break;
 				case VimCommandType_ChangeDirectory: {
 					InsertPrompt = "Change directory to? ";
+				} break;
+				case VimCommandType_RenameFile: {
+					InsertPrompt = "Rename file to? ";
 				} break;
 				
 				InvalidDefaultCase;
@@ -471,7 +502,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			BufferSize += StringPrintSized(Buffer, ArrayCount(Buffer), InsertPrompt);
 			BufferSize += StringPrintSized(Buffer+BufferSize, ArrayCount(Buffer), 
 										   "%s%s", 
-										   VimKeysToString(S, Size, VimContext).Buffer,
+										   VimKeysToString(S, Size, VimContext->CommandKeys).Buffer,
 										   (DoBlink ? "|" : ""));
 			
 			Y += FooterHeight + 5*PadY;
@@ -596,11 +627,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 					
 					u64 RowsAfter = Min(Cursor+PageMax, Listing->Count);
 					RowEnd = Clamp(Cursor + RowsAfter, 0, Listing->Count);
-					
-					if (Directory->Focus) {
-						PrintLine("Page %d", Page);
-						PrintLine("%d rows after", RowsAfter);
-					}
 				}
 				
 				switch (Listing->File.Type) {
@@ -859,13 +885,13 @@ PloreKeysToString(memory_arena *Arena, vim_key *Keys, u64 KeyCount) {
 
 // NOTE(Evan): Does not skip unprintable characters.
 internal vim_keys_to_string_result
-VimKeysToString(char *Buffer, u64 BufferSize, plore_vim_context *Context) {
+VimKeysToString(char *Buffer, u64 BufferSize, vim_key *Keys) {
 	vim_keys_to_string_result Result = {
 		.Buffer = Buffer,
 	};
 	
 	char *S = Buffer;
-	vim_key *Key = Context->CommandKeys;
+	vim_key *Key = Keys;
 	u64 Count = 0;
 	Assert(BufferSize >= 3);
 	while (Key->Input) {

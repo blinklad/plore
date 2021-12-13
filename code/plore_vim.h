@@ -6,24 +6,27 @@
 struct plore_vim_context;
 typedef struct plore_vim_context plore_vim_context;
 
+// NOTE(Evan): Even with the X macro, we still need to define vim_bindings separately, _and_
+// the command dispatch needs to know which commands are usable in a given mode.
+// Revisit this metaprogramming approach in the future so there's fewer places involved with defining commands.
 #define VIM_COMMANDS \
-PLORE_X(None,            "none",             "None")            \
-PLORE_X(Incomplete,      "incomplete",       "Incomplete")      \
-PLORE_X(CompleteInsert,  "complete_insert",  "Complete Insert") \
-PLORE_X(MoveLeft,        "move_left",        "Move Left")       \
-PLORE_X(MoveRight,       "move_right",       "Move Right")      \
-PLORE_X(MoveUp,          "move_up",          "Move Up")         \
-PLORE_X(MoveDown,        "move_down",        "Move Down")       \
-PLORE_X(Yank,            "yank",             "Yank")            \
-PLORE_X(ClearYank,       "clear_yank",       "Clear Yank")      \
-PLORE_X(Paste,           "paste",            "Paste")           \
-PLORE_X(Select,          "select",           "Select")          \
-PLORE_X(SelectUp,        "select_up",        "Select Up")       \
-PLORE_X(SelectDown,      "select_down",      "Select Down")     \
-PLORE_X(JumpTop,         "jump_top",         "Jump To Top")     \
-PLORE_X(JumpBottom,      "jump_bottom",      "Jump To Bottom")  \
-PLORE_X(ISearch,         "isearch",          "ISearch")         \
-PLORE_X(ChangeDirectory, "change_directory", "Change Directory")
+PLORE_X(None,            "none",             "None")             \
+PLORE_X(Insert,          "insert",           "Insert")           \
+PLORE_X(MoveLeft,        "move_left",        "Move Left")        \
+PLORE_X(MoveRight,       "move_right",       "Move Right")       \
+PLORE_X(MoveUp,          "move_up",          "Move Up")          \
+PLORE_X(MoveDown,        "move_down",        "Move Down")        \
+PLORE_X(JumpTop,         "jump_top",         "Jump To Top")      \
+PLORE_X(JumpBottom,      "jump_bottom",      "Jump To Bottom")   \
+PLORE_X(Yank,            "yank",             "Yank")             \
+PLORE_X(ClearYank,       "clear_yank",       "Clear Yank")       \
+PLORE_X(Paste,           "paste",            "Paste")            \
+PLORE_X(Select,          "select",           "Select")           \
+PLORE_X(SelectUp,        "select_up",        "Select Up")        \
+PLORE_X(SelectDown,      "select_down",      "Select Down")      \
+PLORE_X(ISearch,         "isearch",          "ISearch")          \
+PLORE_X(ChangeDirectory, "change_directory", "Change Directory") \
+PLORE_X(RenameFile,      "rename_file",      "Rename File") 
 
 #define PLORE_X(Name, Ignored1, _Ignored2) VimCommandType_##Name,
 typedef enum vim_command_type {
@@ -48,21 +51,31 @@ typedef enum vim_mode {
 	_VimMode_ForceU64 = 0xFFFFFFFF,
 } vim_mode;
 
+typedef enum vim_command_state {
+	VimCommandState_None,
+	VimCommandState_Start,
+	VimCommandState_Incomplete,
+	VimCommandState_Finish,
+	VimCommandState_Count,
+	_VimCommandState_ForceU64 = 0xFFFFFFFF,
+} vim_command_state;
+
 typedef struct vim_command {
 	vim_command_type Type;
+	vim_command_state State;
 	vim_mode Mode;
 	u64 Scalar;
 	char *Shell;
 } vim_command;
-
 
 typedef struct vim_key {
 	plore_key Input;
 	plore_key Modifier;
 } vim_key;
 
+#define CommandBufferSize 32
 typedef struct plore_vim_context {
-	vim_key CommandKeys[32];
+	vim_key CommandKeys[CommandBufferSize];
 	u64 CommandKeyCount;
 	vim_mode Mode;
 	vim_command ActiveCommand;
@@ -230,6 +243,17 @@ global vim_binding VimBindings[] = {
 			{
 				.Input = PloreKey_G,
 				.Modifier = PloreKey_Shift,
+			},
+		}
+	},
+	{
+		.Type = VimCommandType_RenameFile,
+		.Keys = {
+			{
+				.Input = PloreKey_R,
+			},
+			{
+				.Input = PloreKey_R,
 			},
 		}
 	},
