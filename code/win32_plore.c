@@ -355,6 +355,11 @@ PLATFORM_MOVE_FILE(WindowsMoveFile) {
 	return(Result);
 }
 
+PLATFORM_RENAME_FILE(WindowsRenameFile) {
+	b64 Result = WindowsMoveFile(sAbsolutePath, dAbsolutePath);
+	return(Result);
+}
+
 internal void CALLBACK
 CleanupProcessHandle(void *Context, BOOLEAN WasTimedOut);
 
@@ -1044,6 +1049,7 @@ int WinMain (
 		.IsPathDirectory         = WindowsIsPathDirectory,
 		.IsPathTopLevel          = WindowsIsPathTopLevel,
 		.MoveFile                = WindowsMoveFile,
+		.RenameFile              = WindowsRenameFile,
 		.RunShell                = WindowsRunShell,
     };
     plore_code PloreCode = WindowsLoadPloreCode(PloreDLLPath, TempDLLPath, LockPath);
