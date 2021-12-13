@@ -22,7 +22,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 * Commands:
    - ~~Change directory~~
    - OS-specific shell
-   - Rename
+   - ~~Rename~~
    - Make directory
    - Filter
    - ~~isearch~~
