@@ -13,6 +13,7 @@ typedef struct plore_file_listing_desc {
 	plore_path_ref Path;
 } plore_file_listing_desc;
 
+
 internal plore_file_listing_cursor_create_result
 CreateCursor(plore_file_context *Context, plore_path *Path);
 
@@ -75,11 +76,6 @@ GetCursor(plore_file_context *Context, char *AbsolutePath) {
 	return(Result);
 }
 
-typedef struct plore_file_listing_cursor_get_or_create_result {
-	plore_file_listing_cursor *Cursor;
-	b64 DidAlreadyExist;
-} plore_file_listing_cursor_get_or_create_result;
-
 internal void
 RemoveCursor(plore_file_context *Context, plore_file_listing_cursor *Cursor) {
 	u64 Hash = HashString(Cursor->Path.Absolute);
@@ -109,6 +105,11 @@ RemoveCursor(plore_file_context *Context, plore_file_listing_cursor *Cursor) {
 	Slot->Cursor = (plore_file_listing_cursor) {0};
 	Slot->Allocated = false;
 }
+
+typedef struct plore_file_listing_cursor_get_or_create_result {
+	plore_file_listing_cursor *Cursor;
+	b64 DidAlreadyExist;
+} plore_file_listing_cursor_get_or_create_result;
 
 internal plore_file_listing_cursor_get_or_create_result
 GetOrCreateCursor(plore_file_context *Context, plore_path *Path) {
