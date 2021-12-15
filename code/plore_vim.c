@@ -137,57 +137,56 @@ MakeCommand(plore_vim_context *Context) {
 				
 		} break;
 		
+		case VimMode_Lister:
 		case VimMode_Insert: {
-			Assert(Context->ActiveCommand.Type);
-			
 			vim_key *LatestKey = PeekLatestKey(Context);
-			if (LatestKey) {
-				if (Context->CommandKeyCount == ArrayCount(Context->CommandKeys)) {
-					DrawText("Command key count reached, changing to normal mode.");
-					Context->Mode = VimMode_Normal;
-					Context->ActiveCommand = ClearStruct(vim_command);
-				} else if (LatestKey->Input == PloreKey_Return) {
-					Result.Command.Type = Context->ActiveCommand.Type;
-					Result.Command.State = VimCommandState_Finish;
-					Context->CommandKeys[--Context->CommandKeyCount] = ClearStruct(vim_key); // NOTE(Evan): Remove return from command buffer.
-				} else {
-					if (LatestKey->Input == PloreKey_Backspace) {
-						if (Context->CommandKeyCount > 1) {
-							Context->CommandKeys[--Context->CommandKeyCount] = ClearStruct(vim_key);
-						}
-						Context->CommandKeys[--Context->CommandKeyCount] = ClearStruct(vim_key);
-					} 
-					
-					Result.Command.Type = Context->ActiveCommand.Type;
-					Result.Command.State = VimCommandState_Incomplete;
-				}
-			}
-		} break;
-		
-		case VimMode_Lister: {
-			Assert(Context->ActiveCommand.Type);
-			
 			Result.Command.Type = Context->ActiveCommand.Type;
-			vim_key *LatestKey = PeekLatestKey(Context);
-			
-			// @Cutnpaste from VimMode_Insert
-			// TODO(Evan): Lister doesn't support insertions, but it may be possible to fold other movement with insert mode.
 			if (LatestKey) {
 				if (Context->CommandKeyCount == ArrayCount(Context->CommandKeys)) {
 					DrawText("Command key count reached, changing to normal mode.");
-					Context->Mode = VimMode_Normal;
-					Context->ActiveCommand = ClearStruct(vim_command);
+					ResetVimState(Context);
 				} else if (LatestKey->Input == PloreKey_Return) {
 					Result.Command.Type = Context->ActiveCommand.Type;
 					Result.Command.State = VimCommandState_Finish;
-					Context->CommandKeys[--Context->CommandKeyCount] = ClearStruct(vim_key); // NOTE(Evan): Remove return from command buffer.
+					Context->ActiveCommand = Result.Command; // @Cleanup
+					
+					Context->CommandKeys[--Context->CommandKeyCount] = ClearStruct(vim_key); 
+				} else if (LatestKey->Input == PloreKey_Q) {
+					ResetVimState(Context);
 				} else {
-					// TODO(Evan): Lister cursor movement.
+					// NOTE(Evan): Mode-specific keymapping is here, as Return, Q and a full buffer terminate always.
+					switch (Context->Mode) {
+						case VimMode_Lister: {
+							switch (LatestKey->Input) {
+								case PloreKey_J:
+								case PloreKey_K: {
+									i64 Direction = LatestKey->Input == PloreKey_J ? +1 : -1;
+									if (Direction < 0 && Context->ListerCursor == 0) {
+										Context->ListerCursor = Context->ListerCount + Direction;
+									} else {
+										Context->ListerCursor = (Context->ListerCursor + Direction) % Context->ListerCount;
+									}
+								} break;
+							}
+							
+							Context->CommandKeys[--Context->CommandKeyCount] = ClearStruct(vim_key); 
+						} break;
+						case VimMode_Insert: {
+							if (LatestKey->Input == PloreKey_Backspace) {
+								if (Context->CommandKeyCount > 1) {
+									Context->CommandKeys[--Context->CommandKeyCount] = ClearStruct(vim_key);
+								}
+								Context->CommandKeys[--Context->CommandKeyCount] = ClearStruct(vim_key);
+							} 
+							
+						} break;
+						
+					}
 					Result.Command.Type = Context->ActiveCommand.Type;
 					Result.Command.State = VimCommandState_Incomplete;
+					Context->ActiveCommand = Result.Command; // @Cleanup
 				}
 			}
-			
 			
 		} break;
 		
