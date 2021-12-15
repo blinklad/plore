@@ -119,6 +119,9 @@ VimBindingToString(char *Buffer, u64 BufferSize, vim_binding *Binding);
 internal void
 SynchronizeCurrentDirectory(plore_file_context *FileContext, plore_current_directory_state *CurrentState);
 
+internal plore_file *
+GetCursorFile(plore_state *State);
+
 internal plore_path *
 GetImpliedSelection(plore_state *State);
 	
@@ -146,6 +149,15 @@ GetKey(char C) {
 #include "plore_vimgui.c"
 
 
+internal plore_file *
+GetCursorFile(plore_state *State) {
+	plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(State->FileContext, &State->DirectoryState.Current.File.Path);
+	plore_file *CursorEntry = State->DirectoryState.Current.Entries + CursorResult.Cursor->Cursor;
+	
+	return(CursorEntry);
+}
+
+// @Rename
 internal plore_path *
 GetImpliedSelection(plore_state *State) {
 	plore_path *Result = 0;
@@ -370,9 +382,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								} break;
 								
 								case VimCommandState_Finish: {
-									DrawText("Incomplete");
-									VimContext->Mode = VimMode_Normal;
-									VimContext->ActiveCommand = ClearStruct(vim_command);
+									VimCommands[VimContext->ActiveCommand.Type](State, VimContext, FileContext, VimContext->ActiveCommand);
+									ResetVimState(VimContext);
 								} break;
 								
 								InvalidDefaultCase;
@@ -511,19 +522,26 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 						   })) {
 			}
 		} else if (VimContext->Mode == VimMode_Lister && VimContext->ActiveCommand.Type == VimCommandType_OpenFile) {
-			int BreakHere = 5;
 			plore_file_listing *Listing = &State->DirectoryState.Cursor;
 			plore_handler *Handlers = PloreFileExtensionHandlers[Listing->File.Extension];
 			u64 HandlerCount = 0;
+			
+			// NOTE(Evan): We creates widgets bottom-to-top, so the offset corrects for that.
 			for (u64 Handler = 0; Handler < PLORE_FILE_EXTENSION_HANDLER_MAX; Handler++) {
-				if (Handlers[Handler].Shell) {
-					HandlerCount++;
-					u64 HandlerSize = 256;
-					char *HandlerString = PushBytes(&State->FrameArena, HandlerSize);
-					StringPrintSized(HandlerString, HandlerSize, "%-32s",
-									 Handlers[Handler].Shell);
+				u64 Offset = (PLORE_FILE_EXTENSION_HANDLER_MAX-Handler-1);
+				plore_handler *TheHandler = Handlers + Offset;
+				if (TheHandler->Shell) {
+					b64 IsOnCursor = Offset == VimContext->ListerCursor;
 					
-					u64 ID = (u64) Handlers[Handler].Shell;
+					HandlerCount++;
+					u64 HandlerSize = 512;
+					char *HandlerString = PushBytes(&State->FrameArena, HandlerSize);
+					StringPrintSized(HandlerString, HandlerSize, "%-30s %-128s",
+									 TheHandler->Name,
+									 TheHandler->Shell
+									 );
+					
+					u64 ID = (u64) TheHandler->Shell;
 					
 					if (Button(State->VimguiContext, (vimgui_button_desc) {
 								   .ID = ID,
@@ -533,6 +551,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 									   .Span = V2(PlatformAPI->WindowDimensions.X-2*PadX, FooterHeight + PadY)
 								   },
 								   .TextPad = V2(16, 8),
+								   .BackgroundColour = IsOnCursor ? WidgetColour_Tertiary : WidgetColour_Primary,
 							   })) {
 					}
 					
