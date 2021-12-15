@@ -431,6 +431,8 @@ PLORE_VIM_COMMAND(ISearch)  {
 					break;
 				}
 			}
+			
+			State->DirectoryState.FilterCount = 0;
 		}
 	} else {
 		switch (Command.State) {
@@ -440,6 +442,11 @@ PLORE_VIM_COMMAND(ISearch)  {
 				SetActiveCommand(VimContext, Command);
 			} break;
 			
+			case VimCommandState_Incomplete: {
+				State->DirectoryState.FilterCount = VimKeysToString(State->DirectoryState.Filter, 
+																	ArrayCount(State->DirectoryState.Filter), 
+																	VimContext->CommandKeys).BytesWritten;
+			} break;
 			case VimCommandState_Finish: {
 			} break;
 			

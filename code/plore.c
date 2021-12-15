@@ -147,6 +147,7 @@ GetKey(char C) {
 #include "plore_table.c"
 #include "plore_vim.c"
 #include "plore_vimgui.c"
+#include "plore_time.c"
 
 
 internal plore_file *
@@ -512,13 +513,16 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			
 			if (Button(State->VimguiContext, (vimgui_button_desc) {
 							   .ID = (u64) Buffer,
-							   .Title = Buffer, 
+							   .Title = {
+								   .Text = Buffer, 
+								   .Colour = TextColour_Prompt,
+								   .Pad = V2(8, 12),
+							   },
+								   
 							   .Rect = { 
 								   .P    = V2(PadX, PlatformAPI->WindowDimensions.Y - 2*FooterHeight - 2*PadY), 
 								   .Span = V2(PlatformAPI->WindowDimensions.X-2*PadX, FooterHeight + PadY)
 							   },
-							   .TextPad = V2(8, 12),
-							   .TextColour = TextColour_Prompt,
 						   })) {
 			}
 		} else if (VimContext->Mode == VimMode_Lister && VimContext->ActiveCommand.Type == VimCommandType_OpenFile) {
@@ -545,12 +549,14 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 					
 					if (Button(State->VimguiContext, (vimgui_button_desc) {
 								   .ID = ID,
-								   .Title = HandlerString,
+								   .Title = {
+									   .Text = HandlerString,
+									   .Pad = V2(16, 8),
+								   },
 								   .Rect = {
 									   .P = V2(PadX, PlatformAPI->WindowDimensions.Y - FooterHeight - HandlerCount*FooterHeight - 20),
 									   .Span = V2(PlatformAPI->WindowDimensions.X-2*PadX, FooterHeight + PadY)
 								   },
-								   .TextPad = V2(16, 8),
 								   .BackgroundColour = IsOnCursor ? WidgetColour_Tertiary : WidgetColour_Primary,
 							   })) {
 					}
@@ -592,12 +598,14 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 						
 						if (Button(State->VimguiContext, (vimgui_button_desc) {
 										   .ID = ID,
-										   .Title = CandidateString,
+										   .Title = {
+											   .Text = CandidateString,
+											   .Pad = V2(16, 8),
+										   },
 										   .Rect = {
 											   .P = V2(PadX, PlatformAPI->WindowDimensions.Y - FooterHeight - CandidateCount*FooterHeight - 20),
 											   .Span = V2(PlatformAPI->WindowDimensions.X-2*PadX, FooterHeight + PadY)
 										   },
-										   .TextPad = V2(16, 8),
 								   })) {
 						}
 						
@@ -611,9 +619,9 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			
 			// NOTE(Evan): Cursor information, appears at bottom of screen.
 			plore_file *CursorFile = &State->DirectoryState.Cursor.File;
+			
 			char CursorInfo[512] = {0};
 			char *CommandString = "";
-			text_colour TextColour = TextColour_CursorInfo;
 			
 			switch (VimContext->Mode) {
 				case VimMode_Normal: {
@@ -621,22 +629,38 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 				} break;
 			}
 			
+			// NOTE(Evan): Prompt string.
+			u64 BufferSize = 256;
+			char *Buffer = PushBytes(&State->FrameArena, BufferSize);
+			b64 ShowOrBlink = DoBlink || VimContext->CommandKeyCount || VimContext->Mode != VimMode_Normal || DidInput;
+			StringPrintSized(Buffer, BufferSize, "%s%s", (ShowOrBlink ? ">>" : ""), CommandString);
+			
 			StringPrintSized(CursorInfo, 
 							 ArrayCount(CursorInfo),
-						     "[%s] %s 01-02-03 >>%s", 
+						     "[%s] %s %s", 
 						     (CursorFile->Type == PloreFileNode_Directory) ? "directory" : "file", 
-						     CursorFile->Path.FilePart,
+							 CursorFile->Path.FilePart,
+							 PloreTimeFormat(&State->FrameArena, CursorFile->LastModification, "%a %b %d %x"),
 							 CommandString
 							 );
 			
 			if (Button(State->VimguiContext, (vimgui_button_desc) {
-							   .Title = CursorInfo,
+							   .Title     = { 
+								   .Text = CursorInfo, 
+								   .Alignment = VimguiLabelAlignment_Left, 
+								   .Colour = TextColour_CursorInfo,
+								   .Pad = V2(8, 6),
+							   },
+							   .Secondary = { 
+								   .Text = Buffer,
+								   .Alignment = VimguiLabelAlignment_Left,
+								   .Pad = V2(0, 6),
+								   .Colour = TextColour_Prompt
+							   },
 							   .Rect = { 
 								   .P    = V2(PadX, Y + PlatformAPI->WindowDimensions.X + FooterHeight + FooterPad), 
 								   .Span = V2(PlatformAPI->WindowDimensions.X-2*PadX, FooterHeight + PadY-20)
 							   },
-							   .TextPad = V2(8, 4),
-							   .TextColour = TextColour,
 					   })) {
 			}
 			
@@ -676,10 +700,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 				switch (Listing->File.Type) {
 					case PloreFileNode_Directory: {
 						for (u64 Row = RowStart; Row < RowEnd; Row++) {
-							
 							widget_colour BackgroundColour = WidgetColour_Default;
 							text_colour TextColour = 0;
-							
 							plore_file *RowEntry = Listing->Entries + Row;
 							
 							if (IsYanked(FileContext, &RowEntry->Path)) {
@@ -703,15 +725,29 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								else TextColour = TextColour_SecondaryFade;
 							}
 							
-							
+							u64 Size = 256;
+							char *Timestamp = PloreTimeFormat(&State->FrameArena, RowEntry->LastModification, "%b %d %x");
+								
 							if (Button(State->VimguiContext, (vimgui_button_desc) {
-										   .Title = Listing->Entries[Row].Path.FilePart,
-										   .FillWidth = true,
-										   .Centre = true,
-										   .BackgroundColour = BackgroundColour,
-										   .TextColour = TextColour,
-										   .TextPad = V2(4, 0),
-										   .Rect = { .Span = { .H = FileRowHeight, } },
+											   .Title     = { 
+												   .Text = Listing->Entries[Row].Path.FilePart, 
+												   .Alignment = VimguiLabelAlignment_Left ,
+												   .Colour = TextColour,
+												   .Pad = V2(4, 0),
+											   },
+											   .Secondary = { 
+												   .Text = Timestamp, 
+												   .Alignment = VimguiLabelAlignment_Right,
+												   .Colour = TextColour_Tertiary,
+											   },
+											   .FillWidth = true,
+											   .BackgroundColour = BackgroundColour,
+											   .Rect = { 
+												   .Span = 
+												   { 
+													   .H = FileRowHeight, 
+												   } 
+											   },
 										   })) {
 								// TODO(Evan): Change cursor to here?!
 								PrintLine("Button %s was clicked!", Listing->Entries[Row].Path.FilePart);
@@ -841,11 +877,13 @@ ToggleSelected(plore_file_context *Context, plore_path *Selectee) {
 }
 
 
+// @Cleanup
 internal void
 CreateFileListing(plore_file_listing *Listing, plore_file_listing_desc Desc) {
 	Assert(Listing);
 	
 	Listing->File.Type = Desc.Type;
+	Listing->File.LastModification = Desc.LastModification;
 	CStringCopy(Desc.Path.Absolute, Listing->File.Path.Absolute, PLORE_MAX_PATH);
 	CStringCopy(Desc.Path.FilePart, Listing->File.Path.FilePart, PLORE_MAX_PATH);
 	if (Desc.Type == PloreFileNode_Directory) {

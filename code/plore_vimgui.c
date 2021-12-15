@@ -1,3 +1,45 @@
+// TODO(Evan): Metaprogram tables.
+internal v4
+GetTextColour(text_colour TextColour) {
+	v4 Result = {0};
+	switch (TextColour) {
+		case TextColour_Default: {
+			Result = V4(1, 1, 1, 1);
+		} break;
+		
+		case TextColour_PrimaryFade:
+		case TextColour_Primary: {
+			Result = V4(0.4, 0.5, 0.6, 1);
+			if (TextColour == TextColour_PrimaryFade) Result.A = 0.3f;
+		} break;
+		
+		case TextColour_SecondaryFade: 
+		case TextColour_Secondary: {
+			Result = V4(0.9, 0.85, 0.80, 1);
+			if (TextColour == TextColour_SecondaryFade) Result.A = 0.3f;
+		} break;
+		
+		case TextColour_TertiaryFade:
+		case TextColour_Tertiary: {
+			Result = V4(0.4, 0.4, 0.70, 0.4);
+			if (TextColour == TextColour_TertiaryFade) Result.A = 0.3f;
+		} break;
+		
+		case TextColour_Prompt: {
+			Result = V4(0.2, 0.85, 0.10, 1.0);
+		} break;
+		
+		case TextColour_CursorInfo: {
+			Result = V4(0.8, 0.4, 0.4, 1);
+		} break;
+		
+		InvalidDefaultCase;
+		
+	}
+	
+	return(Result);
+}
+
 internal void
 VimguiInit(plore_vimgui_context *Context, plore_render_list *RenderList) {
 	Assert(RenderList->Font);
@@ -49,7 +91,6 @@ VimguiEnd(plore_vimgui_context *Context) {
 		
 		vimgui_window *Window = GetWindow(Context, Widget->ID);
 		
-		v4 TextColour = {0};
 		v4 BackgroundColour = {0};
 		switch (Widget->Type) {
 			case WidgetType_Button: {
@@ -71,36 +112,6 @@ VimguiEnd(plore_vimgui_context *Context) {
 						BackgroundColour = V4(0.40, 0.5, 0.4, 1);
 					} break;
 				}
-				switch (Widget->TextColour) {
-					case TextColour_Default: {
-						TextColour = V4(1, 1, 1, 1);
-					} break;
-					
-					case TextColour_Primary: {
-						TextColour = V4(0.4, 0.5, 0.6, 1);
-					} break;
-					
-					case TextColour_Secondary: {
-						TextColour = V4(0.9, 0.85, 0.80, 1);
-					} break;
-					
-					case TextColour_PrimaryFade: {
-						TextColour = V4(0.4, 0.5, 0.6, 0.3);
-					} break;
-					
-					case TextColour_SecondaryFade: {
-						TextColour = V4(0.9, 0.85, 0.80, 0.3);
-					} break;
-					
-					case TextColour_Prompt: {
-						TextColour = V4(0.2, 0.85, 0.10, 1.0);
-					} break;
-					
-					case TextColour_CursorInfo: {
-						TextColour = V4(0.8, 0.4, 0.4, 1);
-					} break;
-					
-				}
 				
 			} break;
 			
@@ -115,16 +126,6 @@ VimguiEnd(plore_vimgui_context *Context) {
 					} break;
 					
 						
-				}
-				
-				switch (Widget->TextColour) {
-					case TextColour_Default: {
-						TextColour = V4(1, 1, 1, 1);;
-					} break;
-					case TextColour_Primary:
-					case TextColour_Secondary: {
-						Assert(!"Unhandled colours.");
-					}
 				}
 			} break;
 			
@@ -144,17 +145,51 @@ VimguiEnd(plore_vimgui_context *Context) {
 						   .Texture = Widget->Texture,
 					   });
 		
-		if (Widget->Title) {
+		if (Widget->Title.Text) {
+			vimgui_label_alignment Alignment = 0;
+			if (Widget->Title.Alignment) Alignment = Widget->Title.Alignment;
+			else if (Widget->Alignment) Alignment = Widget->Alignment;
+			
 			PushRenderText(Context->RenderList, 
 						   (vimgui_render_text_desc) {
 						       .Rect = Widget->Rect,
-						       .TextColour = TextColour,
-						       .Text = Widget->Title, 
-						       .Centered = Widget->Centered, 
+						       .Text = {
+								   .Text = Widget->Title.Text,
+								   .Alignment = Alignment,
+								   .Colour = Widget->Title.Colour,
+								   .Pad = Widget->Title.Pad,
+							   },
 							   .Height = 32.0f,
-						       .TextPad = Widget->TextPad,
 						   });
 		}
+		
+		// @Cutnpaste above, from Widget->Title.Text
+		if (Widget->Secondary.Text) {
+			vimgui_label_alignment Alignment = 0;
+			if (Widget->Secondary.Alignment) Alignment = Widget->Secondary.Alignment;
+			else if (Widget->Alignment) Alignment = Widget->Alignment;
+			
+			if (Alignment == VimguiLabelAlignment_Left || Alignment == VimguiLabelAlignment_Center) {
+				if (Widget->Title.Text && 
+					(Widget->Title.Alignment == VimguiLabelAlignment_Left) || 
+					(Widget->Title.Alignment == VimguiLabelAlignment_Default)) {
+					Widget->Rect.P.X += (StringLength(Widget->Title.Text) + 1) * Context->RenderList->Font->Fonts[0].Data[0].xadvance; // @Cleanup
+				}
+			}
+			
+			PushRenderText(Context->RenderList, 
+						   (vimgui_render_text_desc) {
+						       .Rect = Widget->Rect,
+						       .Text = {
+								   .Text = Widget->Secondary.Text,
+								   .Alignment = Alignment,
+								   .Colour = Widget->Secondary.Colour,
+								   .Pad = Widget->Title.Pad,
+							   },
+							   .Height = 32.0f,
+						   });
+		}
+		
 	}
 	
 	
@@ -287,21 +322,20 @@ Image(plore_vimgui_context *Context, vimgui_image_desc Desc) {
 	return(Result);
 }
 
+
 typedef struct vimgui_button_desc {
 	b64 FillWidth;
-	b64 Centre;
-	char *Title;
+	vimgui_label_desc Title;
+	vimgui_label_desc Secondary;
 	u64 ID;
 	rectangle Rect;
 	widget_colour BackgroundColour;
-	text_colour TextColour;
-	v2 TextPad;
 } vimgui_button_desc;
 
 internal b64
 Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	// NOTE(Evan): We require an ID from the title right now, __LINE__ shenanigans may be required.
-	Assert(Desc.Title); 
+	Assert(Desc.Title.Text); 
 	Assert(Context->ThisFrame.WindowWeAreLayingOut);
 	
 	b64 Result = false;
@@ -309,8 +343,8 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	if (Desc.ID) {
 		MyID = Desc.ID;
 	} else {
-		Assert(Desc.Title);
-		MyID = (u64) Desc.Title;
+		Assert(Desc.Title.Text);
+		MyID = (u64) Desc.Title.Text;
 	}
 	
 	vimgui_window *Window = GetLayoutWindow(Context);
@@ -363,9 +397,8 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 				   .WindowID = Window->ID,
 				   .Rect = Desc.Rect,
 				   .BackgroundColour = Desc.BackgroundColour,
-				   .TextColour = Desc.TextColour,
-				   .TextPad = Desc.TextPad,
 				   .Title = Desc.Title,
+				   .Secondary = Desc.Secondary,
 			   });
 	
 	
@@ -451,10 +484,9 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 					   .Layer = Parent ? Parent->Layer + 1 : 0,
 					   .Rect = MaybeWindow->Rect,
 					   .Title = MaybeWindow->Title,
-					   .Centered = true, 
 					   .BackgroundColour = Desc.BackgroundColour,
-					   .TextColour = Desc.TextColour,
-					   
+//					   .TextColour = Desc.TextColour,
+					   .Alignment = VimguiLabelAlignment_Center,
 				   });
 		
 	}
@@ -503,21 +535,38 @@ PushRenderText(plore_render_list *RenderList, vimgui_render_text_desc Desc) {
 	
 	
 	v2 TextP = {
-		.X = Desc.TextPad.X + Desc.Rect.P.X + (Desc.Centered ? Desc.Rect.Span.W/2.0f : 0),
-		.Y = Desc.TextPad.Y + Desc.Rect.P.Y + 26.0f,                            // TODO(Evan): Move font metric handling to Vimgui.
+		.X = Desc.Text.Pad.X + Desc.Rect.P.X,
+		.Y = Desc.Text.Pad.Y + Desc.Rect.P.Y + 26.0f,                           
 	};
+	
+	switch (Desc.Text.Alignment) {
+		case VimguiLabelAlignment_Default:
+		case VimguiLabelAlignment_Left: {
+		} break;
+		
+		case VimguiLabelAlignment_Center: {
+			TextP.X += Desc.Rect.Span.W/2.0f;
+			TextP.X -= StringLength(Desc.Text.Text)/2.0f * RenderList->Font->Fonts[0].Data[0].xadvance;
+		} break;
+		
+		case VimguiLabelAlignment_Right: {
+			f32 TextSpan = StringLength(Desc.Text.Text) * RenderList->Font->Fonts[0].Data[0].xadvance + Desc.Text.Pad.X;
+			TextP.X = Desc.Rect.P.X + (Desc.Rect.Span.W - TextSpan);//Desc.Rect.P.X + Desc.Rect.Span.W;
+		} break;
+		
+	} 
 	
 	*T = (render_text) {
 		.Rect = {
 			.P = TextP,
 			.Span = Desc.Rect.Span,
 		},
-		.Colour = Desc.TextColour,
-		.Centered = Desc.Centered,
+		.Colour = GetTextColour(Desc.Text.Colour),
 		.Height = Desc.Height,
 	};
-	if (*Desc.Text) {
-		StringPrintSized(T->Text, ArrayCount(T->Text), Desc.Text);
+	
+	if (Desc.Text.Text && *Desc.Text.Text) {
+		StringPrintSized(T->Text, ArrayCount(T->Text), Desc.Text.Text);
 	}
 }
 
@@ -531,4 +580,5 @@ PushRenderQuad(plore_render_list *RenderList, vimgui_render_quad_desc Desc) {
 		.Texture = Desc.Texture,
 	};
 }
+
 

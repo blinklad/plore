@@ -17,9 +17,11 @@ typedef enum widget_colour {
 typedef enum text_colour {
 	TextColour_Default,
 	TextColour_Primary,
-	TextColour_Secondary,
 	TextColour_PrimaryFade,
+	TextColour_Secondary,
 	TextColour_SecondaryFade,
+	TextColour_Tertiary,
+	TextColour_TertiaryFade,
 	TextColour_Prompt,
 	TextColour_CursorInfo,
 	TextColour_Count,
@@ -53,6 +55,22 @@ typedef enum widget_type {
 	_WidgetType_ForceU64 = 0xFFFFFFFF,
 } widget_type;
 
+typedef enum vimgui_label_alignment {
+	VimguiLabelAlignment_Default,
+	VimguiLabelAlignment_Left,
+	VimguiLabelAlignment_Right,
+	VimguiLabelAlignment_Center,
+	VimguiLabelAlignment_Count,
+	_VimguiLabelAlignment_ForceU64 = 0xffffffff,
+} vimgui_label_alignment;
+
+typedef struct vimgui_label_desc {
+	char *Text;
+	vimgui_label_alignment Alignment;
+	text_colour Colour;
+	v2 Pad;
+} vimgui_label_desc;
+
 typedef struct vimgui_widget {
 	u64 ID;
 	u64 WindowID;
@@ -60,10 +78,9 @@ typedef struct vimgui_widget {
 	widget_type Type;
 	rectangle Rect;
 	widget_colour BackgroundColour;
-	text_colour TextColour;
-	v2 TextPad;
-	char *Title;
-	b64 Centered;
+	vimgui_label_desc Title;
+	vimgui_label_desc Secondary;
+	vimgui_label_alignment Alignment;
 	platform_texture_handle Texture;
 } vimgui_widget;
 
@@ -106,14 +123,11 @@ VimguiEnd(plore_vimgui_context *Context);
 internal void
 PushWidget(plore_vimgui_context *Context, vimgui_window *Parent, vimgui_widget Widget);
 	
-
 typedef struct vimgui_render_text_desc {
 	rectangle Rect; 
-	v4 TextColour; 
-	char *Text; 
-	b64 Centered; 
+	v4 _TextColour; 
+	vimgui_label_desc Text;
 	f32 Height;
-	v2 TextPad;
 } vimgui_render_text_desc;
 
 // @Cleanup
