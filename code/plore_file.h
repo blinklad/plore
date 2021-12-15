@@ -3,6 +3,7 @@
 #ifndef PLORE_FILE_H
 #define PLORE_FILE_H
 
+#include "plore_time.h"
 #include "plore_string.h"
 
 typedef enum plore_file_node { 
@@ -79,6 +80,7 @@ typedef struct plore_file {
 	plore_path Path;
 	plore_file_node Type;
 	plore_file_extension Extension;
+	plore_time LastModification;
 } plore_file;
 #endif //PLORE_FILE_H
 
