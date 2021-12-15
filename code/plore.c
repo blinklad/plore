@@ -13,7 +13,7 @@ global platform_debug_print_line *PrintLine;
 global platform_debug_print *Print;
 
 
-#define STB_TRUETYPE_IMPLEMENTATION  // force following include to generate implementation
+#define STB_TRUETYPE_IMPLEMENTATION
 #include "stb_truetype.h"
 
 platform_texture_handle TextureHandle_CantLoad;
