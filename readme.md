@@ -19,6 +19,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
   For file extensions and shell handlers, this will probably involve a small metaprogram to generate the correct commands.
 * Windows layer work - better key handling, for starters.
 * Asynchronous file management, for e.g., `mv`s.
+* File change notifications, for name changes, time of last edit, photo preview, etc.
 * Commands:
    - ~~Change directory~~
    - ~~Rename~~
@@ -28,7 +29,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
    - isearch_select
    - isearch_select_all
    - isearch_select_extension
-   - File opening preview
+   - ~~File opening preview~~
 * ~~Command previews~~
 * Movement:
 - ~~Jump to top/bottom~~
