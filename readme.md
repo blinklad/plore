@@ -1,6 +1,6 @@
 # plore
 ## Handmade, simple file explorer
-![plore 0.1.2](docs/plore-v-0-1-2.png)
+![plore 0.1.3](docs/plore-v-0-1-3.png)
 
 Graphical file manager written in C99, with first-class vim bindings. 
 
@@ -22,8 +22,8 @@ Consider this repository to be a snapshot in time of whatever fire I am currentl
 Specifically, there is no handling for:
 - Unicode
 - Localization
-- Terminal integration: Does not work smoothly between terminal emulators, let alone operating systems.
-- xresources integration
+- Terminal integration: I've found colouring and escape sequences alone do not work smoothly between terminal emulators, let alone operating systems.
+- xresources integration.
 - File previews for every file extension and encoding, i.e., TIFF, .pdf, .gif, etc.
 - Variable-length paths: I've never had issues with this before.
 - File permission editing: I very rarely do this.
@@ -48,38 +48,47 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
    - ~~Change directory~~
    - ~~Rename~~
    - Make directory
-   - Filter
-   - ~~isearch~~
-   - isearch_select
-   - isearch_select_all
-   - isearch_select_extension
+   - ~~ISearch~~
+   - ISearch select numbered candidates
+   - ISearch select all candidates
+   - Filter by extension.
    - ~~File opening preview~~
+   - File opening handler suggestion.
 * ~~Command previews~~
+* Lister for all selected/yanked files/directories
+* Persistent marked files/directories
+* Undo
+* Deletion
+* User-defined trash
 * Movement:
 - ~~Jump to top/bottom~~
-- Paginated movement
+- Paginated movement, i.e. ctrl-u, ctrl-d, and centering.
+- ~~Pagination~~
 * ~~Selecting entries moves the cursor~~
 * File preview for formats:
 - ~BMP~
 - ~PNG~ using stb_image, so does not handle DEFLATE properly!
 - ~JPG~
 - Text-like files (ASCII only)
-* Multiple tabs.
+* Multiple tabs!
 * ~~Vim commands supporting scalars (e.g., 5yy, 2j)~~
-* Per-context cursor and undo stack.
 * Clipboard handling.
 * Hidden file toggling.
 * Data sorting.
 * Size sorting.
 * VIMGUI work:
-   - Actual alpha blending 
+   - ~~Actual alpha blending~~
+   - Scissor rects.
    - ~~Z-order~~ Implicit z-ordering using the parent window stack will work ok!
+   - Animation.
    - ~Focus~
-   - Better primitive lists (curves, bitmaps)
+   - Borders
+   - Better primitive lists (curves, stroked lines, bitmaps)
    - Floating windows
    - More widgets: labels, dropdowns, textfields.
+   - Bake font into executable.
    - Global font scale.
-   - Everything could look a lot nicer.
+   - Font colour mask.
 * Changing assertions to error codes to prevent crashing when a stabler version is made.
 * ... Many more ...
 
