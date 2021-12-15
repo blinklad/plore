@@ -355,7 +355,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								} break;
 								
 								case VimCommandState_Finish: {
-									DrawText("Finish");
 									// NOTE(Evan): Copy insertion into the active command, then call the active command function before cleaning up.
 									u64 Size = 512;
 									VimContext->ActiveCommand.Shell = PushBytes(&VimContext->CommandArena, Size);
@@ -478,7 +477,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		}
 		
 		
-		// NOTE(Evan): ISearch, appears at top of screen.
+		// NOTE(Evan): Interactive Mode, appears at bottom of screen.
 #if 1
 		if (VimContext->Mode == VimMode_Insert) {
 			char *InsertPrompt = "";
@@ -508,17 +507,18 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 										   VimKeysToString(S, Size, VimContext->CommandKeys).Buffer,
 										   (DoBlink ? "|" : ""));
 			
-			Y += FooterHeight + 5*PadY;
-			H -= (FooterHeight + 5*PadY);
+//			Y += FooterHeight + 5*PadY;
+			H -= (FooterHeight + 2*PadY);
 			
 			if (Button(State->VimguiContext, (vimgui_button_desc) {
 							   .ID = (u64) Buffer,
 							   .Title = Buffer, 
 							   .Rect = { 
-								   .P    = V2(PadX, FooterHeight), 
+								   .P    = V2(PadX, PlatformAPI->WindowDimensions.Y - 2*FooterHeight - 2*PadY), 
 								   .Span = V2(PlatformAPI->WindowDimensions.X-2*PadX, FooterHeight + PadY)
 							   },
 							   .TextPad = V2(8, 12),
+							   .TextColour = TextColour_Prompt,
 						   })) {
 			}
 		} else if (VimContext->Mode == VimMode_Lister && VimContext->ActiveCommand.Type == VimCommandType_OpenFile) {
@@ -613,6 +613,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			plore_file *CursorFile = &State->DirectoryState.Cursor.File;
 			char CursorInfo[512] = {0};
 			char *CommandString = "";
+			text_colour TextColour = TextColour_CursorInfo;
 			
 			switch (VimContext->Mode) {
 				case VimMode_Normal: {
@@ -629,12 +630,13 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							 );
 			
 			if (Button(State->VimguiContext, (vimgui_button_desc) {
-						   .Title = CursorInfo,
-						   .Rect = { 
-							   .P    = V2(PadX, Y + PlatformAPI->WindowDimensions.X + FooterHeight + FooterPad), 
-							   .Span = V2(PlatformAPI->WindowDimensions.X-2*PadX, FooterHeight + PadY-20)
-						   },
+							   .Title = CursorInfo,
+							   .Rect = { 
+								   .P    = V2(PadX, Y + PlatformAPI->WindowDimensions.X + FooterHeight + FooterPad), 
+								   .Span = V2(PlatformAPI->WindowDimensions.X-2*PadX, FooterHeight + PadY-20)
+							   },
 							   .TextPad = V2(8, 4),
+							   .TextColour = TextColour,
 					   })) {
 			}
 			
@@ -675,14 +677,10 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 					case PloreFileNode_Directory: {
 						for (u64 Row = RowStart; Row < RowEnd; Row++) {
 							
-							widget_colour BackgroundColour = 0;
+							widget_colour BackgroundColour = WidgetColour_Default;
 							text_colour TextColour = 0;
 							
 							plore_file *RowEntry = Listing->Entries + Row;
-							
-							if (FilterText && *FilterText) {
-								if (!Substring(RowEntry->Path.FilePart, FilterText).IsContained) continue;
-							}
 							
 							if (IsYanked(FileContext, &RowEntry->Path)) {
 								BackgroundColour = WidgetColour_Tertiary;
@@ -692,11 +690,19 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								BackgroundColour = WidgetColour_Secondary;
 							}
 							
-							if (RowEntry->Type == PloreFileNode_Directory) {
-								TextColour = TextColour_Primary;
-							} else {
-								TextColour = TextColour_Secondary;
+							b64 PassesFilter = true;
+							if (FilterText && *FilterText) {
+								PassesFilter = Substring(RowEntry->Path.FilePart, FilterText).IsContained;
 							}
+							
+							if (RowEntry->Type == PloreFileNode_Directory) {
+								if (PassesFilter) TextColour = TextColour_Primary;								
+								else TextColour = TextColour_PrimaryFade;
+							} else {
+								if (PassesFilter) TextColour = TextColour_Secondary;								
+								else TextColour = TextColour_SecondaryFade;
+							}
+							
 							
 							if (Button(State->VimguiContext, (vimgui_button_desc) {
 										   .Title = Listing->Entries[Row].Path.FilePart,

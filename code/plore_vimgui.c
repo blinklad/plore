@@ -60,7 +60,7 @@ VimguiEnd(plore_vimgui_context *Context) {
 					} break;
 					
 					case WidgetColour_Secondary: {
-						BackgroundColour = V4(0.5, 0.3, 0.3, 1);
+						BackgroundColour = V4(0.2, 0.1, 0.1, 1);
 					}; break;
 					
 					case WidgetColour_Tertiary: {
@@ -82,6 +82,22 @@ VimguiEnd(plore_vimgui_context *Context) {
 					
 					case TextColour_Secondary: {
 						TextColour = V4(0.9, 0.85, 0.80, 1);
+					} break;
+					
+					case TextColour_PrimaryFade: {
+						TextColour = V4(0.4, 0.5, 0.6, 0.3);
+					} break;
+					
+					case TextColour_SecondaryFade: {
+						TextColour = V4(0.9, 0.85, 0.80, 0.3);
+					} break;
+					
+					case TextColour_Prompt: {
+						TextColour = V4(0.2, 0.85, 0.10, 1.0);
+					} break;
+					
+					case TextColour_CursorInfo: {
+						TextColour = V4(0.8, 0.4, 0.4, 1);
 					} break;
 					
 				}

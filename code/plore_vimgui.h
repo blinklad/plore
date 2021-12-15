@@ -18,7 +18,12 @@ typedef enum text_colour {
 	TextColour_Default,
 	TextColour_Primary,
 	TextColour_Secondary,
+	TextColour_PrimaryFade,
+	TextColour_SecondaryFade,
+	TextColour_Prompt,
+	TextColour_CursorInfo,
 	TextColour_Count,
+	TextColour_Lister,
 	_TextColour_ForceU64 = 0xFFFFFFFF,
 } text_colour;
 

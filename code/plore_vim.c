@@ -151,13 +151,14 @@ MakeCommand(plore_vim_context *Context) {
 					Context->ActiveCommand = Result.Command; // @Cleanup
 					
 					Context->CommandKeys[--Context->CommandKeyCount] = ClearStruct(vim_key); 
-				} else if (LatestKey->Input == PloreKey_Q) {
-					ResetVimState(Context);
 				} else {
 					// NOTE(Evan): Mode-specific keymapping is here, as Return, Q and a full buffer terminate always.
 					switch (Context->Mode) {
 						case VimMode_Lister: {
 							switch (LatestKey->Input) {
+								case PloreKey_Q: {
+									ResetVimState(Context);
+								} break;
 								case PloreKey_J:
 								case PloreKey_K: {
 									i64 Direction = LatestKey->Input == PloreKey_J ? +1 : -1;
@@ -215,11 +216,13 @@ PLORE_VIM_COMMAND(OpenFile) {
 			case VimCommandState_Start: {
 				u64 MaybeCount = GetHandlerCount(Selected->Extension);
 				if (MaybeCount) {
+					DrawText("here");
 					VimContext->ListerCount = MaybeCount;
 					VimContext->ListerCursor = 0;
 					SetActiveCommand(VimContext, Command);
 					VimContext->Mode = VimMode_Lister;
 				} else {
+					DrawText("<suggestion list>");
 					ResetVimState(VimContext);
 				}
 			} break;
