@@ -1,4 +1,5 @@
 #include "plore.h"
+#include "plore_time.h"
 #include "plore_common.h"
 #include "plore_memory.h"
 #include "plore_platform.h"
@@ -20,6 +21,30 @@ global windows_timer GlobalWindowsTimer;      // TODO(Evan): Timing!
 global windows_context *GlobalWindowsContext;
 global b64 GlobalRunning = true;
 
+internal plore_time
+WindowsFiletimeToPloreTime(FILETIME Filetime) {
+	plore_time Result = {0};
+	ULARGE_INTEGER BigBoy = {0};
+	
+	BigBoy.LowPart  = Filetime.dwLowDateTime;
+	BigBoy.HighPart = Filetime.dwHighDateTime;
+	Result.T = BigBoy.QuadPart / 10000000ULL - 11644473600ULL;
+	
+	return(Result);
+}
+
+internal FILETIME 
+PloreTimeToWindowsFiletime(plore_time Time)
+{
+	FILETIME Result = {0};
+    ULARGE_INTEGER BigBoy = {0};
+	
+    BigBoy.QuadPart = (Time.T * 10000000LL) + 116444736000000000LL;
+    Result.dwLowDateTime = BigBoy.LowPart;
+    Result.dwHighDateTime = BigBoy.HighPart;
+	
+	return(Result);
+}
 
 // NOTE(Evan): Platform layer implementation.
 PLATFORM_DEBUG_PRINT(WindowsDebugPrint) {
@@ -41,6 +66,7 @@ PLATFORM_DEBUG_PRINT_LINE(WindowsDebugPrintLine) {
     fprintf(stdout, "\n");
     va_end(Args);
 }
+
 
 PLATFORM_DEBUG_OPEN_FILE(WindowsDebugOpenFile) {
     HANDLE TheFile = CreateFileA(Path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -310,6 +336,7 @@ PLATFORM_GET_DIRECTORY_ENTRIES(WindowsGetDirectoryEntries) {
 				continue;
 			}
 			
+			File->LastModification = WindowsFiletimeToPloreTime(FindData.ftLastWriteTime);
 			if (FindData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
 				File->Type = PloreFileNode_Directory;
 			} else { // NOTE(Evan): Assume a 'normal' file.
