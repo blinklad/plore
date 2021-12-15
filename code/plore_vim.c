@@ -200,6 +200,40 @@ PLORE_VIM_COMMAND(None) {
 	Assert(!"None command function reached!");
 }
 
+PLORE_VIM_COMMAND(OpenFile) {
+	plore_file *Selected = GetCursorFile(State);
+	if (Selected->Type != PloreFileNode_File) return; // TODO(Evan): Multiple tabs?!
+	
+	if (Command.Shell) {
+		if (Selected) {
+			Platform->RunShell(Command.Shell, Selected->Path.Absolute);
+		}
+		ResetVimState(VimContext);
+		
+	} else {
+		switch (Command.State) {
+			case VimCommandState_Start: {
+				u64 MaybeCount = GetHandlerCount(Selected->Extension);
+				if (MaybeCount) {
+					VimContext->ListerCount = MaybeCount;
+					VimContext->ListerCursor = 0;
+					SetActiveCommand(VimContext, Command);
+					VimContext->Mode = VimMode_Lister;
+				} else {
+					ResetVimState(VimContext);
+				}
+			} break;
+			
+			case VimCommandState_Finish: {
+				Assert(VimContext->ListerCursor < GetHandlerCount(Selected->Extension));
+				
+				plore_handler *Handler = PloreFileExtensionHandlers[Selected->Extension] + VimContext->ListerCursor;
+				Platform->RunShell(Handler->Shell, Selected->Path.Absolute);
+			} break;
+		}
+	}
+}
+
 PLORE_VIM_COMMAND(MoveLeft) {
 	u64 ScalarCount = 0;
 	while (Command.Scalar--) {
@@ -239,15 +273,15 @@ PLORE_VIM_COMMAND(MoveRight) {
 			if (CursorEntry->Extension) {
 				u64 HandlerCount = GetHandlerCount(CursorEntry->Extension);
 				
-				if (HandlerCount > 1) {
-					SetActiveCommand(VimContext, (vim_command) {
-										 .Type = VimCommandType_OpenFile,
-									 });
-					VimContext->Mode = VimMode_Lister;
-					int BreakHere = 5;
-				} else {
-					Platform->RunShell(PloreFileExtensionHandlers[CursorEntry->Extension]->Shell, CursorEntry->Path.Absolute);
-				}
+				if (HandlerCount >= 1) {
+					char *DefaultHandler = PloreFileExtensionHandlers[CursorEntry->Extension][0].Shell;
+					vim_command OpenTheFile = {
+						.Type = VimCommandType_OpenFile,
+						.Shell = DefaultHandler
+					};
+					SetActiveCommand(VimContext, OpenTheFile);
+					DoOpenFile(State, VimContext, FileContext, OpenTheFile);
+				} 
 			} else {
 				DrawText("Unknown extension - specify a handler", CursorEntry->Path.FilePart);
 			}
@@ -473,21 +507,6 @@ PLORE_VIM_COMMAND(Select) {
 	plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(FileContext, &State->DirectoryState.Current.File.Path);
 	plore_file *Selectee = State->DirectoryState.Current.Entries + CursorResult.Cursor->Cursor;
 	ToggleSelected(FileContext, &State->DirectoryState.Cursor.File.Path);
-}
-
-PLORE_VIM_COMMAND(OpenFile) {
-	switch (Command.State) {
-		case VimCommandState_Start: {
-			DrawText("start");
-		} break;
-		
-		case VimCommandState_Finish: {
-			DrawText("finish");
-			if (Command.Shell) {
-				DrawText("shell ok");
-			}
-		} break;
-	}
 }
 	
 #define PLORE_X(Name, Ignored1, _Ignored2) Do##Name,
