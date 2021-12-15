@@ -258,6 +258,15 @@ global vim_binding VimBindings[] = {
 			},
 		}
 	},
+	{
+		.Type = VimCommandType_OpenFile,
+		.Keys = {
+			{
+				.Input = PloreKey_O,
+				.Modifier = PloreKey_Shift,
+			},
+		}
+	},
 };
 
 
