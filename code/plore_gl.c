@@ -22,12 +22,6 @@ WriteText(plore_font *Font, render_text T) {
 	
 	Data = Font->Fonts[Index].Data;
 	Handle = Font->Fonts[Index].Handle;
-	
-	
-	if (T.Centered) {
-		T.Rect.P.X -= StringLength(T.Text)/2.0f * Data[0].xadvance;
-	}
-	
 	f32 X = T.Rect.P.X;
 	f32 Y = T.Rect.P.Y;// - Font->Height;
 	char *Text = T.Text;
