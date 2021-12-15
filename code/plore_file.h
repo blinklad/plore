@@ -13,33 +13,35 @@ typedef enum plore_file_node {
 
 typedef struct plore_handler {
 	char *Shell;
+	char *Name;
 } plore_handler;
 
 
 #define PLORE_FILE_EXTENSION_HANDLER_MAX 8
 
 #if defined(PLORE_WINDOWS)
-#define PLORE_PHOTO_HANDLER   { .Shell = "rundll32.exe \"C:\\Program Files\\Windows Photo Viewer\\PhotoViewer.dll\", ImageView_Fullscreen" }
-#define PLORE_PHOTO_EDITOR    { .Shell = "\"C:\\Program Files\\GIMP 2\\bin\\gimp-2.10.exe\"" }
-#define PLORE_TEXT_HANDLER    { .Shell = "C:\\tools\\4coder\\4ed.exe" }
+#define PLORE_PHOTO_HANDLER            { .Name = "Windows Photo Viewer", .Shell = "rundll32.exe \"C:\\Program Files\\Windows Photo Viewer\\PhotoViewer.dll\", ImageView_Fullscreen" }
+#define PLORE_BASIC_PHOTO_EDITOR       { .Name = "GIMP",                 .Shell = "\"C:\\Program Files\\GIMP 2\\bin\\gimp-2.10.exe\"" }
+#define PLORE_ADVANCED_PHOTO_EDITOR    { .Name = "Paint",                .Shell = "\"C:\\Windows\\System32\\mspaint.exe\"" }
+#define PLORE_TEXT_HANDLER             { .Name = "4Coder",               .Shell = "C:\\tools\\4coder\\4ed.exe" }
 
 #elif defined(PLORE_LINUX)
-#define PLORE_PHOTO_HANDLER   { .Shell = "feh --fullscreen" }
-#define PLORE_TEXT_HANDLER    { .Shell = "nvim" } 
-#define PLORE_PHOTO_EDITOR    { .Shell = "gimp" }
+#define PLORE_PHOTO_HANDLER   { .Name = "Feh",    .Shell = "feh --fullscreen" }
+#define PLORE_TEXT_HANDLER    { .Name = "neovim", .Shell = "nvim" } 
+#define PLORE_PHOTO_EDITOR    { .Name = "GIMP",   .Shell = "gimp" }
 
 #else
 #error Unsupported platform.
 #endif
 
 
-#define PLORE_FILE_EXTENSIONS                                                       \
-PLORE_X(Unknown, "", "unknown", { { .Shell = "unknown"}                         } ) \
-PLORE_X(BMP, "bmp", "bitmap",   { PLORE_PHOTO_HANDLER, PLORE_PHOTO_EDITOR,      } ) \
-PLORE_X(PNG, "png", "png",      { PLORE_PHOTO_HANDLER, PLORE_PHOTO_EDITOR,      } ) \
-PLORE_X(JPG, "jpg", "jpeg",     { PLORE_PHOTO_HANDLER, PLORE_PHOTO_EDITOR,      } ) \
-PLORE_X(TXT, "txt", "text",     { PLORE_TEXT_HANDLER                            } ) \
-PLORE_X(BAT, "bat", "batch",    { PLORE_TEXT_HANDLER                            } )  
+#define PLORE_FILE_EXTENSIONS                                                                                     \
+PLORE_X(Unknown, "", "unknown", { { .Shell = "unknown"}                                                       } ) \
+PLORE_X(BMP, "bmp", "bitmap",   { PLORE_PHOTO_HANDLER, PLORE_BASIC_PHOTO_EDITOR, PLORE_ADVANCED_PHOTO_EDITOR, } ) \
+PLORE_X(PNG, "png", "png",      { PLORE_PHOTO_HANDLER, PLORE_BASIC_PHOTO_EDITOR, PLORE_ADVANCED_PHOTO_EDITOR, } ) \
+PLORE_X(JPG, "jpg", "jpeg",     { PLORE_PHOTO_HANDLER, PLORE_BASIC_PHOTO_EDITOR, PLORE_ADVANCED_PHOTO_EDITOR, } ) \
+PLORE_X(TXT, "txt", "text",     { PLORE_TEXT_HANDLER                                                          } ) \
+PLORE_X(BAT, "bat", "batch",    { PLORE_TEXT_HANDLER                                                          } )  
 
 typedef enum plore_file_extension {
 #define PLORE_X(Name, _Ignored1, _Ignored2, ...) PloreFileExtension_##Name##,
@@ -124,7 +126,7 @@ GetFileExtension(char *FilePart) {
 // TODO(Evan): Generate this from metaprogram!
 internal u64
 GetHandlerCount(plore_file_extension Extension) {
-	Assert(Extension && Extension < PloreFileExtension_Count);
+	Assert(Extension < PloreFileExtension_Count);
 	u64 H = 0;
 	for (H = 0; H < PLORE_FILE_EXTENSION_HANDLER_MAX; H++) if (!PloreFileExtensionHandlers[Extension][H].Shell) break;
 	
