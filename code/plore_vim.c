@@ -1,7 +1,7 @@
 typedef struct make_command_result {
 	vim_command Command;
 	b64 Candidates[ArrayCount(VimBindings)];
-	b64 CandidateCount;
+	u64 CandidateCount;
 } make_command_result;
 
 
