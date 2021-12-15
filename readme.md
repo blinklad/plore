@@ -2,30 +2,39 @@
 ## Handmade, simple file explorer
 ![plore 0.1.2](docs/plore-v-0-1-2.png)
 
-Somewhat inspired by Ranger and LF, with a first-class focus on vim bindings and minimizing the number of concepts, libraries or footguns required to use.
+Graphical file manager written in C99, with first-class vim bindings. 
+
+Inspired by Ranger and LF, with a design and implementation philosophy focusing on minimizing the number of dependencies, whether they are libraries, programming languages/versions, file encodings, OS-specific logic or otherwise.
 
 ## Design Goals
 * As simple and minimalistic of an implementation as possible. 
 * No complicated build systems, docker containers, or OS abstraction leakage.
 * Written in C99, with no dependencies besides the awesome stb header-only libraries.
-* Runs as a graphical application, not ncurses.
+* Runs as a graphical application, not a terminal application using e.g., ncurses.
 * Software designed for personal, cross-platform use on Linux and Windows.
+* Potentially hackable by other programmers, via modifying header files.
 
 ### Note
 Consider this repository to be a snapshot in time of whatever fire I am currently putting out, or feature I am hacking together, rather then a place to propose changes or nitpick very rough (and sometimes outright awful) prototype code.
 
 **I do not attempt to solve problems I do not have**. 
+
 Specifically, there is no handling for:
 - Unicode
 - Localization
 - Terminal integration: Does not work smoothly between terminal emulators, let alone operating systems.
+- xresources integration
+- File previews for every file extension and encoding, i.e., TIFF, .pdf, .gif, etc.
 - Variable-length paths: I've never had issues with this before.
 - File permission editing: I very rarely do this.
-* Potentially hackable by other programmers, via modifying header files.
+
 ### Warning 
 **This is not intended to be used as an everyday file management tool.**.
+
 Hard-crashes and/or debugger traps are used on assertions instead of recovery. As such, release builds are not tested.
+
 There are many degenerate cases that could lead to the loss or corruption of files that haven't been discovered either.
+
 Further, there are some cases that it will probably *never* handle to keep it as simple as possible. 
 For example, it is unlikely that I will ever support Unicode paths, as I personally do not have any need for it. Given that I've explicitly recommended others -- who may speak languages other than English -- to not use this tool right now, no harm otherwise done.
 
@@ -76,7 +85,9 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 
 ### Building
 Currently, there is only a Windows implementation.
+
 Requires Visual Studio 2019 installed to setup MSVC _only_, as there is no `.sln` used to build plore.
+
 Assuming you have Visual Studio 2019's `vcvarsall.bat` installed at `C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat`...
 
 0. (optional) Tweak the file extension handlers in `plore_file.h` to programs of your choice.
