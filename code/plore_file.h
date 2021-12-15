@@ -128,7 +128,9 @@ internal u64
 GetHandlerCount(plore_file_extension Extension) {
 	Assert(Extension < PloreFileExtension_Count);
 	u64 H = 0;
-	for (H = 0; H < PLORE_FILE_EXTENSION_HANDLER_MAX; H++) if (!PloreFileExtensionHandlers[Extension][H].Shell) break;
+	if (Extension) {
+		for (H = 0; H < PLORE_FILE_EXTENSION_HANDLER_MAX; H++) if (!PloreFileExtensionHandlers[Extension][H].Shell) break;
+	}
 	
 	return(H);
 }
