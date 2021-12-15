@@ -11,6 +11,7 @@ typedef struct plore_file_listing_cursor_create_result {
 typedef struct plore_file_listing_desc {
 	plore_file_node Type;
 	plore_path_ref Path;
+	plore_time LastModification;
 } plore_file_listing_desc;
 
 
@@ -25,6 +26,7 @@ ListingFromFile(plore_file *File) {
 			.Absolute = File->Path.Absolute,
 			.FilePart = File->Path.FilePart,
 		},
+		.LastModification = File->LastModification,
 	};
 	
 	return(Result);
