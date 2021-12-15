@@ -4,6 +4,20 @@
 
 Somewhat inspired by Ranger and LF, with a first-class focus on vim bindings and minimizing the number of concepts, libraries or footguns required to use.
 
+## Design Goals
+* As simple and minimalistic of an implementation as possible. 
+* No complicated build systems, docker containers, or OS abstraction leakage.
+* Written in C99, with no dependencies besides the awesome stb header-only libraries.
+* Runs as a graphical application, not ncurses.
+* Software designed for personal, cross-platform use on Linux and Windows.
+* **Does not attempt to solve problems I do not have**. Specifically, there is no handling for:
+- Unicode
+- Localization
+- Terminal integration: Does not work smoothly between terminal emulators, let alone operating systems.
+- Variable-length paths: I've never had issues with this before.
+- File permission editing: I very rarely do this.
+* Potentially hackable by other programmers, via modifying header files.
+
 ### Note
 Consider this repository to be a snapshot in time of whatever fire I am currently putting out, or feature I am hacking together, rather then a place to propose changes or nitpick very rough (and sometimes outright awful) prototype code.
 
