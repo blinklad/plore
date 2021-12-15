@@ -16,6 +16,16 @@ ClearCommands(plore_vim_context *Context) {
 	Context->CommandKeyCount = 0;
 }
 
+internal void
+ResetVimState(plore_vim_context *Context) {
+	ClearCommands(Context);
+	ClearArena(&Context->CommandArena);
+	Context->Mode = VimMode_Normal;
+	Context->ActiveCommand = ClearStruct(vim_command);
+	Context->ListerCursor = 0;
+	Context->ListerCount = 0;
+}
+
 plore_inline vim_key *
 PeekLatestKey(plore_vim_context *Context) {
 	vim_key *Result = 0;
