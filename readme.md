@@ -10,17 +10,18 @@ Somewhat inspired by Ranger and LF, with a first-class focus on vim bindings and
 * Written in C99, with no dependencies besides the awesome stb header-only libraries.
 * Runs as a graphical application, not ncurses.
 * Software designed for personal, cross-platform use on Linux and Windows.
-* **Does not attempt to solve problems I do not have**. Specifically, there is no handling for:
+
+### Note
+Consider this repository to be a snapshot in time of whatever fire I am currently putting out, or feature I am hacking together, rather then a place to propose changes or nitpick very rough (and sometimes outright awful) prototype code.
+
+**I do not attempt to solve problems I do not have**. 
+Specifically, there is no handling for:
 - Unicode
 - Localization
 - Terminal integration: Does not work smoothly between terminal emulators, let alone operating systems.
 - Variable-length paths: I've never had issues with this before.
 - File permission editing: I very rarely do this.
 * Potentially hackable by other programmers, via modifying header files.
-
-### Note
-Consider this repository to be a snapshot in time of whatever fire I am currently putting out, or feature I am hacking together, rather then a place to propose changes or nitpick very rough (and sometimes outright awful) prototype code.
-
 ### Warning 
 **This is not intended to be used as an everyday file management tool.**.
 Hard-crashes and/or debugger traps are used on assertions instead of recovery. As such, release builds are not tested.
@@ -74,5 +75,11 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 * ... Many more ...
 
 ### Building
-Currently, only supports Windows. 
-Assuming you have Visual Studio 2019's `vcvarsall.bat` installed at `C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat`, just run `build.bat`, and everything should just work.
+Currently, there is only a Windows implementation.
+Requires Visual Studio 2019 installed to setup MSVC _only_, as there is no `.sln` used to build plore.
+Assuming you have Visual Studio 2019's `vcvarsall.bat` installed at `C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat`...
+
+0. (optional) Tweak the file extension handlers in `plore_file.h` to programs of your choice.
+1. Run `build.bat`.
+2. Launch the executable from the parent directory of `build`, i.e., `$ build\win32_plore.exe`.
+
