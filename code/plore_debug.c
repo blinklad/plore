@@ -22,7 +22,7 @@ global u64 DebugTextCount = 0;
 
 internal void
 DrawText(char *Format, ...) {
-	if (DebugTextCount > ArrayCount(DebugText)) return;
+	if (DebugTextCount >= ArrayCount(DebugText)-1) return;
 	
 	// NOTE(Evan): Check if a duplicate string already exists.
 	// CLEANUP(Evan): __LINE__ might work?
@@ -74,9 +74,11 @@ FlushText(void) {
 									   W, 100 
 								   },
 							   },
-							   .TextColour = V4(0, 0, 0, Fade),
-							   .Text = Text->Buffer, 
-							   .Centered = true,
+							   ._TextColour = V4(0, 0, 0, Fade),
+							   .Text = { 
+								   .Text = Text->Buffer,
+								   .Alignment = VimguiLabelAlignment_Center, 
+							   },
 							   .Height = 64.0f,
 						   }
 						   );
@@ -92,9 +94,11 @@ FlushText(void) {
 								   W, 100 
 							   },
 						   },
-						   .TextColour = Colour,
-						   .Text = Text->Buffer, 
-						   .Centered = true,
+						   ._TextColour = Colour,
+						   .Text = { 
+							   .Text = Text->Buffer,
+							   .Alignment = VimguiLabelAlignment_Center, 
+						   },
 						   .Height = 64.0f
 						   });
 		}
