@@ -21,7 +21,6 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 * Asynchronous file management, for e.g., `mv`s.
 * Commands:
    - ~~Change directory~~
-   - OS-specific shell
    - ~~Rename~~
    - Make directory
    - Filter
@@ -29,17 +28,17 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
    - isearch_select
    - isearch_select_all
    - isearch_select_extension
+   - File opening preview
 * ~~Command previews~~
 * Movement:
 - ~~Jump to top/bottom~~
 - Paginated movement
-* Command stack. Sort of implemented, not useful.
 * ~~Selecting entries moves the cursor~~
 * File preview for formats:
 - ~BMP~
 - ~PNG~ using stb_image, so does not handle DEFLATE properly!
 - ~JPG~
-- text-like files
+- Text-like files (ASCII only)
 * Multiple tabs.
 * ~~Vim commands supporting scalars (e.g., 5yy, 2j)~~
 * Per-context cursor and undo stack.
