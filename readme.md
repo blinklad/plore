@@ -54,6 +54,8 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
    - Filter by extension.
    - ~~File opening preview~~
    - File opening handler suggestion.
+   - Open tab in specified directory.
+   - Close tab.
 * ~~Command previews~~
 * Lister for all selected/yanked files/directories
 * Persistent marked files/directories
@@ -70,12 +72,13 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 - ~PNG~ using stb_image, so does not handle DEFLATE properly!
 - ~JPG~
 - Text-like files (ASCII only)
-* Multiple tabs!
+* ~~Multiple tabs!~~
 * ~~Vim commands supporting scalars (e.g., 5yy, 2j)~~
 * Clipboard handling.
-* Hidden file toggling.
+* idden file toggling.
 * Data sorting.
 * Size sorting.
+* ~~Date display.~~
 * VIMGUI work:
    - ~~Actual alpha blending~~
    - Scissor rects.
