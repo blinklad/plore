@@ -922,7 +922,8 @@ SynchronizeCurrentDirectory(plore_file_context *FileContext, plore_current_direc
 	if (!FileContext->InTopLevelDirectory) {
 		// CLEANUP(Evan): Doesn't need to copy twice!
 		plore_file_listing CurrentCopy = CurrentState->Current;
-		Platform->PopPathNode(CurrentCopy.File.Path.Absolute, ArrayCount(CurrentCopy.File.Path.Absolute), false);
+		char *FilePart = Platform->PopPathNode(CurrentCopy.File.Path.Absolute, ArrayCount(CurrentCopy.File.Path.Absolute), false).FilePart;
+		CStringCopy(FilePart, CurrentCopy.File.Path.FilePart, ArrayCount(CurrentCopy.File.Path.FilePart));
 		
 		if (Platform->IsPathTopLevel(CurrentCopy.File.Path.Absolute, PLORE_MAX_PATH)) {
 			CStringCopy(CurrentCopy.File.Path.Absolute, CurrentCopy.File.Path.FilePart, PLORE_MAX_PATH);
