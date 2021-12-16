@@ -1,6 +1,6 @@
 # plore
 ## Handmade, simple file explorer
-![plore 0.1.3](docs/plore-v-0-1-3.png)
+![plore 0.1.4](docs/plore-v-0-1-4.png)
 
 Graphical file manager written in C99, with first-class vim bindings. 
 
@@ -24,9 +24,9 @@ Specifically, there is no handling for:
 - Localization
 - Terminal integration: I've found colouring and escape sequences alone do not work smoothly between terminal emulators, let alone operating systems.
 - xresources integration.
-- File previews for every file extension and encoding, i.e., TIFF, .pdf, .gif, etc.
+- File previews for every file extension and encoding, e.g., .tiff, .pdf, .gif, etc.
 - Variable-length paths: I've never had issues with this before.
-- File permission editing: I very rarely do this.
+- File permission editing: I very rarely do this, at least not often enough to warrant including it in a file manager.
 
 ### Warning 
 **This is not intended to be used as an everyday file management tool.**.
@@ -73,9 +73,10 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 - ~JPG~
 - Text-like files (ASCII only)
 * ~~Multiple tabs!~~
+* Split tabs!
 * ~~Vim commands supporting scalars (e.g., 5yy, 2j)~~
 * Clipboard handling.
-* idden file toggling.
+* Hidden file toggling.
 * Data sorting.
 * Size sorting.
 * ~~Date display.~~
