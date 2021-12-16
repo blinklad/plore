@@ -62,14 +62,28 @@ typedef struct plore_current_directory_state {
 	u64 FilterCount;
 } plore_current_directory_state;
 
+
+typedef struct plore_tab {
+	plore_path CurrentDirectory; // NOTE(Evan): Needs to be cached, as current directory is set for the entire process.
+	plore_current_directory_state DirectoryState;
+	interact_state InteractState;
+	plore_file_context *FileContext;
+	b64 Active;
+} plore_tab;
+
 typedef struct plore_state {
 	b64 Initialized;
 	f64 DT;
-	plore_current_directory_state DirectoryState;
+	
+	plore_tab Tabs[8];
+	u64 TabCount;
+	u64 TabCurrent;
+	
+	plore_current_directory_state *DirectoryState;
+	plore_file_context *FileContext;
 	interact_state InteractState;
 	
 	plore_memory *Memory;
-	plore_file_context *FileContext;
 	plore_vim_context *VimContext;
 	plore_vimgui_context *VimguiContext;
 	plore_render_list *RenderList;
@@ -81,6 +95,12 @@ typedef struct plore_state {
 } plore_state;
 
 
+internal b64
+SetCurrentTab(plore_state *State, u64 NewTab);
+
+internal plore_tab *
+GetCurrentTab(plore_state *State);
+	
 
 typedef struct load_image_result {
 	platform_texture_handle Texture;
@@ -117,7 +137,7 @@ internal char *
 VimBindingToString(char *Buffer, u64 BufferSize, vim_binding *Binding);
 	
 internal void
-SynchronizeCurrentDirectory(plore_file_context *FileContext, plore_current_directory_state *CurrentState);
+SynchronizeCurrentDirectory(plore_tab *Tab);
 
 internal plore_file *
 GetCursorFile(plore_state *State);
@@ -152,8 +172,8 @@ GetKey(char C) {
 
 internal plore_file *
 GetCursorFile(plore_state *State) {
-	plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(State->FileContext, &State->DirectoryState.Current.File.Path);
-	plore_file *CursorEntry = State->DirectoryState.Current.Entries + CursorResult.Cursor->Cursor;
+	plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(State->FileContext, &State->DirectoryState->Current.File.Path);
+	plore_file *CursorEntry = State->DirectoryState->Current.Entries + CursorResult.Cursor->Cursor;
 	
 	return(CursorEntry);
 }
@@ -167,7 +187,7 @@ GetImpliedSelection(plore_state *State) {
 	if (FileContext->SelectedCount == 1) {
 		Result = &FileContext->Selected[0];
 	} else if (!FileContext->SelectedCount) {
-		plore_file_listing *Cursor = &State->DirectoryState.Cursor;
+		plore_file_listing *Cursor = &State->DirectoryState->Cursor;
 		if (Cursor->Valid) {
 			if ((Cursor->File.Type == PloreFileNode_Directory && !Cursor->Count)) return(Result);
 			
@@ -239,10 +259,18 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		// MAINTENANCE(Evan): Don't copy the main arena by value until we've allocated the frame arena.
 		State->Arena = PloreMemory->PermanentStorage;
 		
-		State->FileContext = PushStruct(&State->Arena, plore_file_context);
-		for (u64 Dir = 0; Dir < ArrayCount(State->FileContext->CursorSlots); Dir++) {
-			State->FileContext->CursorSlots[Dir] = PushStruct(&State->Arena, plore_file_listing_cursor);
+		for (u64 T = 0; T < ArrayCount(State->Tabs); T++) {
+			plore_tab *Tab = State->Tabs + T;
+			Tab->FileContext = PushStruct(&State->Arena, plore_file_context);
+			for (u64 Dir = 0; Dir < ArrayCount(Tab->FileContext->CursorSlots); Dir++) {
+				Tab->FileContext->CursorSlots[Dir] = PushStruct(&State->Arena, plore_file_listing_cursor);
+			}
 		}
+		
+		State->TabCount = 1;
+		State->Tabs[0].Active = true;
+		State->FileContext = State->Tabs[0].FileContext;
+		State->DirectoryState = &State->Tabs[0].DirectoryState;
 		
 		State->Font = FontInit(&State->Arena, "C:\\plore\\data\\fonts\\Inconsolata-Light.ttf");
 		
@@ -273,7 +301,9 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	}
 #endif
 	
-	plore_file_context *FileContext = State->FileContext;
+	plore_tab *Tab = GetCurrentTab(State);
+	plore_file_context *FileContext = Tab->FileContext;
+	
 	plore_vim_context *VimContext = State->VimContext;
 	keyboard_and_mouse BufferedInput = PloreInput->ThisFrame;
 	
@@ -285,25 +315,44 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	VimguiBegin(State->VimguiContext, BufferedInput, PlatformAPI->WindowDimensions);
 	
 	// TODO(Evan): File watching so this function doesn't need to be called eagerly.
-	SynchronizeCurrentDirectory(State->FileContext, &State->DirectoryState);
+	SynchronizeCurrentDirectory(Tab);
 	
-	vim_key BufferedKeys[64] = {0};
-	u64 BufferedKeyCount = 0;
-	
-	b64 DidInput = false;
-	for (u64 K = 0; K < BufferedInput.TextInputCount; K++) {
-		if (VimContext->CommandKeyCount == ArrayCount(VimContext->CommandKeys)) break;
-		
-		char C = BufferedInput.TextInput[K];
-		plore_key PK = GetKey(C);
-		VimContext->CommandKeys[VimContext->CommandKeyCount++] = (vim_key) { 
-			.Input = PK, 
-			.Modifier = BufferedInput.sKeys[PK] ? PloreKey_Shift : PloreKey_None,
-		};
-		
-		DidInput = true;
+	b64 DidMetaInput = false;
+	u64 NewTab = 0;
+	for (plore_key K = PloreKey_One; K <= PloreKey_Eight; K++) {
+		if (BufferedInput.cKeys[K]) {
+			DidMetaInput = true;
+			NewTab = K - PloreKey_One;
+			break;
+		}
 	}
 	
+	b64 DidInput = false;
+	
+	if (DidMetaInput) {
+		plore_tab *Tab = State->Tabs + NewTab;
+		if (SetCurrentTab(State, NewTab)) {
+			FileContext = Tab->FileContext;
+		}
+	} else {
+		vim_key BufferedKeys[64] = {0};
+		u64 BufferedKeyCount = 0;
+		
+		
+		for (u64 K = 0; K < BufferedInput.TextInputCount; K++) {
+			if (VimContext->CommandKeyCount == ArrayCount(VimContext->CommandKeys)) break;
+			
+			char C = BufferedInput.TextInput[K];
+			plore_key PK = GetKey(C);
+			VimContext->CommandKeys[VimContext->CommandKeyCount++] = (vim_key) { 
+				.Input = PK, 
+				.Modifier = BufferedInput.sKeys[PK] ? PloreKey_Shift : PloreKey_None,
+			};
+			
+			DidInput = true;
+		}
+	
+	}
 	//
 	// NOTE(Evan): Vim command processing
 	//
@@ -405,7 +454,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		}
 	}
 	
-	SynchronizeCurrentDirectory(State->FileContext, &State->DirectoryState);
+	SynchronizeCurrentDirectory(GetCurrentTab(State));
 	
 	//
 	// NOTE(Evan): GUI stuff.
@@ -432,14 +481,14 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	
 	plore_viewable_directory ViewDirectories[3] = {
 		[0] = {
-			.File = FileContext->InTopLevelDirectory ? 0 : &State->DirectoryState.Parent,
+			.File = FileContext->InTopLevelDirectory ? 0 : &State->DirectoryState->Parent,
 		},
 		[1] = {
-			.File = &State->DirectoryState.Current,
+			.File = &State->DirectoryState->Current,
 			.Focus = true,
 		},
 		[2] = {
-			.File = &State->DirectoryState.Cursor.Valid ? &State->DirectoryState.Cursor : 0,
+			.File = &State->DirectoryState->Cursor.Valid ? &State->DirectoryState->Cursor : 0,
 		},
 	};
 	
@@ -458,10 +507,54 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	} image_preview_handle;
 	
 	if (Window(State->VimguiContext, (vimgui_window_desc) {
-					   .ID = (u64) State->DirectoryState.Current.File.Path.Absolute,
+					   .ID = (u64) State->DirectoryState->Current.File.Path.Absolute,
 					   .Rect = { .P = V2(0, 0), .Span = { PlatformAPI->WindowDimensions.X, PlatformAPI->WindowDimensions.Y - FooterHeight } },
-			   })) {
+				   })) {
 		
+		// NOTE(Evan): Tabs.
+		f32 TabWidth = 240;
+		f32 TabHeight = 48;
+		u64 TabCount = 0;
+		
+		plore_tab *Active = GetCurrentTab(State);
+		for (u64 T = 0; T < State->TabCount; T++) {
+			plore_tab *Tab = State->Tabs + T;
+			if (Tab->Active) {
+				TabCount++;
+				
+				u64 NumberSize = 32;
+				char *Number = PushBytes(&State->FrameArena, NumberSize);
+				StringPrintSized(Number, NumberSize, "%d", T+1);
+				
+				if (Button(State->VimguiContext, (vimgui_button_desc) {
+								   .ID = (u64) Tab,
+								   .Rect = { 
+									   .P =    { (TabCount)*PadX + (TabCount-1)*TabWidth, PadY },
+									   .Span = { TabWidth, TabHeight },
+								   },
+								   .Title = {
+									   .Text = Tab->CurrentDirectory.FilePart, 
+									   .Colour = (Tab == Active) ? TextColour_TabActive : TextColour_Tab,
+									   .Pad = V2(0, 6),
+									   .Alignment = VimguiLabelAlignment_Center,
+								   },
+								   .Secondary = {
+									   .Text = Number,
+									   .Alignment = VimguiLabelAlignment_Left,
+									   .Colour = (Tab == Active) ? TextColour_TabActive : TextColour_Tab,
+									   .Pad = V2(10, 6),
+								   },
+							   })) {
+					// TODO(Evan): Switch tab if clicked!
+					SetCurrentTab(State, T);
+				}
+			}
+		}
+		
+		if (State->TabCount) {
+			Y += TabHeight;
+			H -= TabHeight;
+		}
 		// NOTE(Evan): Cursor state.
 		local f64 Tick = 0;
 		local b64 DoBlink = false; 
@@ -526,7 +619,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 						   })) {
 			}
 		} else if (VimContext->Mode == VimMode_Lister && VimContext->ActiveCommand.Type == VimCommandType_OpenFile) {
-			plore_file_listing *Listing = &State->DirectoryState.Cursor;
+			plore_file_listing *Listing = &State->DirectoryState->Cursor;
 			plore_handler *Handlers = PloreFileExtensionHandlers[Listing->File.Extension];
 			u64 HandlerCount = 0;
 			
@@ -570,7 +663,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 #endif
 		
 #if 1
-		if (State->DirectoryState.Cursor.Valid) {
+		if (State->DirectoryState->Cursor.Valid) {
 			// NOTE(Evan): If we didn't eat the command and there are candidates, list them!
 			if (VimContext->Mode == VimMode_Normal && VimContext->CommandKeyCount && CommandCandidates.CandidateCount) {
 				u64 CandidateCount = 0;
@@ -618,7 +711,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			
 			
 			// NOTE(Evan): Cursor information, appears at bottom of screen.
-			plore_file *CursorFile = &State->DirectoryState.Cursor.File;
+			plore_file *CursorFile = &State->DirectoryState->Cursor.File;
 			
 			char CursorInfo[512] = {0};
 			char *CommandString = "";
@@ -903,14 +996,17 @@ CreateFileListing(plore_file_listing *Listing, plore_file_listing_desc Desc) {
 	}
 	
 }
+
 internal void
-SynchronizeCurrentDirectory(plore_file_context *FileContext, plore_current_directory_state *CurrentState) {
-	plore_path CurrentDir = Platform->GetCurrentDirectoryPath();
+SynchronizeCurrentDirectory(plore_tab *Tab) {
+	plore_file_context *FileContext = Tab->FileContext;
+	plore_current_directory_state *CurrentState = &Tab->DirectoryState;
+	Tab->CurrentDirectory = Platform->GetCurrentDirectoryPath();
 	
 	CurrentState->Cursor = (plore_file_listing) {0};
 	CurrentState->Current = (plore_file_listing) {0};
 	
-	CreateFileListing(&CurrentState->Current, ListingFromDirectoryPath(&CurrentDir));
+	CreateFileListing(&CurrentState->Current, ListingFromDirectoryPath(&Tab->CurrentDirectory));
 	FileContext->InTopLevelDirectory = Platform->IsPathTopLevel(CurrentState->Current.File.Path.Absolute, PLORE_MAX_PATH);
 	
 	if (CurrentState->Current.Valid && CurrentState->Current.Count) {
@@ -1054,3 +1150,37 @@ LoadImage(memory_arena *Arena, char *AbsolutePath, u64 MaxX, u64 MaxY) {
 	return(Result);
 }
 	
+internal plore_tab *
+GetCurrentTab(plore_state *State) {
+	Assert(State->TabCurrent < ArrayCount(State->Tabs));
+	plore_tab *Result = State->Tabs + State->TabCurrent;
+	
+	return(Result);
+}
+
+internal b64
+SetCurrentTab(plore_state *State, u64 NewTab) {
+	b64 Result = false;
+	
+	Assert(NewTab < ArrayCount(State->Tabs));
+	plore_tab *Tab = State->Tabs + NewTab;
+	plore_tab *Previous = State->Tabs + State->TabCurrent;
+	if (Previous != Tab) {
+		if (!Tab->Active) {
+			State->TabCount++;
+		}
+		
+		Result = true;
+		
+		Tab->Active = true;
+		State->TabCurrent = NewTab;
+		State->DirectoryState = &Tab->DirectoryState;
+		State->InteractState = InteractState_FileExplorer; // @Cleanup
+		State->FileContext = Tab->FileContext;
+		Platform->SetCurrentDirectory(Tab->CurrentDirectory.Absolute);
+		
+		SynchronizeCurrentDirectory(Tab);
+	}
+	
+	return(Result);
+}
