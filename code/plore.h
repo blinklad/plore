@@ -159,6 +159,7 @@ char PloreKeyCharacters[] = {
 typedef struct keyboard_and_mouse {
 	b64 pKeys[PloreKey_Count]; // Presses this frame.
 	b64 sKeys[PloreKey_Count]; // Shift down while this key was pressed.
+	b64 cKeys[PloreKey_Count]; // Ctrl down while this key was pressed.
 	b64 bKeys[PloreKey_Count]; // Buffered presses this frame.
 	b64 dKeys[PloreKey_Count]; // Down this frame.
 	char TextInput[256];
