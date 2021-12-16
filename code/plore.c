@@ -400,7 +400,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		b64 FinalizedCommand = (Command.Type && Command.State != VimCommandState_Incomplete);
 		b64 NoPossibleCandidates = (!Command.Type && !CommandThisFrame.CandidateCount);
 		b64 NoActiveCommand = !VimContext->ActiveCommand.Type;
-		if ((FinalizedCommand || NoPossibleCandidates) && NoActiveCommand) {
+		if ((FinalizedCommand || (NoPossibleCandidates && Command.State != VimCommandState_Incomplete)) && NoActiveCommand) {
 			ClearCommands(VimContext);
 		}
 	}
