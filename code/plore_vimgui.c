@@ -33,6 +33,15 @@ GetTextColour(text_colour TextColour) {
 			Result = V4(0.8, 0.4, 0.4, 1);
 		} break;
 		
+		case TextColour_TabActive: {
+			Result = V4(0.8, 0.4, 0.4, 1);
+		} break;
+		
+		case TextColour_Tab: {
+			Result = V4(0.8, 0.4, 0.4, 0.4);
+		} break;
+		
+		
 		InvalidDefaultCase;
 		
 	}
@@ -184,7 +193,7 @@ VimguiEnd(plore_vimgui_context *Context) {
 								   .Text = Widget->Secondary.Text,
 								   .Alignment = Alignment,
 								   .Colour = Widget->Secondary.Colour,
-								   .Pad = Widget->Title.Pad,
+								   .Pad = Widget->Secondary.Pad,
 							   },
 							   .Height = 32.0f,
 						   });
