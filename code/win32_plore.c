@@ -807,20 +807,50 @@ WindowsCreateAndShowOpenGLWindow(HINSTANCE Instance) {
 }
 
 internal void
+WindowsPushTextInput(keyboard_and_mouse *ThisFrame, MSG Message) {
+	char C = Message.wParam;
+	if (ThisFrame->TextInputCount < ArrayCount(ThisFrame->TextInput)) {
+		ThisFrame->TextInput[ThisFrame->TextInputCount++] = C;
+	}
+	
+	StaticAssert(PloreKey_A == 1, "Assuming PloreKey_A-Z|0-9 follow contiguously.");
+	plore_key Key = 0;
+	if (C >= 'A' && C <= 'Z') {
+		Key = PloreKey_None + Message.wParam - 'A' + 1;
+	} else if (C >= '0' && C <= '9') {
+		Key = PloreKey_Z    + Message.wParam - '0' + 1;
+	} else {
+		#define PLORE_X(Name, _Ignored, Character) \
+		case Character: { \
+		Key = PloreKey_##Name;   \
+		} break;
+				
+				switch (C) {
+					PLORE_KEYBOARD_AND_MOUSE
+		#undef PLORE_X
+		}
+	}
+	Assert(Key < PloreKey_Count);
+	
+	if (Key) {
+		BYTE VKeys[256] = {0};
+		GetKeyboardState(VKeys);
+		
+		b64 IsPressed = !(Message.lParam & (1 << 30)); // NOTE(Evan): 0 is pressed, 1 is released
+		b64 IsDown = (Message.lParam & (1 << 29));
+		ThisFrame->dKeys[Key] = IsDown;
+		ThisFrame->pKeys[Key] = IsPressed;
+		ThisFrame->sKeys[Key] = ThisFrame->pKeys[Key] && (GetAsyncKeyState(VK_SHIFT)   & 0x8000); // @Cleanup
+		ThisFrame->cKeys[Key] = ThisFrame->dKeys[PloreKey_Ctrl];
+	}
+}
+
+internal void
 WindowsProcessMessages(windows_context *Context, keyboard_and_mouse *ThisFrame) {
 	MSG Message = {0};
-	
-#if 0
-#define PROCESS_KEY(SymbolicName, Name)                                                                             \
-	case SymbolicName: {                                                                                                \
-		ThisFrame->dKeys[PloreKey_##Name] = IsDown;                                                                     \
-		ThisFrame->pKeys[PloreKey_##Name] = IsDown && !(Message.lParam & (1 << 30));                                    \
-		ThisFrame->sKeys[PloreKey_##Name] = ThisFrame->pKeys[PloreKey_##Name] && (GetAsyncKeyState(VK_SHIFT) & 0x8000); \
-		WindowsDebugPrintLine("Pressed " #Name);                                                                        \
-} break;
-#else
-#define PROCESS_KEY(Dummy1, Dummy2) 
-#endif
+	// NOTE(Evan): This is awful, but numeric input + ctrl is "translated" into garbage.
+	ThisFrame->dKeys[PloreKey_Ctrl] = GetAsyncKeyState(VK_CONTROL);
+	ThisFrame->pKeys[PloreKey_Ctrl] = ThisFrame->dKeys[PloreKey_Ctrl] && !GlobalPloreInput.LastFrame.dKeys[PloreKey_Ctrl];
 	
 	while (PeekMessageA(&Message, 0, 0, 0, PM_REMOVE)) {
 	    switch (Message.message) {
@@ -833,12 +863,17 @@ WindowsProcessMessages(windows_context *Context, keyboard_and_mouse *ThisFrame) 
 					GlobalRunning = false;
 	                WindowsDebugPrintLine("Exiting");
 	                PostQuitMessage(0);
-	            } else if (IsDown && (u32) Message.wParam == VK_F1) {
+				} else if (IsDown && (u32) Message.wParam == VK_F1) {
 					WindowsToggleFullscreen();
 				} else {
-					WPARAM C = Message.wParam;
-					TranslateMessage(&Message);
-					DispatchMessage(&Message);
+					// NOTE(Evan): We intercept numeric VK codes here because Windows is a PITA.
+					if (IsDown && (Message.wParam >= 0x30 && Message.wParam <= 0x39)) {				
+						WindowsPushTextInput(ThisFrame, Message);
+					} else {
+						WPARAM C = Message.wParam;
+						TranslateMessage(&Message);
+						DispatchMessage(&Message);
+					}
 				} 
 	        } break;
 	        
@@ -852,36 +887,7 @@ WindowsProcessMessages(windows_context *Context, keyboard_and_mouse *ThisFrame) 
 	        } break;
 			
 			case WM_CHAR: {
-				char C = Message.wParam;
-				if (ThisFrame->TextInputCount < ArrayCount(ThisFrame->TextInput)) {
-					ThisFrame->TextInput[ThisFrame->TextInputCount++] = C;
-				}
-				
-				StaticAssert(PloreKey_A == 1, "Assuming PloreKey_A-Z|0-9 follow contiguously.");
-				plore_key Key = 0;
-				if (C >= 'A' && C <= 'Z') {
-					Key = PloreKey_None + Message.wParam - 'A' + 1;
-				} else if (C >= '0' && C <= '9') {
-					Key = PloreKey_Z    + Message.wParam - '0' + 1;
-				} else {
-					
-					#define PLORE_X(Name, _Ignored, Character) \
-					case Character: { \
-						Key = PloreKey_##Name;   \
-					} break;
-					
-					switch (C) {
-						PLORE_KEYBOARD_AND_MOUSE
-						#undef PLORE_X
-					}
-				}
-				Assert(Key && Key < PloreKey_Count);
-				
-				b64 IsPressed = !(Message.lParam & (1 << 30)); // NOTE(Evan): 0 is pressed, 1 is released
-				b64 IsDown = (Message.lParam & (1 << 29));
-				ThisFrame->dKeys[Key] = IsDown;
-				ThisFrame->pKeys[Key] = IsPressed;
-				ThisFrame->sKeys[Key] = ThisFrame->pKeys[Key] && (GetAsyncKeyState(VK_SHIFT) & 0x8000); // @Cleanup
+				WindowsPushTextInput(ThisFrame, Message);
 			} break;
 			default: {
 				TranslateMessage(&Message);
@@ -1169,6 +1175,7 @@ int WinMain (
 		GlobalPloreInput.ThisFrame.TextInputCount = 0;
 		MemoryClear(GlobalPloreInput.ThisFrame.pKeys, sizeof(GlobalPloreInput.ThisFrame.pKeys));
 		MemoryClear(GlobalPloreInput.ThisFrame.TextInput, sizeof(GlobalPloreInput.ThisFrame.TextInput));
+		MemoryClear(GlobalPloreInput.ThisFrame.cKeys, sizeof(GlobalPloreInput.ThisFrame.cKeys));
 		
 		
 		fflush(stdout);
