@@ -840,7 +840,7 @@ WindowsPushTextInput(keyboard_and_mouse *ThisFrame, MSG Message) {
 		b64 IsDown = (Message.lParam & (1 << 29));
 		ThisFrame->dKeys[Key] = IsDown;
 		ThisFrame->pKeys[Key] = IsPressed;
-		ThisFrame->sKeys[Key] = ThisFrame->pKeys[Key] && (GetAsyncKeyState(VK_SHIFT)   & 0x8000); // @Cleanup
+		ThisFrame->sKeys[Key] = ThisFrame->pKeys[Key] && GetAsyncKeyState(VK_SHIFT); // @Cleanup
 		ThisFrame->cKeys[Key] = ThisFrame->dKeys[PloreKey_Ctrl];
 	}
 }
@@ -867,7 +867,7 @@ WindowsProcessMessages(windows_context *Context, keyboard_and_mouse *ThisFrame) 
 					WindowsToggleFullscreen();
 				} else {
 					// NOTE(Evan): We intercept numeric VK codes here because Windows is a PITA.
-					if (IsDown && (Message.wParam >= 0x30 && Message.wParam <= 0x39)) {				
+					if (IsDown && ThisFrame->dKeys[PloreKey_Ctrl] && (Message.wParam >= 0x30 && Message.wParam <= 0x39)) {				
 						WindowsPushTextInput(ThisFrame, Message);
 					} else {
 						WPARAM C = Message.wParam;
