@@ -25,6 +25,7 @@ typedef enum text_colour {
 	TextColour_Tab,
 	TextColour_TabActive,
 	TextColour_Prompt,
+	TextColour_PromptCursor,
 	TextColour_CursorInfo,
 	TextColour_Count,
 	TextColour_Lister,

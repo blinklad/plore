@@ -29,6 +29,10 @@ GetTextColour(text_colour TextColour) {
 			Result = V4(0.2, 0.85, 0.10, 1.0);
 		} break;
 		
+		case TextColour_PromptCursor: {
+			Result = V4(0.8, 0.3, 0.3, 1);
+		} break;
+		
 		case TextColour_CursorInfo: {
 			Result = V4(0.8, 0.4, 0.4, 1);
 		} break;
