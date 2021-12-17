@@ -806,9 +806,10 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								BackgroundColour = WidgetColour_Secondary;
 							}
 							
+							// @Cleanup, move into ISearch!
 							b64 PassesFilter = true;
 							if (FilterText && *FilterText) {
-								PassesFilter = Substring(RowEntry->Path.FilePart, FilterText).IsContained;
+								PassesFilter = SubstringNoCase(RowEntry->Path.FilePart, FilterText).IsContained;
 							}
 							
 							if (RowEntry->Type == PloreFileNode_Directory) {

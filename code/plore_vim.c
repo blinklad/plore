@@ -470,7 +470,7 @@ PLORE_VIM_COMMAND(ISearch)  {
 				plore_file *File = State->DirectoryState->Current.Entries + F;
 				
 				// TODO(Evan): Filter highlighting.
-				if (Substring(File->Path.FilePart, State->DirectoryState->Filter).IsContained) {
+				if (SubstringNoCase(File->Path.FilePart, State->DirectoryState->Filter).IsContained) {
 					plore_file_listing_cursor *CurrentCursor = GetCursor(FileContext, State->DirectoryState->Current.File.Path.Absolute);
 					CurrentCursor->Cursor = F;
 					MemoryClear(State->DirectoryState->Filter, ArrayCount(State->DirectoryState->Filter));
