@@ -366,14 +366,25 @@ PLORE_VIM_COMMAND(MoveDown)  {
 	}
 }
 
-// TODO(Evan): Implicit yank shouldn't toggle selection.
 PLORE_VIM_COMMAND(Yank)  {
 	if (FileContext->SelectedCount > 1) { // Yank selection if there is any.
 		MemoryCopy(FileContext->Selected, FileContext->Yanked, sizeof(FileContext->Yanked));
 		FileContext->YankedCount = FileContext->SelectedCount;
 	} else { 
-		plore_path *Selected = GetImpliedSelection(State);
-		ToggleYanked(FileContext, Selected);
+		if (Command.Scalar > 1) {
+			plore_file_listing *CurrentDirectory = &State->DirectoryState->Current;
+			if (CurrentDirectory->Count) {
+				plore_file_listing_cursor_get_or_create_result CurrentResult = GetOrCreateCursor(FileContext, &State->DirectoryState->Current.File.Path);
+				u64 Cursor = CurrentResult.Cursor->Cursor;
+				while (Command.Scalar--) {
+					ToggleYanked(FileContext, &CurrentDirectory->Entries[Cursor].Path);
+					Cursor = (Cursor + 1) % CurrentDirectory->Count;
+				}
+			}
+		} else {
+			plore_path *Selected = GetImpliedSelection(State);
+			if (Selected) ToggleYanked(FileContext, Selected);
+		}
 	}
 	
 }
