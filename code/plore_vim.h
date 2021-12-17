@@ -24,7 +24,8 @@ PLORE_X(ISearch,         "isearch",          "ISearch")          \
 PLORE_X(ChangeDirectory, "change_directory", "Change Directory") \
 PLORE_X(RenameFile,      "rename_file",      "Rename File")      \
 PLORE_X(OpenFile,        "open_file",        "Open File")        \
-PLORE_X(CloseTab,        "close_file",       "Close Tab") 
+PLORE_X(NewTab,          "new_file",         "New Tab")          \
+PLORE_X(CloseTab,        "close_file",       "Close Tab")
 
 #define PLORE_X(Name, Ignored1, _Ignored2) VimCommandType_##Name,
 typedef enum vim_command_type {
@@ -40,6 +41,13 @@ char *VimCommandStrings[] = {
 	VIM_COMMANDS
 };
 #undef PLORE_X
+
+typedef enum vim_pattern {
+	VimPattern_None,
+	VimPattern_Digit,
+	VimPattern_Count,
+	_VimPattern_ForceU64 = 0xFFFFFFFF,
+} vim_pattern;
 
 typedef enum vim_mode {
 	VimMode_None,
@@ -64,12 +72,18 @@ typedef struct vim_command {
 	vim_command_state State;
 	vim_mode Mode;
 	u64 Scalar;
+	
+	// NOTE(Evan): Generated from non-scalar input, such as <ctrl> + 5.
+	char Pattern[16];
+	u64 PatternCount;
+	
 	char *Shell;
 } vim_command;
 
 typedef struct vim_key {
 	plore_key Input;
 	plore_key Modifier;
+	vim_pattern Pattern;
 } vim_key;
 
 #define CommandBufferSize 32
@@ -269,6 +283,15 @@ global vim_binding VimBindings[] = {
 		}
 	},
 	{
+		.Type = VimCommandType_NewTab,
+		.Keys = {
+			{
+				.Modifier = PloreKey_Ctrl,
+				.Pattern = VimPattern_Digit,
+			},
+		}
+	},
+	{
 		.Type = VimCommandType_CloseTab,
 		.Keys = {
 			{
@@ -280,6 +303,21 @@ global vim_binding VimBindings[] = {
 		}
 	},
 };
+
+
+// NOTE(Evan): This could be generated from a metaprogram.
+internal b64
+AcceptsPattern(vim_binding *Binding) {
+	b64 Result = false;
+	for (u64 K = 0; K < ArrayCount(Binding->Keys); K++) {
+		if (Binding->Keys[K].Pattern) {
+			Result = true;
+			break;
+		}
+	}
+	
+	return(Result);
+}
 
 
 #define PLORE_VIM_COMMAND_FUNCTION(Name) void Name(plore_state *State, plore_vim_context *VimContext, plore_file_context *FileContext, vim_command Command)

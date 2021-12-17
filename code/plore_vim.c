@@ -71,10 +71,16 @@ MakeCommand(plore_vim_context *Context) {
 			// NOTE(Evan): Move the command buffer to the end of the contiguous scalar stream.
 			char Buffer[ArrayCount(Context->CommandKeys) + 1] = {0};
 			u64 BufferCount = 0;
+			b64 ScalarHasModifier = false;
+			
 			while (IsNumeric(PloreKeyCharacters[C->Input])) {
+				if (C->Modifier) {
+					ScalarHasModifier = true;
+					break;
+				}
+				
 				Buffer[BufferCount++] = PloreKeyCharacters[C->Input];
 				C++;
-				
 			}
 			
 			if (C->Input == PloreKey_Return) return(Result);
@@ -92,13 +98,20 @@ MakeCommand(plore_vim_context *Context) {
 					vim_binding *Binding = VimBindings + B;
 					b64 PotentialCandidate = true;
 					for (u64 K = 0; K < ArrayCount(Binding->Keys); K++) {
-						if (!Binding->Keys[K].Input) break;
+						if (!Binding->Keys[K].Input && !Binding->Keys[K].Pattern) break;
 						
 						for (u64 Command = 0; Command < (ArrayCount(Context->CommandKeys)-BufferCount); Command++) {
 							if (Context->CommandKeyCount-BufferCount-Command == 0) break;
 							if (Binding->Keys[K+Command].Input != C[K+Command].Input) {
 								PotentialCandidate = false;
-								break;
+								
+								if (Binding->Keys[K+Command].Pattern) {
+									if (Binding->Keys[K+Command].Pattern == C[K+Command].Pattern) {
+										PotentialCandidate = true;
+									}
+								} else {
+									break;
+								}
 							}
 							
 							if (Binding->Keys[K+Command].Modifier != C[K+Command].Modifier) {
@@ -128,7 +141,32 @@ MakeCommand(plore_vim_context *Context) {
 						}
 						if (NonScalarEntries < CommandLength) continue;
 						
-						if (MemoryCompare(VimBindings[Candidate].Keys, C, NonScalarEntries * sizeof(vim_key)) == 0) {
+						b64 StraightMatch = MemoryCompare(VimBindings[Candidate].Keys, C, NonScalarEntries * sizeof(vim_key) == 0);
+						
+						b64 PatternMatch = true;
+						
+						if (AcceptsPattern(VimBindings + Candidate)) {
+							for (u64 K = 0; K < ArrayCount(VimBindings[Candidate].Keys); K++) {
+								vim_key *Key = VimBindings[Candidate].Keys + K;
+								
+								if (Key->Pattern) {
+									if (Key->Modifier != C[K].Modifier || Key->Pattern != C[K].Pattern) {
+										PatternMatch = false;
+										break;
+									}
+									
+									Assert(Result.Command.PatternCount < ArrayCount(Result.Command.Pattern) - 1);
+									Result.Command.Pattern[Result.Command.PatternCount++] = PloreKeyCharacters[C[K].Input];
+								} else {
+									if (MemoryCompare(C+K, Key, sizeof(vim_key)) != 0) {
+										PatternMatch = false;
+										break;
+									}
+								}
+							}
+						}
+						
+						if (StraightMatch || PatternMatch) {
 							Result.Command.Type = VimBindings[Candidate].Type;
 							Result.Command.Mode = VimBindings[Candidate].Mode;
 							Result.Command.Shell = VimBindings[Candidate].Shell;
@@ -321,6 +359,7 @@ PLORE_VIM_COMMAND(MoveDown)  {
 	}
 }
 
+// TODO(Evan): Implicit yank shouldn't toggle selection.
 PLORE_VIM_COMMAND(Yank)  {
 	if (FileContext->SelectedCount > 1) { // Yank selection if there is any.
 		MemoryCopy(FileContext->Selected, FileContext->Yanked, sizeof(FileContext->Yanked));
@@ -520,6 +559,17 @@ PLORE_VIM_COMMAND(Select) {
 	ToggleSelected(FileContext, &State->DirectoryState->Cursor.File.Path);
 }
 
+PLORE_VIM_COMMAND(NewTab) {
+	if (State->TabCount == ArrayCount(State->Tabs)) return;
+	
+	if (Command.Pattern[0]) {
+		i32 NewTab = StringToI32(Command.Pattern);
+		if (NewTab <= 0) return;
+		NewTab -= 1;
+		SetCurrentTab(State, NewTab);
+	}
+}
+	
 PLORE_VIM_COMMAND(CloseTab) {
 	if (State->TabCount > 1) {
 		plore_tab *Tab = GetCurrentTab(State);
