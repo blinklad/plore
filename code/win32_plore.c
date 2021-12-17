@@ -283,6 +283,32 @@ PLATFORM_IS_PATH_TOP_LEVEL(WindowsIsPathTopLevel) {
 	
 }
 
+PLATFORM_CREATE_FILE(WindowsCreateFile) {
+	b64 Result = false;
+	DWORD OverwriteFlags = CREATE_NEW;
+	if (OverwriteExisting) OverwriteFlags = CREATE_ALWAYS;
+	
+	HANDLE TheFile = CreateFile(Path, 
+								GENERIC_READ | GENERIC_WRITE, 
+								FILE_SHARE_READ | FILE_SHARE_WRITE, 
+								0,
+								OverwriteFlags,
+								FILE_ATTRIBUTE_NORMAL,
+								0);
+	
+	Result = TheFile != INVALID_HANDLE_VALUE;
+	if (Result) {
+		Result = CloseHandle(TheFile) != 0;
+	}
+	
+	return(Result);
+}
+
+PLATFORM_CREATE_DIRECTORY(WindowsCreateDirectory) {
+	b64 Result = CreateDirectory(Path, 0);
+	return(Result);
+}
+
 // NOTE(Evan): Directory name should not include trailing '\' nor any '*' or '?' wildcards.
 PLATFORM_GET_DIRECTORY_ENTRIES(WindowsGetDirectoryEntries) {
 	directory_entry_result Result = {
@@ -1074,6 +1100,12 @@ int WinMain (
 #undef GetCurrentDirectory // @Hack
 #undef SetCurrentDirectory // @Hack
 #undef MoveFile            // @Hack
+#undef CreateFile          // @Hack
+#undef CreateDirectory     // @Hack
+		
+		.CreateFile = WindowsCreateFile,
+		.CreateDirectory = WindowsCreateDirectory,
+		
 		.GetDirectoryEntries     = WindowsGetDirectoryEntries,
 		.GetCurrentDirectory     = WindowsGetCurrentDirectory,
 		.GetCurrentDirectoryPath = WindowsGetCurrentDirectoryPath,
