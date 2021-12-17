@@ -7,28 +7,30 @@ struct plore_vim_context;
 typedef struct plore_vim_context plore_vim_context;
 
 #define VIM_COMMANDS \
-PLORE_X(None,            "none",             "None")             \
-PLORE_X(MoveLeft,        "move_left",        "Move Left")        \
-PLORE_X(MoveRight,       "move_right",       "Move Right")       \
-PLORE_X(MoveUp,          "move_up",          "Move Up")          \
-PLORE_X(MoveDown,        "move_down",        "Move Down")        \
-PLORE_X(JumpTop,         "jump_top",         "Jump To Top")      \
-PLORE_X(JumpBottom,      "jump_bottom",      "Jump To Bottom")   \
-PLORE_X(Yank,            "yank",             "Yank")             \
-PLORE_X(ClearYank,       "clear_yank",       "Clear Yank")       \
-PLORE_X(Paste,           "paste",            "Paste")            \
-PLORE_X(Select,          "select",           "Select")           \
-PLORE_X(SelectUp,        "select_up",        "Select Up")        \
-PLORE_X(SelectDown,      "select_down",      "Select Down")      \
-PLORE_X(ISearch,         "isearch",          "ISearch")          \
-PLORE_X(ChangeDirectory, "change_directory", "Change Directory") \
-PLORE_X(RenameFile,      "rename_file",      "Rename File")      \
-PLORE_X(OpenFile,        "open_file",        "Open File")        \
-PLORE_X(NewTab,          "new_file",         "New Tab")          \
-PLORE_X(CloseTab,        "close_file",       "Close Tab")        \
-PLORE_X(OpenShell,       "open_shell",       "Open Shell")
+PLORE_X(None,            "none",             "None",             0)                             \
+PLORE_X(MoveLeft,        "move_left",        "Move Left",        0)                             \
+PLORE_X(MoveRight,       "move_right",       "Move Right",       0)                             \
+PLORE_X(MoveUp,          "move_up",          "Move Up",          0)                             \
+PLORE_X(MoveDown,        "move_down",        "Move Down",        0)                             \
+PLORE_X(JumpTop,         "jump_top",         "Jump To Top",      0)                             \
+PLORE_X(JumpBottom,      "jump_bottom",      "Jump To Bottom",   0)                             \
+PLORE_X(Yank,            "yank",             "Yank",             0)                             \
+PLORE_X(ClearYank,       "clear_yank",       "Clear Yank",       0)                             \
+PLORE_X(Paste,           "paste",            "Paste",            0)                             \
+PLORE_X(Select,          "select",           "Select",           0)                             \
+PLORE_X(SelectUp,        "select_up",        "Select Up",        0)                             \
+PLORE_X(SelectDown,      "select_down",      "Select Down",      0)                             \
+PLORE_X(ISearch,         "isearch",          "ISearch",          "ISearch:")                    \
+PLORE_X(ChangeDirectory, "change_directory", "Change Directory", "Change directory to?")        \
+PLORE_X(RenameFile,      "rename_file",      "Rename File",      "Rename file to?")             \
+PLORE_X(OpenFile,        "open_file",        "Open File",        0)                             \
+PLORE_X(NewTab,          "new_file",         "New Tab",          0)                             \
+PLORE_X(CloseTab,        "close_file",       "Close Tab",        0)                             \
+PLORE_X(OpenShell,       "open_shell",       "Open Shell",       0)                             \
+PLORE_X(CreateFile,      "create_file",      "Create File",      "Create file with name?")      \
+PLORE_X(CreateDirectory, "create_directory", "Create Directory", "Create directory with name?")
 
-#define PLORE_X(Name, Ignored1, _Ignored2) VimCommandType_##Name,
+#define PLORE_X(Name, Ignored1, _Ignored2, _Ignored3) VimCommandType_##Name,
 typedef enum vim_command_type {
 	VIM_COMMANDS
 	#undef PLORE_X
@@ -37,8 +39,14 @@ typedef enum vim_command_type {
 } vim_command_type;
 
 
-#define PLORE_X(_Ignored1, _Ignored2, String) String,
+#define PLORE_X(_Ignored1, _Ignored2, String, _Ignored3) String,
 char *VimCommandStrings[] = {
+	VIM_COMMANDS
+};
+#undef PLORE_X
+
+#define PLORE_X(_Ignored1, _Ignored2, _Ignored3, String) String,
+char *VimInsertPrompts[] = {
 	VIM_COMMANDS
 };
 #undef PLORE_X
@@ -131,7 +139,7 @@ global vim_binding VimBindings[] = {
 	},
 	{
 		.Type = VimCommandType_ChangeDirectory,
-		.Shell = "C:\\Users\\Evan\\",
+		.Shell = PLORE_HOME,
 		.Keys = {
 			{
 				.Input = PloreKey_G,
@@ -140,11 +148,11 @@ global vim_binding VimBindings[] = {
 				.Input = PloreKey_H,
 				.Modifier = PloreKey_Shift,
 			},
-		}
+		},
 	},
 	{
 		.Type = VimCommandType_ChangeDirectory,
-		.Shell = "C:\\plore\\",
+		.Shell = "C:/plore/", // @Hardcode
 		.Keys = {
 			{
 				.Input = PloreKey_G,
@@ -163,7 +171,7 @@ global vim_binding VimBindings[] = {
 			{
 				.Input = PloreKey_D,
 			},
-		}
+		},
 	},
 	{
 		.Type = VimCommandType_SelectDown,
@@ -182,16 +190,6 @@ global vim_binding VimBindings[] = {
 			},
 		}
 	},
-#if 0
-	{
-		.Type = VimCommandType_SelectUp,
-		.Keys = {
-			{
-				.Input = PloreKey_Space,
-			},
-		}
-	},
-#endif
 	{
 		.Type = VimCommandType_Paste,
 		.Keys = {
@@ -241,7 +239,8 @@ global vim_binding VimBindings[] = {
 			{
 				.Input = PloreKey_Slash,
 			},
-		}
+		},
+		
 	},
 	{
 		.Type = VimCommandType_JumpTop,
@@ -272,7 +271,7 @@ global vim_binding VimBindings[] = {
 			{
 				.Input = PloreKey_R,
 			},
-		}
+		},
 	},
 	{
 		.Type = VimCommandType_OpenFile,
@@ -326,6 +325,28 @@ global vim_binding VimBindings[] = {
 			},
 		},
 		.Shell = PLORE_EDITOR,
+	},
+	{
+		.Type = VimCommandType_CreateFile,
+		.Keys = {
+			{
+				.Input = PloreKey_C,
+			},
+			{
+				.Input = PloreKey_F,
+			},
+		},
+	},
+	{
+		.Type = VimCommandType_CreateDirectory,
+		.Keys = {
+			{
+				.Input = PloreKey_M,
+			},
+			{
+				.Input = PloreKey_K,
+			},
+		},
 	},
 };
 
