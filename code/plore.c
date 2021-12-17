@@ -575,34 +575,18 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		// NOTE(Evan): Interactive Mode, appears at bottom of screen.
 #if 1
 		if (VimContext->Mode == VimMode_Insert) {
-			char *InsertPrompt = "";
-			
-			// TODO(Evan): Commands re-organized by need for insertion or not.
-			switch (VimContext->ActiveCommand.Type) {
-				case VimCommandType_ISearch: {
-					InsertPrompt = "ISearch: ";
-				} break;
-				case VimCommandType_ChangeDirectory: {
-					InsertPrompt = "Change directory to? ";
-				} break;
-				case VimCommandType_RenameFile: {
-					InsertPrompt = "Rename file to? ";
-				} break;
-				
-				InvalidDefaultCase;
-			}
+			char *InsertPrompt = VimInsertPrompts[VimContext->ActiveCommand.Type];
+			if (!InsertPrompt) InsertPrompt = "YOU SHOULD NOT SEE THIS.";
 			char Buffer[128] = {0};
 			u64 BufferSize = 0;
 			
 			u64 Size = 128;
 			char *S = PushBytes(&State->FrameArena, Size);
-			BufferSize += StringPrintSized(Buffer, ArrayCount(Buffer), InsertPrompt);
+			BufferSize += StringPrintSized(Buffer, ArrayCount(Buffer), "%s ", InsertPrompt);
 			BufferSize += StringPrintSized(Buffer+BufferSize, ArrayCount(Buffer), 
-										   "%s%s", 
-										   VimKeysToString(S, Size, VimContext->CommandKeys).Buffer,
-										   (DoBlink ? "|" : ""));
+										   "%s", 
+										   VimKeysToString(S, Size, VimContext->CommandKeys).Buffer);
 			
-//			Y += FooterHeight + 5*PadY;
 			H -= (FooterHeight + 2*PadY);
 			
 			if (Button(State->VimguiContext, (vimgui_button_desc) {
@@ -610,7 +594,14 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							   .Title = {
 								   .Text = Buffer, 
 								   .Colour = TextColour_Prompt,
-								   .Pad = V2(8, 12),
+								   .Pad = V2(16, 12),
+								   .Alignment = VimguiLabelAlignment_Left,
+							   },
+							   .Secondary = {
+								   .Text = DoBlink ? "|" : "",
+								   .Colour = TextColour_PromptCursor,
+								   .Alignment = VimguiLabelAlignment_Left,
+								   .Pad = V2(-4, 12),
 							   },
 								   
 							   .Rect = { 
