@@ -22,8 +22,9 @@ typedef struct plore_handler {
 
 #if defined(PLORE_WINDOWS)
 
-#define PLORE_TERMINAL "cmd.exe"
-#define PLORE_EDITOR   "C:\\tools\\4coder\\4ed.exe"
+#define PLORE_TERMINAL "\"C:/Program Files/Git/git-bash.exe\""
+#define PLORE_EDITOR   "C:/tools/4coder/4ed.exe"
+#define PLORE_HOME     "C:/Users/Evan"
 
 
 #define PLORE_PHOTO_HANDLER            { .Name = "Windows Photo Viewer", .Shell = "rundll32.exe \"C:\\Program Files\\Windows Photo Viewer\\PhotoViewer.dll\", ImageView_Fullscreen" }
@@ -35,7 +36,8 @@ typedef struct plore_handler {
 #elif defined(PLORE_LINUX)
 
 #define PLORE_TERMINAL "st"
-#define PLORE_EDITOR "nvim"
+#define PLORE_EDITOR   "nvim"
+#define PLORE_HOME     "/home/evan"
 
 #define PLORE_PHOTO_HANDLER   { .Name = "Feh",    .Shell = "feh --fullscreen" }
 #define PLORE_TEXT_HANDLER    { .Name = "neovim", .Shell = PLORE_EDITOR } 
