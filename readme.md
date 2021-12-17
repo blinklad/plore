@@ -58,7 +58,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 * Filtering by: Extension, File/Directory/Symlink, Filesize
 * Sorting by: Extension, last write date, size
 * ~~Command previews~~
-* Lister for all selected/yanked files/directories
+* Lister for: Selected files, yanked files, bookmarked directories,
 * Persistent marked files/directories
 * Undo
 * Deletion
@@ -67,6 +67,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 - ~~Jump to top/bottom~~
 - Paginated movement, i.e. ctrl-u, ctrl-d, and centering.
 - ~~Pagination~~
+- Smooth scrolling.
 * ~~Selecting entries moves the cursor~~
 * File preview for formats:
 - ~BMP~
@@ -79,6 +80,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 * Clipboard handling.
 * Hidden file toggling.
 * ~~Date display.~~
+* Size display
 * VIMGUI work:
    - ~~Actual alpha blending~~
    - Scissor rects.
