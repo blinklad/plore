@@ -25,7 +25,8 @@ PLORE_X(ChangeDirectory, "change_directory", "Change Directory") \
 PLORE_X(RenameFile,      "rename_file",      "Rename File")      \
 PLORE_X(OpenFile,        "open_file",        "Open File")        \
 PLORE_X(NewTab,          "new_file",         "New Tab")          \
-PLORE_X(CloseTab,        "close_file",       "Close Tab")
+PLORE_X(CloseTab,        "close_file",       "Close Tab")        \
+PLORE_X(OpenShell,       "open_shell",       "Open Shell")
 
 #define PLORE_X(Name, Ignored1, _Ignored2) VimCommandType_##Name,
 typedef enum vim_command_type {
@@ -301,6 +302,30 @@ global vim_binding VimBindings[] = {
 				.Input = PloreKey_T,
 			},
 		}
+	},
+	{
+		.Type = VimCommandType_OpenShell,
+		.Keys = {
+			{
+				.Input = PloreKey_S,
+			},
+			{
+				.Input = PloreKey_S,
+			},
+		},
+		.Shell = PLORE_TERMINAL,
+	},
+	{
+		.Type = VimCommandType_OpenShell,
+		.Keys = {
+			{
+				.Input = PloreKey_E,
+			},
+			{
+				.Input = PloreKey_E,
+			},
+		},
+		.Shell = PLORE_EDITOR,
 	},
 };
 

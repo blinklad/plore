@@ -394,7 +394,6 @@ PLORE_VIM_COMMAND(ClearYank)  {
 		FileContext->YankedCount = 0;
 		FileContext->SelectedCount = 0;
 	}
-	// TODO(Evan): Invalidate the yankees' directory's cursor.
 }
 
 PLORE_VIM_COMMAND(Paste)  {
@@ -627,6 +626,11 @@ PLORE_VIM_COMMAND(CloseTab) {
 		
 	}
 }
+
+PLORE_VIM_COMMAND(OpenShell) {
+	Platform->RunShell(Command.Shell, "");
+}
+
 	
 #define PLORE_X(Name, Ignored1, _Ignored2) Do##Name,
 vim_command_function *VimCommands[] = {
