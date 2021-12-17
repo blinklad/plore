@@ -90,8 +90,9 @@ typedef struct substring_result {
 	b64 IsContained;
 } substring_result;
 
+
 internal substring_result
-Substring(char *S, char *Substring) {
+SubstringHelper(char *S, char *Substring, b64 CaseSensitive) {
 	substring_result Result = {0};
 	
 	if (!S || !Substring) return(Result);
@@ -107,13 +108,33 @@ Substring(char *S, char *Substring) {
 		char *A = S+I;
 		char *B = Substring;
 		for (u64 J = 0; J < SubLen; J++) {
-			if (*A++ != *B++) break;
+			char aTest = *A++;
+			char bTest = *B++;
+			if (!CaseSensitive) {
+				aTest = ToLower(aTest);
+				bTest = ToLower(bTest);
+			}
+			
+			if (aTest != bTest) break;
 			if (J == SubLen-1) Result.IsContained = true;
 		}
 		
 		if (Result.IsContained) break;
 	}
 	
+	return(Result);
+}
+
+internal substring_result
+SubstringNoCase(char *S, char *Substring) {
+	substring_result Result = SubstringHelper(S, Substring, false); 
+	
+	return(Result);
+}
+
+internal substring_result
+Substring(char *S, char *Substring) {
+	substring_result Result = SubstringHelper(S, Substring, true);
 	return(Result);
 }
 
