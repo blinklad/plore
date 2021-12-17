@@ -71,6 +71,7 @@ MakeCommand(plore_vim_context *Context) {
 			// NOTE(Evan): Move the command buffer to the end of the contiguous scalar stream.
 			char Buffer[ArrayCount(Context->CommandKeys) + 1] = {0};
 			u64 BufferCount = 0;
+			b64 HasScalar = false;
 			b64 ScalarHasModifier = false;
 			
 			while (IsNumeric(PloreKeyCharacters[C->Input])) {
@@ -79,6 +80,7 @@ MakeCommand(plore_vim_context *Context) {
 					break;
 				}
 				
+				HasScalar = true;
 				Buffer[BufferCount++] = PloreKeyCharacters[C->Input];
 				C++;
 			}
@@ -174,6 +176,11 @@ MakeCommand(plore_vim_context *Context) {
 							break;
 						} 
 					}
+				}
+			} else {
+				// NOTE(Evan): If there are no candidates trailing a scalar value, the command is not incomplete, it's just invalid.
+				if (BufferCount < Context->CommandKeyCount && HasScalar) {
+					Result.Command.State = VimCommandState_None;
 				}
 			}
 				
