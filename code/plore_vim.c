@@ -631,8 +631,44 @@ PLORE_VIM_COMMAND(OpenShell) {
 	Platform->RunShell(Command.Shell, "");
 }
 
+PLORE_VIM_COMMAND(CreateFile) {
+	if (Command.Shell) {
+		char *FilePath = PushBytes(&State->FrameArena, PLORE_MAX_PATH);
+		u64 BytesWritten = CStringCopy(State->DirectoryState->Current.File.Path.Absolute, FilePath, PLORE_MAX_PATH);
+		FilePath[BytesWritten++] = '\\';
+		CStringCopy(Command.Shell, FilePath+BytesWritten, PLORE_MAX_PATH);
+		PrintLine("%s", FilePath);
+		
+		// TODO(Evan): Validate file name.
+		Platform->CreateFile(FilePath, false);
+		
+	} else {
+		switch (Command.State) {
+			case VimCommandState_Start: {
+				ClearCommands(VimContext);
+				VimContext->Mode = VimMode_Insert;
+				SetActiveCommand(VimContext, Command);
+			} break;
+		}
+	}
+}
+
+PLORE_VIM_COMMAND(CreateDirectory) {
+	if (Command.Shell) {
+		DrawText("CREATE DIR WITH NAME %s", Command.Shell);
+	} else {
+		switch (Command.State) {
+			case VimCommandState_Start: {
+				ClearCommands(VimContext);
+				VimContext->Mode = VimMode_Insert;
+				SetActiveCommand(VimContext, Command);
+			} break;
+		}
+	}
+}
+
 	
-#define PLORE_X(Name, Ignored1, _Ignored2) Do##Name,
+#define PLORE_X(Name, Ignored1, _Ignored2, _Ignored3) Do##Name,
 vim_command_function *VimCommands[] = {
 	VIM_COMMANDS
 };
