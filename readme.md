@@ -51,11 +51,12 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
    - ~~ISearch~~
    - ISearch select numbered candidates
    - ISearch select all candidates
-   - Filter by extension.
    - ~~File opening preview~~
    - File opening handler suggestion.
    - Open tab in specified directory.
-   - Close tab.
+   - ~~Close tab.~~
+* Filtering by: Extension, File/Directory/Symlink, Filesize
+* Sorting by: Extension, last write date, size
 * ~~Command previews~~
 * Lister for all selected/yanked files/directories
 * Persistent marked files/directories
@@ -77,8 +78,6 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 * ~~Vim commands supporting scalars (e.g., 5yy, 2j)~~
 * Clipboard handling.
 * Hidden file toggling.
-* Data sorting.
-* Size sorting.
 * ~~Date display.~~
 * VIMGUI work:
    - ~~Actual alpha blending~~
