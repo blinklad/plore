@@ -23,7 +23,8 @@ PLORE_X(SelectDown,      "select_down",      "Select Down")      \
 PLORE_X(ISearch,         "isearch",          "ISearch")          \
 PLORE_X(ChangeDirectory, "change_directory", "Change Directory") \
 PLORE_X(RenameFile,      "rename_file",      "Rename File")      \
-PLORE_X(OpenFile,        "open_file",        "Open File") 
+PLORE_X(OpenFile,        "open_file",        "Open File")        \
+PLORE_X(CloseTab,        "close_file",       "Close Tab") 
 
 #define PLORE_X(Name, Ignored1, _Ignored2) VimCommandType_##Name,
 typedef enum vim_command_type {
@@ -264,6 +265,17 @@ global vim_binding VimBindings[] = {
 			{
 				.Input = PloreKey_O,
 				.Modifier = PloreKey_Shift,
+			},
+		}
+	},
+	{
+		.Type = VimCommandType_CloseTab,
+		.Keys = {
+			{
+				.Input = PloreKey_Q,
+			},
+			{
+				.Input = PloreKey_T,
 			},
 		}
 	},

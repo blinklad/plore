@@ -100,6 +100,9 @@ SetCurrentTab(plore_state *State, u64 NewTab);
 
 internal plore_tab *
 GetCurrentTab(plore_state *State);
+
+internal void
+ClearTab(plore_state *State, u64 TabIndex);
 	
 
 typedef struct load_image_result {
@@ -1184,3 +1187,22 @@ SetCurrentTab(plore_state *State, u64 NewTab) {
 	
 	return(Result);
 }
+
+internal void
+ClearTab(plore_state *State, u64 TabIndex) {
+	Assert(TabIndex < ArrayCount(State->Tabs));
+	Assert(State->TabCount > 1);
+	
+	plore_tab *Tab = State->Tabs + TabIndex;
+	
+	plore_file_context *FileContext = Tab->FileContext;
+	*Tab = ClearStruct(plore_tab);
+	Tab->FileContext = FileContext;
+	
+	Tab->FileContext->SelectedCount       = 0;
+	Tab->FileContext->YankedCount         = 0;
+	Tab->FileContext->FileCount           = 0;
+	Tab->FileContext->InTopLevelDirectory = 0;
+	
+}
+	

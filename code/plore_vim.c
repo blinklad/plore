@@ -519,6 +519,49 @@ PLORE_VIM_COMMAND(Select) {
 	plore_file *Selectee = State->DirectoryState->Current.Entries + CursorResult.Cursor->Cursor;
 	ToggleSelected(FileContext, &State->DirectoryState->Cursor.File.Path);
 }
+
+PLORE_VIM_COMMAND(CloseTab) {
+	if (State->TabCount > 1) {
+		plore_tab *Tab = GetCurrentTab(State);
+		
+		u64 TabIndex = 0xdeadbeef;
+		for (u64 T = 0; T < State->TabCount; T++) {
+			plore_tab *Other = State->Tabs + T;
+			if (Tab == Other) {
+				TabIndex = T;
+				break;
+			}
+		}
+		
+		Assert(TabIndex < ArrayCount(State->Tabs));
+		Assert(TabIndex < State->TabCount);
+		
+		u64 tBefore = 0;
+		u64 tAfter = State->TabCount;
+		for (u64 T = 0; T < State->TabCount; T++) {
+			plore_tab *Other = State->Tabs + T;
+			if (Other == Tab) continue;
+			
+			if (Other->Active) {
+				if (T < TabIndex) tBefore = T;
+				else              tAfter = T;
+				
+				break;
+			}
+		}
+		
+		u64 tTarget = 0;
+		if (AbsDifference(TabIndex, tBefore) > AbsDifference(TabIndex, tAfter)) {
+			tTarget = tAfter;
+		} else {
+			tTarget = tBefore;
+		}
+		
+		ClearTab(State, TabIndex);
+		SetCurrentTab(State, tTarget);
+		
+	}
+}
 	
 #define PLORE_X(Name, Ignored1, _Ignored2) Do##Name,
 vim_command_function *VimCommands[] = {
