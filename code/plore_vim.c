@@ -373,10 +373,7 @@ PLORE_VIM_COMMAND(Yank)  {
 		FileContext->YankedCount = FileContext->SelectedCount;
 	} else { 
 		plore_path *Selected = GetImpliedSelection(State);
-		if (Selected) {
-			MemoryCopy(Selected, FileContext->Yanked, sizeof(FileContext->Yanked));
-			FileContext->YankedCount = 1;
-		}
+		ToggleYanked(FileContext, Selected);
 	}
 	
 }

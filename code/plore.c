@@ -126,6 +126,9 @@ IsSelected(plore_file_context *Context, plore_path *Selectee);
 internal void
 ToggleSelected(plore_file_context *Context, plore_path *Selectee);
 
+internal void
+ToggleYanked(plore_file_context *Context, plore_path *Yankee);
+	
 internal char *
 PloreKeysToString(memory_arena *Arena, vim_key *Keys, u64 KeyCount);
 
@@ -305,7 +308,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 #endif
 	
 	plore_tab *Tab = GetCurrentTab(State);
-	plore_file_context *FileContext = Tab->FileContext;
 	
 	plore_vim_context *VimContext = State->VimContext;
 	keyboard_and_mouse BufferedInput = PloreInput->ThisFrame;
@@ -320,42 +322,38 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	// TODO(Evan): File watching so this function doesn't need to be called eagerly.
 	SynchronizeCurrentDirectory(Tab);
 	
-	b64 DidMetaInput = false;
-	u64 NewTab = 0;
-	for (plore_key K = PloreKey_One; K <= PloreKey_Eight; K++) {
-		if (BufferedInput.cKeys[K]) {
-			DidMetaInput = true;
-			NewTab = K - PloreKey_One;
-			break;
-		}
-	}
-	
 	b64 DidInput = false;
+	vim_key BufferedKeys[64] = {0};
+	u64 BufferedKeyCount = 0;
 	
-	if (DidMetaInput) {
-		plore_tab *Tab = State->Tabs + NewTab;
-		if (SetCurrentTab(State, NewTab)) {
-			FileContext = Tab->FileContext;
-		}
-	} else {
-		vim_key BufferedKeys[64] = {0};
-		u64 BufferedKeyCount = 0;
+	for (u64 K = 0; K < BufferedInput.TextInputCount; K++) {
+		if (VimContext->CommandKeyCount == ArrayCount(VimContext->CommandKeys)) break;
 		
+		char C = BufferedInput.TextInput[K];
+		plore_key PK = GetKey(C);
 		
-		for (u64 K = 0; K < BufferedInput.TextInputCount; K++) {
-			if (VimContext->CommandKeyCount == ArrayCount(VimContext->CommandKeys)) break;
-			
-			char C = BufferedInput.TextInput[K];
-			plore_key PK = GetKey(C);
-			VimContext->CommandKeys[VimContext->CommandKeyCount++] = (vim_key) { 
-				.Input = PK, 
-				.Modifier = BufferedInput.sKeys[PK] ? PloreKey_Shift : PloreKey_None,
-			};
-			
-			DidInput = true;
+		// NOTE(Evan): Modifiers are mutually exclusive!
+		plore_key Modifier = PloreKey_None;
+		if (BufferedInput.sKeys[PK]) {
+			Modifier = PloreKey_Shift;
+		} else if (BufferedInput.cKeys[PK]) {
+			Modifier = PloreKey_Ctrl;
 		}
-	
+			
+		vim_pattern Pattern = VimPattern_None;
+		if (IsNumeric(C)) {
+			Pattern = VimPattern_Digit;
+		}
+		
+		VimContext->CommandKeys[VimContext->CommandKeyCount++] = (vim_key) { 
+			.Input = PK, 
+			.Modifier = Modifier,
+			.Pattern = Pattern,
+		};
+		
+		DidInput = true;
 	}
+
 	//
 	// NOTE(Evan): Vim command processing
 	//
@@ -392,7 +390,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 				case (InteractState_FileExplorer): {
 					switch (VimContext->Mode) {
 						case VimMode_Normal: {
-							VimCommands[Command.Type](State, VimContext, FileContext, Command);
+							VimCommands[Command.Type](State, VimContext, State->FileContext, Command);
 						} break;
 						
 						case VimMode_Insert: {
@@ -404,7 +402,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							switch (Command.State) {
 								case VimCommandState_Start: 
 								case VimCommandState_Incomplete: {
-									VimCommands[VimContext->ActiveCommand.Type](State, VimContext, FileContext, VimContext->ActiveCommand);
+									VimCommands[VimContext->ActiveCommand.Type](State, VimContext, State->FileContext, VimContext->ActiveCommand);
 								} break;
 								
 								case VimCommandState_Finish: {
@@ -414,7 +412,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 									VimKeysToString(VimContext->ActiveCommand.Shell, Size, VimContext->CommandKeys);
 									
 									
-									VimCommands[VimContext->ActiveCommand.Type](State, VimContext, FileContext, VimContext->ActiveCommand);
+									VimCommands[VimContext->ActiveCommand.Type](State, VimContext, State->FileContext, VimContext->ActiveCommand);
 									
 									ClearCommands(VimContext);
 									ClearArena(&VimContext->CommandArena);
@@ -430,11 +428,11 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							switch (Command.State) {
 								case VimCommandState_Start:
 								case VimCommandState_Incomplete: {
-									VimCommands[VimContext->ActiveCommand.Type](State, VimContext, FileContext, VimContext->ActiveCommand);
+									VimCommands[VimContext->ActiveCommand.Type](State, VimContext, State->FileContext, VimContext->ActiveCommand);
 								} break;
 								
 								case VimCommandState_Finish: {
-									VimCommands[VimContext->ActiveCommand.Type](State, VimContext, FileContext, VimContext->ActiveCommand);
+									VimCommands[VimContext->ActiveCommand.Type](State, VimContext, State->FileContext, VimContext->ActiveCommand);
 									ResetVimState(VimContext);
 								} break;
 								
@@ -484,7 +482,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	
 	plore_viewable_directory ViewDirectories[3] = {
 		[0] = {
-			.File = FileContext->InTopLevelDirectory ? 0 : &State->DirectoryState->Parent,
+			.File = State->FileContext->InTopLevelDirectory ? 0 : &State->DirectoryState->Parent,
 		},
 		[1] = {
 			.File = &State->DirectoryState->Current,
@@ -779,7 +777,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							   .ForceFocus           = Directory->Focus,
 							   .BackgroundColour     = WidgetColour_Primary,
 						   })) {
-				u64 PageMax = (u64) (Span.H / FileRowHeight);
+				u64 PageMax = (u64) Ceiling(Span.H / FileRowHeight);
 				u64 Cursor = 0;
 				u64 RowStart = Cursor;
 				u64 RowEnd = Listing->Count;
@@ -800,9 +798,9 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							text_colour TextColour = 0;
 							plore_file *RowEntry = Listing->Entries + Row;
 							
-							if (IsYanked(FileContext, &RowEntry->Path)) {
+							if (IsYanked(State->FileContext, &RowEntry->Path)) {
 								BackgroundColour = WidgetColour_Tertiary;
-							} else if (IsSelected(FileContext, &RowEntry->Path)) {
+							} else if (IsSelected(State->FileContext, &RowEntry->Path)) {
 								BackgroundColour = WidgetColour_Quaternary;
 							} else if (RowCursor && RowCursor->Cursor == Row) {
 								BackgroundColour = WidgetColour_Secondary;
@@ -947,29 +945,41 @@ plore_inline b64
 IsSelected(plore_file_context *Context, plore_path *Selectee) {
 	for (u64 S = 0; S < Context->SelectedCount; S++) {
 		plore_path *It = Context->Selected + S;
-		if (CStringsAreEqual(It->Absolute, Selectee->Absolute)) return(true);
+		if (CStringsAreEqual(It->Absolute, Selectee->Absolute)) {
+			return(true);
+		}
 	}
 	
 	return(false);
 }
 
 internal void
-ToggleSelected(plore_file_context *Context, plore_path *Selectee) {
-	Assert(Selectee);
-	
-	// NOTE(Evan): Toggle and return if its in the list.
-	for (u64 S = 0; S < Context->SelectedCount; S++) {
-		plore_path *It = Context->Selected + S;
-		if (CStringsAreEqual(It->Absolute, Selectee->Absolute)) {
-			Context->Selected[S] = Context->Selected[--Context->SelectedCount];
+ToggleHelper(plore_file_context *Context, plore_path *Togglee, plore_path *List, u64 ListMax, u64 *ListCount) {
+	// NOTE(Evan): Toggle and exit if its in the list.
+	for (u64 S = 0; S < *ListCount; S++) {
+		plore_path *It = List + S;
+		if (CStringsAreEqual(It->Absolute, Togglee->Absolute)) {
+			List[S] = List[--(*ListCount)];
 			return;
 		}
 	}
 	
-	if (Context->SelectedCount == ArrayCount(Context->Selected) - 1) return;
+	if (*ListCount == ListMax-1) return;
 	
 	// NOTE(Evan): Otherwise, add it to the list.
-	Context->Selected[Context->SelectedCount++] = *Selectee;
+	List[(*ListCount)++] = *Togglee;
+}
+
+internal void
+ToggleSelected(plore_file_context *Context, plore_path *Selectee) {
+	Assert(Selectee);
+	ToggleHelper(Context, Selectee, Context->Selected, ArrayCount(Context->Selected), &Context->SelectedCount);
+}
+
+internal void
+ToggleYanked(plore_file_context *Context, plore_path *Yankee) {
+	Assert(Yankee);
+	ToggleHelper(Context, Yankee, Context->Yanked, ArrayCount(Context->Yanked), &Context->YankedCount);
 }
 
 
@@ -1205,4 +1215,3 @@ ClearTab(plore_state *State, u64 TabIndex) {
 	Tab->FileContext->InTopLevelDirectory = 0;
 	
 }
-	
