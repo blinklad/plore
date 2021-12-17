@@ -21,15 +21,26 @@ typedef struct plore_handler {
 #define PLORE_FILE_EXTENSION_HANDLER_MAX 8
 
 #if defined(PLORE_WINDOWS)
+
+#define PLORE_TERMINAL "cmd.exe"
+#define PLORE_EDITOR   "C:\\tools\\4coder\\4ed.exe"
+
+
 #define PLORE_PHOTO_HANDLER            { .Name = "Windows Photo Viewer", .Shell = "rundll32.exe \"C:\\Program Files\\Windows Photo Viewer\\PhotoViewer.dll\", ImageView_Fullscreen" }
 #define PLORE_BASIC_PHOTO_EDITOR       { .Name = "GIMP",                 .Shell = "\"C:\\Program Files\\GIMP 2\\bin\\gimp-2.10.exe\"" }
 #define PLORE_ADVANCED_PHOTO_EDITOR    { .Name = "Paint",                .Shell = "\"C:\\Windows\\System32\\mspaint.exe\"" }
-#define PLORE_TEXT_HANDLER             { .Name = "4Coder",               .Shell = "C:\\tools\\4coder\\4ed.exe" }
+#define PLORE_TEXT_HANDLER             { .Name = "4Coder",               .Shell = PLORE_EDITOR  }
+
 
 #elif defined(PLORE_LINUX)
+
+#define PLORE_TERMINAL "st"
+#define PLORE_EDITOR "nvim"
+
 #define PLORE_PHOTO_HANDLER   { .Name = "Feh",    .Shell = "feh --fullscreen" }
-#define PLORE_TEXT_HANDLER    { .Name = "neovim", .Shell = "nvim" } 
+#define PLORE_TEXT_HANDLER    { .Name = "neovim", .Shell = PLORE_EDITOR } 
 #define PLORE_PHOTO_EDITOR    { .Name = "GIMP",   .Shell = "gimp" }
+
 
 #else
 #error Unsupported platform.
