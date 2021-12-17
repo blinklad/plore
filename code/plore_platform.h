@@ -8,7 +8,6 @@ typedef struct platform_readable_file {
     b64 OpenedSuccessfully;
 } platform_readable_file;
 
-
 #define PLATFORM_DEBUG_OPEN_FILE(name) platform_readable_file name(char *Path)
 typedef PLATFORM_DEBUG_OPEN_FILE(platform_debug_open_file);
 
@@ -22,6 +21,12 @@ typedef struct platform_read_file_result {
 } platform_read_file_result;
 #define PLATFORM_DEBUG_READ_ENTIRE_FILE(name) platform_read_file_result name(platform_readable_file File, void *Buffer, uint64 BufferSize)
 typedef PLATFORM_DEBUG_READ_ENTIRE_FILE(platform_debug_read_entire_file);
+
+#define PLATFORM_CREATE_FILE(name) b64 name(char *Path, b64 OverwriteExisting)
+typedef PLATFORM_CREATE_FILE(platform_create_file);
+
+#define PLATFORM_CREATE_DIRECTORY(name) b64 name(char *Path)
+typedef PLATFORM_CREATE_DIRECTORY(platform_create_directory);
 
 #define PLATFORM_DEBUG_PRINT_LINE(name) void name(const char *Format, ...)
 typedef PLATFORM_DEBUG_PRINT_LINE(platform_debug_print_line);
@@ -139,6 +144,8 @@ typedef struct platform_api {
     platform_debug_print_line            *DebugPrintLine;
     platform_debug_print                 *DebugPrint;
 	
+	platform_create_file                 *CreateFile;
+	platform_create_directory            *CreateDirectory;
 	platform_get_directory_entries       *GetDirectoryEntries;
 	platform_get_current_directory       *GetCurrentDirectory;
 	platform_get_current_directory_path  *GetCurrentDirectoryPath;
