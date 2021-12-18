@@ -6,7 +6,7 @@
 #include <Windows.h>  // the kitchen sink
 #include <windowsx.h> // GET_X_LPARAM, GET_Y_LPARAM
 #include <shlwapi.h>  // PathRemoveFileSpecA, PathRemoveBackslash
-#include <shellapi.h> // ShellExecuteA
+#include <shellapi.h> // ShellExecuteA, ShFileOperation
 #include <fcntl.h>    // stdin, stdout, _O_TEXT
 #include <synchapi.h> // CRITICAL_SECTION, (Initialise|Enter|Leave)CriticalSection
 

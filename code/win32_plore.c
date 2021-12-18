@@ -282,33 +282,6 @@ PLATFORM_IS_PATH_TOP_LEVEL(WindowsIsPathTopLevel) {
 	return(Result);
 	
 }
-
-PLATFORM_CREATE_FILE(WindowsCreateFile) {
-	b64 Result = false;
-	DWORD OverwriteFlags = CREATE_NEW;
-	if (OverwriteExisting) OverwriteFlags = CREATE_ALWAYS;
-	
-	HANDLE TheFile = CreateFile(Path, 
-								GENERIC_READ | GENERIC_WRITE, 
-								FILE_SHARE_READ | FILE_SHARE_WRITE, 
-								0,
-								OverwriteFlags,
-								FILE_ATTRIBUTE_NORMAL,
-								0);
-	
-	Result = TheFile != INVALID_HANDLE_VALUE;
-	if (Result) {
-		Result = CloseHandle(TheFile) != 0;
-	}
-	
-	return(Result);
-}
-
-PLATFORM_CREATE_DIRECTORY(WindowsCreateDirectory) {
-	b64 Result = CreateDirectory(Path, 0);
-	return(Result);
-}
-
 // NOTE(Evan): Directory name should not include trailing '\' nor any '*' or '?' wildcards.
 PLATFORM_GET_DIRECTORY_ENTRIES(WindowsGetDirectoryEntries) {
 	directory_entry_result Result = {
@@ -392,6 +365,57 @@ PLATFORM_GET_DIRECTORY_ENTRIES(WindowsGetDirectoryEntries) {
 	
 	
 	Result.Succeeded = true;
+	return(Result);
+}
+
+PLATFORM_CREATE_FILE(WindowsCreateFile) {
+	b64 Result = false;
+	DWORD OverwriteFlags = CREATE_NEW;
+	if (OverwriteExisting) OverwriteFlags = CREATE_ALWAYS;
+	
+	HANDLE TheFile = CreateFile(Path, 
+								GENERIC_READ | GENERIC_WRITE, 
+								FILE_SHARE_READ | FILE_SHARE_WRITE, 
+								0,
+								OverwriteFlags,
+								FILE_ATTRIBUTE_NORMAL,
+								0);
+	
+	Result = TheFile != INVALID_HANDLE_VALUE;
+	if (Result) {
+		Result = CloseHandle(TheFile) != 0;
+	}
+	
+	return(Result);
+}
+
+PLATFORM_CREATE_DIRECTORY(WindowsCreateDirectory) {
+	b64 Result = CreateDirectory(Path, 0);
+	return(Result);
+}
+
+// TODO(Evan): Remove wildcards!
+PLATFORM_DELETE_FILE(WindowsDeleteFile) {
+	b64 Result = false;
+	
+	char PathDoubleNulled[PLORE_MAX_PATH+1] = {0};
+	u64 BytesWritten = CStringCopy(Path, PathDoubleNulled, ArrayCount(PathDoubleNulled));
+	Assert(BytesWritten <= PLORE_MAX_PATH);
+	PathDoubleNulled[BytesWritten+1] = '\0';
+	
+	FILEOP_FLAGS Flags = FOF_SILENT;
+	if (!Desc.PermanentDelete) Flags |= FOF_ALLOWUNDO;
+	if (!Desc.Recursive)       Flags |= FOF_NORECURSION; // NOTE(Evan): Recursive by default.
+	
+	SHFILEOPSTRUCT ShellOptions = {
+		.hwnd = GlobalWindowsContext->Window,
+		.wFunc = FO_DELETE,
+		.pFrom = PathDoubleNulled,
+		.fFlags = Flags,
+	};
+	
+	Result = SHFileOperation(&ShellOptions) == 0;
+	
 	return(Result);
 }
 
@@ -1102,9 +1126,7 @@ int WinMain (
 #undef MoveFile            // @Hack
 #undef CreateFile          // @Hack
 #undef CreateDirectory     // @Hack
-		
-		.CreateFile = WindowsCreateFile,
-		.CreateDirectory = WindowsCreateDirectory,
+#undef DeleteFile          // @Hack
 		
 		.GetDirectoryEntries     = WindowsGetDirectoryEntries,
 		.GetCurrentDirectory     = WindowsGetCurrentDirectory,
@@ -1113,6 +1135,10 @@ int WinMain (
 		.PopPathNode             = WindowsPopPathNode,
 		.IsPathDirectory         = WindowsIsPathDirectory,
 		.IsPathTopLevel          = WindowsIsPathTopLevel,
+		
+		.CreateFile              = WindowsCreateFile,
+		.CreateDirectory         = WindowsCreateDirectory,
+		.DeleteFile              = WindowsDeleteFile,
 		.MoveFile                = WindowsMoveFile,
 		.RenameFile              = WindowsRenameFile,
 		.RunShell                = WindowsRunShell,
