@@ -28,6 +28,14 @@ typedef PLATFORM_CREATE_FILE(platform_create_file);
 #define PLATFORM_CREATE_DIRECTORY(name) b64 name(char *Path)
 typedef PLATFORM_CREATE_DIRECTORY(platform_create_directory);
 
+typedef struct platform_delete_file_desc {
+	b64 Recursive;
+	b64 PermanentDelete;
+} platform_delete_file_desc;
+
+#define PLATFORM_DELETE_FILE(name) b64 name(char *Path, platform_delete_file_desc Desc)
+typedef PLATFORM_DELETE_FILE(platform_delete_file);
+
 #define PLATFORM_DEBUG_PRINT_LINE(name) void name(const char *Format, ...)
 typedef PLATFORM_DEBUG_PRINT_LINE(platform_debug_print_line);
 
@@ -144,8 +152,6 @@ typedef struct platform_api {
     platform_debug_print_line            *DebugPrintLine;
     platform_debug_print                 *DebugPrint;
 	
-	platform_create_file                 *CreateFile;
-	platform_create_directory            *CreateDirectory;
 	platform_get_directory_entries       *GetDirectoryEntries;
 	platform_get_current_directory       *GetCurrentDirectory;
 	platform_get_current_directory_path  *GetCurrentDirectoryPath;
@@ -154,8 +160,11 @@ typedef struct platform_api {
 	platform_is_path_directory           *IsPathDirectory;
 	platform_is_path_top_level           *IsPathTopLevel;
 	
+	platform_create_file                 *CreateFile;
+	platform_create_directory            *CreateDirectory;
 	platform_move_file                   *MoveFile;
-	platform_move_file                   *RenameFile;
+	platform_rename_file                 *RenameFile;
+	platform_delete_file                 *DeleteFile;
 	platform_run_shell                   *RunShell;
 } platform_api;
 
