@@ -195,7 +195,7 @@ GetImpliedSelection(plore_state *State) {
 	} else if (!FileContext->SelectedCount) {
 		plore_file_listing *Cursor = &State->DirectoryState->Cursor;
 		if (Cursor->Valid) {
-			if ((Cursor->File.Type == PloreFileNode_Directory && !Cursor->Count)) return(Result);
+//			if ((Cursor->File.Type == PloreFileNode_Directory && !Cursor->Count)) return(Result);
 			
 			Result = &GetOrCreateCursor(FileContext, &Cursor->File.Path).Cursor->Path;
 		}
