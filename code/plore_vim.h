@@ -354,6 +354,17 @@ global vim_binding VimBindings[] = {
 			},
 		},
 	},
+	{
+		.Type = VimCommandType_DeleteFile,
+		.Keys = {
+			{
+				.Input = PloreKey_D,
+			},
+			{
+				.Input = PloreKey_D,
+			},
+		},
+	},
 };
 
 
