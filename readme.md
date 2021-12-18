@@ -47,7 +47,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 * Commands:
    - ~~Change directory~~
    - ~~Rename~~
-   - Make directory
+   - ~~Make directory~~
    - ~~ISearch~~
    - ISearch select numbered candidates
    - ISearch select all candidates
@@ -59,10 +59,8 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 * Sorting by: Extension, last write date, size
 * ~~Command previews~~
 * Lister for: Selected files, yanked files, bookmarked directories,
-* Persistent marked files/directories
-* Undo
-* Deletion
-* User-defined trash
+* ~~Deletion~~
+* ~~User-defined trash~~
 * Movement:
 - ~~Jump to top/bottom~~
 - Paginated movement, i.e. ctrl-u, ctrl-d, and centering.
@@ -81,6 +79,8 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 * Hidden file toggling.
 * ~~Date display.~~
 * Size display
+* Undo for: Rename, Paste, Delete (PLORE_TRASH/Recycle Bin only). 
+* Persistent: Undo, command history, marked files/directories, bookmarks. Requires plore.history.
 * VIMGUI work:
    - ~~Actual alpha blending~~
    - Scissor rects.
