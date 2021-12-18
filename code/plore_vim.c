@@ -16,6 +16,22 @@ ClearCommands(plore_vim_context *Context) {
 }
 
 internal void
+StartInsertForCommand(plore_vim_context *VimContext, vim_command Command) {
+	VimContext->Mode = VimMode_Insert;
+	SetActiveCommand(VimContext, Command);
+}
+
+internal b64
+Confirmation(char *S) {
+	b64 Result = false;
+	Result = CStringsAreEqualIgnoreCase(S, "y")   ||
+		     CStringsAreEqualIgnoreCase(S, "yy")  ||
+		     CStringsAreEqualIgnoreCase(S, "yes");
+	
+	return(Result);
+}
+			 
+internal void
 ResetVimState(plore_vim_context *Context) {
 	ClearCommands(Context);
 	ClearArena(&Context->CommandArena);
@@ -183,7 +199,7 @@ MakeCommand(plore_vim_context *Context) {
 					Result.Command.State = VimCommandState_None;
 				}
 			}
-				
+			
 		} break;
 		
 		case VimMode_Lister:
@@ -419,8 +435,6 @@ PLORE_VIM_COMMAND(Paste)  {
 				DrawText("Couldn't paste `%s`", Movee->FilePart);
 			}
 		}
-		DrawText("Pasted %d items!", PastedCount);
-		
 		
 		FileContext->YankedCount = 0;
 		MemoryClear(FileContext->Yanked, sizeof(FileContext->Yanked));
@@ -494,14 +508,13 @@ PLORE_VIM_COMMAND(ISearch)  {
 		switch (Command.State) {
 			case VimCommandState_Start: {
 				ClearCommands(VimContext);
-				VimContext->Mode = VimMode_Insert;
-				SetActiveCommand(VimContext, Command);
+				StartInsertForCommand(VimContext, Command);
 			} break;
 			
 			case VimCommandState_Incomplete: {
 				State->DirectoryState->FilterCount = VimKeysToString(State->DirectoryState->Filter, 
-																	ArrayCount(State->DirectoryState->Filter), 
-																	VimContext->CommandKeys).BytesWritten;
+																	 ArrayCount(State->DirectoryState->Filter), 
+																	 VimContext->CommandKeys).BytesWritten;
 			} break;
 			case VimCommandState_Finish: {
 			} break;
@@ -518,8 +531,7 @@ PLORE_VIM_COMMAND(ChangeDirectory) {
 		switch (Command.State) {
 			case VimCommandState_Start: {
 				ClearCommands(VimContext);
-				VimContext->Mode = VimMode_Insert;
-				SetActiveCommand(VimContext, Command);
+				StartInsertForCommand(VimContext, Command);
 			} break;
 			
 			case VimCommandState_Incomplete: {
@@ -534,17 +546,14 @@ PLORE_VIM_COMMAND(ChangeDirectory) {
 PLORE_VIM_COMMAND(RenameFile) {
 	plore_path *Selected = GetImpliedSelection(State);
 	if (!Selected) return;
-
+	
 	switch (Command.State) {
 		case VimCommandState_Start: {
 			string_to_command_result Result = StringToCommand(Selected->FilePart);
 			MemoryCopy(Result.CommandKeys, VimContext->CommandKeys, sizeof(VimContext->CommandKeys));
 			VimContext->CommandKeyCount = Result.CommandKeyCount;
 			
-			VimContext->Mode = VimMode_Insert;
-			Command.State = VimCommandState_Start;
-			SetActiveCommand(VimContext, Command);
-			
+			StartInsertForCommand(VimContext, Command);
 		} break;
 		
 		case VimCommandState_Incomplete: {
@@ -583,7 +592,7 @@ PLORE_VIM_COMMAND(NewTab) {
 		SetCurrentTab(State, NewTab);
 	}
 }
-	
+
 PLORE_VIM_COMMAND(CloseTab) {
 	if (State->TabCount > 1) {
 		plore_tab *Tab = GetCurrentTab(State);
@@ -646,8 +655,7 @@ PLORE_VIM_COMMAND(CreateFile) {
 		switch (Command.State) {
 			case VimCommandState_Start: {
 				ClearCommands(VimContext);
-				VimContext->Mode = VimMode_Insert;
-				SetActiveCommand(VimContext, Command);
+				StartInsertForCommand(VimContext, Command);
 			} break;
 		}
 	}
@@ -655,19 +663,42 @@ PLORE_VIM_COMMAND(CreateFile) {
 
 PLORE_VIM_COMMAND(CreateDirectory) {
 	if (Command.Shell) {
-		DrawText("CREATE DIR WITH NAME %s", Command.Shell);
+		Platform->CreateDirectory(Command.Shell);
 	} else {
 		switch (Command.State) {
 			case VimCommandState_Start: {
 				ClearCommands(VimContext);
-				VimContext->Mode = VimMode_Insert;
-				SetActiveCommand(VimContext, Command);
+				StartInsertForCommand(VimContext, Command);
 			} break;
 		}
 	}
 }
 
-	
+PLORE_VIM_COMMAND(DeleteFile) {
+	if (Command.Shell) {
+		u64 Size = 64;
+		char *Buffer = PushBytes(&State->FrameArena, Size);
+		char *MaybeConfirmation = VimKeysToString(Buffer, Size, VimContext->CommandKeys).Buffer;
+		
+		if (Confirmation(MaybeConfirmation)) {
+			plore_path *Selection = GetImpliedSelection(State);
+			if (Selection) {
+				b64 Result = Platform->DeleteFile(Selection->Absolute, (platform_delete_file_desc) { 
+													  .Recursive = false,
+													  .PermanentDelete = false,
+												  });
+			}
+		}
+	} else {
+		switch (Command.State) {
+			case VimCommandState_Start: {
+				ClearCommands(VimContext);
+				StartInsertForCommand(VimContext, Command);
+			} break;
+		}
+	}
+}
+
 #define PLORE_X(Name, Ignored1, _Ignored2, _Ignored3) Do##Name,
 vim_command_function *VimCommands[] = {
 	VIM_COMMANDS
