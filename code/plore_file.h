@@ -96,6 +96,8 @@ typedef struct plore_file {
 	plore_file_node Type;
 	plore_file_extension Extension;
 	plore_time LastModification;
+	u64 Bytes;
+	b64 Hidden;
 } plore_file;
 #endif //PLORE_FILE_H
 
