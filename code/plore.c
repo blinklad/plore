@@ -48,6 +48,13 @@ STBIRealloc(void *Ptr, u64 Size) {
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+typedef struct plore_file_filter_state {
+	char TextFilter[PLORE_MAX_PATH];
+	u64 TextFilterCount;
+	
+	b64 ShowHidden;
+} plore_file_filter_state;
+
 typedef struct plore_current_directory_state {
 	union {
 		struct {
@@ -58,15 +65,13 @@ typedef struct plore_current_directory_state {
 		plore_file_listing Listings[3];
 	};
 	
-	char Filter[PLORE_MAX_PATH];
-	u64 FilterCount;
 } plore_current_directory_state;
 
 
 typedef struct plore_tab {
 	plore_path CurrentDirectory; // NOTE(Evan): Needs to be cached, as current directory is set for the entire process.
 	plore_current_directory_state DirectoryState;
-	interact_state InteractState;
+	interact_state InteractState; // @Cleanup
 	plore_file_context *FileContext;
 	b64 Active;
 } plore_tab;
@@ -81,7 +86,8 @@ typedef struct plore_state {
 	
 	plore_current_directory_state *DirectoryState;
 	plore_file_context *FileContext;
-	interact_state InteractState;
+	interact_state InteractState; // @Cleanup
+	plore_file_filter_state FilterState;
 	
 	plore_memory *Memory;
 	plore_vim_context *VimContext;
@@ -493,14 +499,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		},
 	};
 	
-	// @Cleanup
-	char *FilterText = 0;
-	if (VimContext->ActiveCommand.Type == VimCommandType_ISearch) {
-		u64 Size = 128;
-		char *Buffer = PushBytes(&State->FrameArena, Size);
-		FilterText = VimKeysToString(Buffer, Size, VimContext->CommandKeys).Buffer;
-	}
-	
 	typedef struct image_preview_handle {
 		plore_path Path;
 		platform_texture_handle Texture;
@@ -829,11 +827,14 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 				switch (Listing->File.Type) {
 					case PloreFileNode_Directory: {
 						for (u64 Row = RowStart; Row < RowEnd; Row++) {
+							plore_file *RowEntry = Listing->Entries + Row;
+							
+							if (RowEntry->Hidden && !State->FilterState.ShowHidden) continue;
+							
 							widget_colour BackgroundColour = WidgetColour_RowPrimary;
 							widget_colour_flags WidgetColourFlags = WidgetColourFlags_Default;
 							text_colour TextColour = 0;
 							text_colour_flags TextColourFlags = 0;
-							plore_file *RowEntry = Listing->Entries + Row;
 							
 							b64 CursorHover = RowCursor && RowCursor->Cursor == Row;
 							if (CursorHover) WidgetColourFlags = WidgetColourFlags_Focus;
@@ -845,12 +846,11 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							} 
 							
 							
-							
-							// @Cleanup, move into ISearch!
 							b64 PassesFilter = true;
-							if (FilterText && *FilterText) {
-								PassesFilter = SubstringNoCase(RowEntry->Path.FilePart, FilterText).IsContained;
+							if (State->FilterState.TextFilterCount) {
+								PassesFilter = SubstringNoCase(RowEntry->Path.FilePart, State->FilterState.TextFilter).IsContained;
 							}
+							
 							
 							
 							if (RowEntry->Type == PloreFileNode_Directory) {
