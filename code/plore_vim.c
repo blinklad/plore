@@ -751,6 +751,19 @@ PLORE_VIM_COMMAND(ShowHiddenFiles) {
 	}
 }
 
+PLORE_VIM_COMMAND(ToggleSortName) {
+	State->FilterState.SortAscending[FileSort_Name] = !State->FilterState.SortAscending[FileSort_Name];
+}
+
+PLORE_VIM_COMMAND(ToggleSortSize) {
+	State->FilterState.SortAscending[FileSort_Size] = !State->FilterState.SortAscending[FileSort_Size];
+}
+
+PLORE_VIM_COMMAND(ToggleSortModified) {
+	State->FilterState.SortAscending[FileSort_Modified] = !State->FilterState.SortAscending[FileSort_Modified];
+}
+
+
 #define PLORE_X(Name, Ignored1, _Ignored2, _Ignored3) Do##Name,
 vim_command_function *VimCommands[] = {
 	VIM_COMMANDS

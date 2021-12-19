@@ -157,7 +157,7 @@ char PloreKeyCharacters[] = {
 #undef PLORE_X
 
 typedef struct keyboard_and_mouse {
-	b64 pKeys[PloreKey_Count]; // Presses this frame.
+	b64 pKeys[PloreKey_Count]; // Pressed this frame.
 	b64 sKeys[PloreKey_Count]; // Shift down while this key was pressed.
 	b64 cKeys[PloreKey_Count]; // Ctrl down while this key was pressed.
 	b64 bKeys[PloreKey_Count]; // Buffered presses this frame.
@@ -181,9 +181,11 @@ typedef struct plore_memory {
     memory_arena PermanentStorage;
 } plore_memory;
 
+enum { PloreFileListing_Count = 256 };
+
 typedef struct plore_file_listing {
 	plore_file File;
-	plore_file Entries[256]; // NOTE(Evan): Directories only.
+	plore_file Entries[PloreFileListing_Count]; // NOTE(Evan): Directories only.
 	u64 Count;
 	b64 Valid;
 } plore_file_listing;
