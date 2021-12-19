@@ -1,6 +1,6 @@
 # plore
 ## Handmade, simple file explorer
-![plore 0.1.4](docs/plore-v-0-1-4.png)
+![plore 0.1.5](docs/plore-v-0-1-5.png)
 
 Graphical file manager written in C99, with first-class vim bindings. 
 
