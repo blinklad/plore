@@ -888,11 +888,10 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 												   } 
 											   },
 										   })) {
-								// TODO(Evan): Change cursor to here?!
-								PrintLine("Button %s was clicked!", Listing->Entries[Row].Path.FilePart);
 								if (Listing->Entries[Row].Type == PloreFileNode_Directory) {
-									PrintLine("Changing Directory to %s", Listing->Entries[Row].Path.Absolute);
 									Platform->SetCurrentDirectory(Listing->Entries[Row].Path.Absolute);
+								} else {
+									Platform->SetCurrentDirectory(Listing->File.Path.Absolute);
 								}
 								plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(State->FileContext, &Listing->File.Path);
 								CursorResult.Cursor->Cursor = Row;
