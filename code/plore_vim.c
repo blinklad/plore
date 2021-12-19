@@ -740,6 +740,12 @@ PLORE_VIM_COMMAND(SelectAll) {
 
 PLORE_VIM_COMMAND(ShowHiddenFiles) {
 	State->FilterState.ShowHidden = !State->FilterState.ShowHidden;
+	if (!State->FilterState.ShowHidden) {
+		plore_file *Cursor = GetCursorFile(State);
+		if (Cursor->Hidden) {
+			DrawText("Cursor is hidden now!");
+		}
+	}
 }
 
 #define PLORE_X(Name, Ignored1, _Ignored2, _Ignored3) Do##Name,
