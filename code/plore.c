@@ -677,114 +677,119 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		}
 #endif
 		
-#if 1
-		if (State->DirectoryState->Cursor.Valid) {
-			// NOTE(Evan): If we didn't eat the command and there are candidates, list them!
-			if (VimContext->Mode == VimMode_Normal && VimContext->CommandKeyCount && CommandCandidates.CandidateCount) {
-				u64 CandidateCount = 0;
-				for (u64 C = 0; C < ArrayCount(CommandCandidates.Candidates); C++) {
-					vim_binding *Candidate = 0;
-					if (CommandCandidates.Candidates[C]) {
-						Candidate = VimBindings + C;
-						CandidateCount++;
-					}
-					
-					if (Candidate) {
-						u64 BindingSize = 32;
-						char *BindingString = PushBytes(&State->FrameArena, BindingSize);
-						BindingString = VimBindingToString(BindingString, BindingSize, Candidate);
-						
-						u64 CandidateSize = 256;
-						char *CandidateString = PushBytes(&State->FrameArena, CandidateSize);
-						
-						StringPrintSized(CandidateString, CandidateSize, "%-8s %-28s %-32s",
-										 BindingString,
-										 VimCommandStrings[Candidate->Type],
-										 (Candidate->Shell ? Candidate->Shell : ""));
-						
-						u64 ID = Candidate->Shell ? (u64) Candidate->Shell : (u64) CandidateString + Candidate->Type;
-						
-						if (Button(State->VimguiContext, (vimgui_button_desc) {
-										   .ID = ID,
-										   .Title = {
-											   .Text = CandidateString,
-											   .Pad = V2(16, 8),
-										   },
-										   .Rect = {
-											   .P = V2(PadX, PlatformAPI->WindowDimensions.Y - FooterHeight - CandidateCount*FooterHeight - 20),
-											   .Span = V2(PlatformAPI->WindowDimensions.X-2*PadX, FooterHeight + PadY)
-										   },
-										   .BackgroundColourFlags = WidgetColourFlags_Focus,
-									   })) {
-							ClearCommands(State->VimContext);
-							vim_command Command = {
-							    .Type = Candidate->Type,
-								.Shell = Candidate->Shell,
-								.Scalar = 1,
-								.State = VimCommandState_Start,
-							};
-							VimCommands[Command.Type](State, State->VimContext, State->FileContext, Command);
-						}
-						
-						H -= FooterHeight;
-					}
+		// NOTE(Evan): Draw cursor info or candidate list!
+		
+		// NOTE(Evan): If we didn't eat the command and there are candidates, list them!
+		if (VimContext->Mode == VimMode_Normal && VimContext->CommandKeyCount && CommandCandidates.CandidateCount) {
+			u64 CandidateCount = 0;
+			for (u64 C = 0; C < ArrayCount(CommandCandidates.Candidates); C++) {
+				vim_binding *Candidate = 0;
+				if (CommandCandidates.Candidates[C]) {
+					Candidate = VimBindings + C;
+					CandidateCount++;
 				}
 				
-				H -= 20;
-				
-				StoleFocus = true;
+				if (Candidate) {
+					u64 BindingSize = 32;
+					char *BindingString = PushBytes(&State->FrameArena, BindingSize);
+					BindingString = VimBindingToString(BindingString, BindingSize, Candidate);
+					
+					u64 CandidateSize = 256;
+					char *CandidateString = PushBytes(&State->FrameArena, CandidateSize);
+					
+					StringPrintSized(CandidateString, CandidateSize, "%-8s %-28s %-32s",
+									 BindingString,
+									 VimCommandStrings[Candidate->Type],
+									 (Candidate->Shell ? Candidate->Shell : ""));
+					
+					u64 ID = Candidate->Shell ? (u64) Candidate->Shell : (u64) CandidateString + Candidate->Type;
+					
+					if (Button(State->VimguiContext, (vimgui_button_desc) {
+									   .ID = ID,
+									   .Title = {
+										   .Text = CandidateString,
+										   .Pad = V2(16, 8),
+									   },
+									   .Rect = {
+										   .P = V2(PadX, PlatformAPI->WindowDimensions.Y - FooterHeight - CandidateCount*FooterHeight - 20),
+										   .Span = V2(PlatformAPI->WindowDimensions.X-2*PadX, FooterHeight + PadY)
+									   },
+									   .BackgroundColourFlags = WidgetColourFlags_Focus,
+								   })) {
+						ClearCommands(State->VimContext);
+						vim_command Command = {
+						    .Type = Candidate->Type,
+							.Shell = Candidate->Shell,
+							.Scalar = 1,
+							.State = VimCommandState_Start,
+						};
+						VimCommands[Command.Type](State, State->VimContext, State->FileContext, Command);
+					}
+					
+					H -= FooterHeight;
+				}
 			}
 			
+			H -= 20;
 			
-			// NOTE(Evan): Cursor information, appears at bottom of screen.
+			StoleFocus = true;
+		}
+		
+		
+		// NOTE(Evan): Cursor information, appears at bottom of screen.
+		
+		char CursorInfo[512] = {0};
+		char *CommandString = "";
+		
+		// NOTE(Evan): Only show incomplete command key buffer!
+		switch (VimContext->Mode) {
+			case VimMode_Normal: {
+				CommandString = PloreKeysToString(&State->FrameArena, VimContext->CommandKeys, VimContext->CommandKeyCount);
+			} break;
+		}
+		
+		// NOTE(Evan): Prompt string.
+		u64 BufferSize = 256;
+		char *Buffer = PushBytes(&State->FrameArena, BufferSize);
+		b64 ShowOrBlink = DoBlink || VimContext->CommandKeyCount || VimContext->Mode != VimMode_Normal || DidInput;
+		StringPrintSized(Buffer, BufferSize, "%s%s", (ShowOrBlink ? ">>" : ""), CommandString);
+		
+		if (State->DirectoryState->Cursor.Valid) {
 			plore_file *CursorFile = &State->DirectoryState->Cursor.File;
-			
-			char CursorInfo[512] = {0};
-			char *CommandString = "";
-			
-			switch (VimContext->Mode) {
-				case VimMode_Normal: {
-					CommandString = PloreKeysToString(&State->FrameArena, VimContext->CommandKeys, VimContext->CommandKeyCount);
-				} break;
-			}
-			
-			// NOTE(Evan): Prompt string.
-			u64 BufferSize = 256;
-			char *Buffer = PushBytes(&State->FrameArena, BufferSize);
-			b64 ShowOrBlink = DoBlink || VimContext->CommandKeyCount || VimContext->Mode != VimMode_Normal || DidInput;
-			StringPrintSized(Buffer, BufferSize, "%s%s", (ShowOrBlink ? ">>" : ""), CommandString);
-			
 			StringPrintSized(CursorInfo, 
 							 ArrayCount(CursorInfo),
 						     "[%s] %s %s", 
 						     (CursorFile->Type == PloreFileNode_Directory) ? "directory" : "file", 
 							 CursorFile->Path.FilePart,
-							 PloreTimeFormat(&State->FrameArena, CursorFile->LastModification, "%a %b %d %x"),
-							 CommandString
+							 PloreTimeFormat(&State->FrameArena, CursorFile->LastModification, "%a %b %d %x")
 							 );
-			
-			if (Button(State->VimguiContext, (vimgui_button_desc) {
-							   .Title     = { 
-								   .Text = CursorInfo, 
-								   .Alignment = VimguiLabelAlignment_Left, 
-								   .Colour = TextColour_CursorInfo,
-								   .Pad = V2(8, 6),
-							   },
-							   .Secondary = { 
-								   .Text = Buffer,
-								   .Alignment = VimguiLabelAlignment_Left,
-								   .Pad = V2(0, 6),
-								   .Colour = TextColour_Prompt
-							   },
-							   .Rect = { 
-								   .P    = V2(PadX, Y + PlatformAPI->WindowDimensions.X + FooterHeight + FooterPad), 
-								   .Span = V2(PlatformAPI->WindowDimensions.X-2*PadX, FooterHeight + PadY-20)
-							   },
-					   })) {
-			}
-			
+		} else {
+			StringPrintSized(CursorInfo, 
+							 ArrayCount(CursorInfo),
+						     "[no selection]"
+							 );
 		}
-#endif
+		
+		if (Button(State->VimguiContext, (vimgui_button_desc) {
+						   .Title     = { 
+							   .Text = CursorInfo, 
+							   .Alignment = VimguiLabelAlignment_Left, 
+							   .Colour = TextColour_CursorInfo,
+							   .Pad = V2(8, 6),
+						   },
+						   .Secondary = { 
+							   .Text = Buffer,
+							   .Alignment = VimguiLabelAlignment_Left,
+							   .Pad = V2(0, 6),
+							   .Colour = TextColour_Prompt
+						   },
+						   .Rect = { 
+							   .P    = V2(PadX, Y + PlatformAPI->WindowDimensions.X + FooterHeight + FooterPad), 
+							   .Span = V2(PlatformAPI->WindowDimensions.X-2*PadX, FooterHeight + PadY-20)
+						   },
+				   })) {
+		}
+		
 		
 		for (u64 Col = 0; Col < Cols; Col++) {
 			v2 P      = V2(X, Y);
