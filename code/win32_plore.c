@@ -325,23 +325,25 @@ PLATFORM_GET_DIRECTORY_ENTRIES(WindowsGetDirectoryEntries) {
 			plore_file *File = Buffer + Result.Count;
 			
 			DWORD FlagsToIgnore = FILE_ATTRIBUTE_DEVICE    |
-				FILE_ATTRIBUTE_ENCRYPTED |
-				FILE_ATTRIBUTE_HIDDEN    |
-				FILE_ATTRIBUTE_OFFLINE   |
-				FILE_ATTRIBUTE_TEMPORARY;
+								  FILE_ATTRIBUTE_ENCRYPTED |
+								  FILE_ATTRIBUTE_OFFLINE   |
+								  FILE_ATTRIBUTE_TEMPORARY;
 			
 			if (FindData.dwFileAttributes & FlagsToIgnore) {
 				Result.IgnoredCount++;
 				continue;
 			}
 			
-			File->LastModification = WindowsFiletimeToPloreTime(FindData.ftLastWriteTime);
 			if (FindData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
 				File->Type = PloreFileNode_Directory;
 			} else { // NOTE(Evan): Assume a 'normal' file.
 				File->Type = PloreFileNode_File;
 				File->Extension = GetFileExtension(FindData.cFileName).Extension;
 			} 
+			
+			File->Bytes = (FindData.nFileSizeHigh * (MAXDWORD+1)) + FindData.nFileSizeLow;
+			File->LastModification = WindowsFiletimeToPloreTime(FindData.ftLastWriteTime);
+			File->Hidden = FindData.dwFileAttributes & FILE_ATTRIBUTE_HIDDEN;
 			
 			
 			u64 BytesWritten = CStringCopy(DirectoryName, File->Path.Absolute, ArrayCount(File->Path.Absolute));
