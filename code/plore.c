@@ -507,9 +507,20 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		b64 Allocated;
 	} image_preview_handle;
 	
+	b64 StoleFocus = false;
+	
 	if (Window(State->VimguiContext, (vimgui_window_desc) {
 					   .ID = (u64) State->DirectoryState->Current.File.Path.Absolute,
-					   .Rect = { .P = V2(0, 0), .Span = { PlatformAPI->WindowDimensions.X, PlatformAPI->WindowDimensions.Y - FooterHeight } },
+					   .Rect = { 
+						   .P = V2(0, 0), 
+						   .Span = { 
+							   PlatformAPI->WindowDimensions.X, 
+							   PlatformAPI->WindowDimensions.Y - FooterHeight 
+						   } 
+					   },
+					   .BackgroundColour      = WidgetColour_Window,
+					   .BackgroundColourFlags = WidgetColourFlags_Default,
+					   .NeverFocus = true,
 				   })) {
 		
 		// NOTE(Evan): Tabs.
@@ -522,6 +533,13 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			plore_tab *Tab = State->Tabs + T;
 			if (Tab->Active) {
 				TabCount++;
+				
+				widget_colour_flags BackgroundColourFlags = WidgetColourFlags_Default;
+				widget_colour BackgroundColour = WidgetColour_Default;
+				
+				if (Tab == Active) {
+					BackgroundColourFlags = WidgetColourFlags_Focus;
+				}
 				
 				u64 NumberSize = 32;
 				char *Number = PushBytes(&State->FrameArena, NumberSize);
@@ -545,6 +563,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 									   .Colour = (Tab == Active) ? TextColour_TabActive : TextColour_Tab,
 									   .Pad = V2(10, 6),
 								   },
+								   .BackgroundColourFlags = BackgroundColourFlags,
+								   .BackgroundColour = BackgroundColour,
 							   })) {
 					// TODO(Evan): Switch tab if clicked!
 					SetCurrentTab(State, T);
@@ -589,6 +609,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			
 			H -= (FooterHeight + 2*PadY);
 			
+			StoleFocus = true;
+			
 			if (Button(State->VimguiContext, (vimgui_button_desc) {
 							   .ID = (u64) Buffer,
 							   .Title = {
@@ -608,6 +630,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								   .P    = V2(PadX, PlatformAPI->WindowDimensions.Y - 2*FooterHeight - 2*PadY), 
 								   .Span = V2(PlatformAPI->WindowDimensions.X-2*PadX, FooterHeight + PadY)
 							   },
+							   .BackgroundColourFlags = WidgetColourFlags_Focus,
 						   })) {
 			}
 		} else if (VimContext->Mode == VimMode_Lister && VimContext->ActiveCommand.Type == VimCommandType_OpenFile) {
@@ -651,6 +674,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			}
 			
 			H -= 20;
+			
+			StoleFocus = true;
 		}
 #endif
 		
@@ -691,7 +716,16 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 											   .P = V2(PadX, PlatformAPI->WindowDimensions.Y - FooterHeight - CandidateCount*FooterHeight - 20),
 											   .Span = V2(PlatformAPI->WindowDimensions.X-2*PadX, FooterHeight + PadY)
 										   },
-								   })) {
+										   .BackgroundColourFlags = WidgetColourFlags_Focus,
+									   })) {
+							ClearCommands(State->VimContext);
+							vim_command Command = {
+							    .Type = Candidate->Type,
+								.Shell = Candidate->Shell,
+								.Scalar = 1,
+								.State = VimCommandState_Start,
+							};
+							VimCommands[Command.Type](State, State->VimContext, State->FileContext, Command);
 						}
 						
 						H -= FooterHeight;
@@ -699,6 +733,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 				}
 				
 				H -= 20;
+				
+				StoleFocus = true;
 			}
 			
 			
@@ -762,11 +798,19 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			plore_file_listing_cursor *RowCursor = GetCursor(State->FileContext, Listing->File.Path.Absolute);
 			char *Title = Listing->File.Path.FilePart;
 			
+			widget_colour_flags WindowColourFlags = WidgetColourFlags_Default;
+			if (Directory->Focus) {
+				if (!StoleFocus) {
+					WindowColourFlags = WidgetColourFlags_Focus;
+				} else {
+					WindowColourFlags = WidgetColourFlags_Hot;
+				}
+			}
 			if (Window(State->VimguiContext, (vimgui_window_desc) {
-							   .Title                = Title,
-							   .Rect                 = {P, Span}, 
-							   .ForceFocus           = Directory->Focus,
-							   .BackgroundColour     = WidgetColour_Primary,
+							   .Title                 = Title,
+							   .Rect                  = {P, Span}, 
+							   .BackgroundColour      = WidgetColour_Primary,
+							   .BackgroundColourFlags = WindowColourFlags,
 						   })) {
 				u64 PageMax = (u64) Ceiling(Span.H / FileRowHeight);
 				u64 Cursor = 0;
@@ -785,17 +829,22 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 				switch (Listing->File.Type) {
 					case PloreFileNode_Directory: {
 						for (u64 Row = RowStart; Row < RowEnd; Row++) {
-							widget_colour BackgroundColour = WidgetColour_Default;
+							widget_colour BackgroundColour = WidgetColour_RowPrimary;
+							widget_colour_flags WidgetColourFlags = WidgetColourFlags_Default;
 							text_colour TextColour = 0;
+							text_colour_flags TextColourFlags = 0;
 							plore_file *RowEntry = Listing->Entries + Row;
 							
+							b64 CursorHover = RowCursor && RowCursor->Cursor == Row;
+							if (CursorHover) WidgetColourFlags = WidgetColourFlags_Focus;
+							
 							if (IsYanked(State->FileContext, &RowEntry->Path)) {
-								BackgroundColour = WidgetColour_Tertiary;
+								BackgroundColour = WidgetColour_RowSecondary;
 							} else if (IsSelected(State->FileContext, &RowEntry->Path)) {
-								BackgroundColour = WidgetColour_Quaternary;
-							} else if (RowCursor && RowCursor->Cursor == Row) {
-								BackgroundColour = WidgetColour_Secondary;
-							}
+								BackgroundColour = WidgetColour_RowTertiary;
+							} 
+							
+							
 							
 							// @Cleanup, move into ISearch!
 							b64 PassesFilter = true;
@@ -803,12 +852,13 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								PassesFilter = SubstringNoCase(RowEntry->Path.FilePart, FilterText).IsContained;
 							}
 							
+							
 							if (RowEntry->Type == PloreFileNode_Directory) {
-								if (PassesFilter) TextColour = TextColour_Primary;								
-								else TextColour = TextColour_PrimaryFade;
+								TextColour = TextColour_Primary;								
+								if (!PassesFilter) TextColourFlags = TextColourFlags_Fade;
 							} else {
-								if (PassesFilter) TextColour = TextColour_Secondary;								
-								else TextColour = TextColour_SecondaryFade;
+								TextColour = TextColour_Secondary;								
+								if (!PassesFilter) TextColourFlags = TextColourFlags_Fade;
 							}
 							
 							u64 Size = 256;
@@ -820,14 +870,17 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 												   .Alignment = VimguiLabelAlignment_Left ,
 												   .Colour = TextColour,
 												   .Pad = V2(4, 0),
+												   .ColourFlags = TextColourFlags,
 											   },
 											   .Secondary = { 
 												   .Text = Timestamp, 
 												   .Alignment = VimguiLabelAlignment_Right,
 												   .Colour = TextColour_Tertiary,
+												   .ColourFlags = TextColourFlags,
 											   },
 											   .FillWidth = true,
 											   .BackgroundColour = BackgroundColour,
+											   .BackgroundColourFlags = WidgetColourFlags,
 											   .Rect = { 
 												   .Span = 
 												   { 
@@ -841,6 +894,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 									PrintLine("Changing Directory to %s", Listing->Entries[Row].Path.Absolute);
 									Platform->SetCurrentDirectory(Listing->Entries[Row].Path.Absolute);
 								}
+								plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(State->FileContext, &Listing->File.Path);
+								CursorResult.Cursor->Cursor = Row;
 							}
 						}
 					} break;
