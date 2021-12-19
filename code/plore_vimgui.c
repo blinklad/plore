@@ -89,6 +89,46 @@ VimguiEnd(plore_vimgui_context *Context) {
 						   .Texture = Widget->Texture,
 					   });
 		
+		
+		//
+		// @Cleanup
+		// NOTE(Evan): Dodgy text layout ahead!
+		// Text length truncation within a single widget works for these combinations: { 1. title: left, 2. title: right, 3. title: left, secondary: right }
+		//
+		u64 TextCount = 0;
+		if (Widget->Secondary.Text) {
+			u64 PotentialTextCount = StringLength(Widget->Secondary.Text);
+			u64 MaxTextCount = Widget->Rect.Span.W / Context->RenderList->Font->Fonts[0].Data[0].xadvance - PotentialTextCount;
+			
+			if (PotentialTextCount <= MaxTextCount) {
+				TextCount += PotentialTextCount;
+				vimgui_label_alignment Alignment = 0;
+				if (Widget->Secondary.Alignment) Alignment = Widget->Secondary.Alignment;
+				else if (Widget->Alignment) Alignment = Widget->Alignment;
+				
+				rectangle SecondaryRect = Widget->Rect;
+				if (Alignment == VimguiLabelAlignment_Left || Alignment == VimguiLabelAlignment_Center) {
+					if (Widget->Title.Text && 
+						(Widget->Title.Alignment == VimguiLabelAlignment_Left) || 
+						(Widget->Title.Alignment == VimguiLabelAlignment_Default)) {
+						SecondaryRect.P.X += (StringLength(Widget->Title.Text) + 1) * Context->RenderList->Font->Fonts[0].Data[0].xadvance; // @Cleanup
+					}
+				}
+				
+				PushRenderText(Context->RenderList, 
+							   (vimgui_render_text_desc) {
+							       .Rect = SecondaryRect,
+							       .Text = {
+									   .Text = Widget->Secondary.Text,
+									   .Alignment = Alignment,
+									   .Colour = Widget->Secondary.Colour,
+									   .Pad = Widget->Secondary.Pad,
+									   .ColourFlags = Widget->Title.ColourFlags,
+								   },
+								   .Height = 32.0f,
+								   });
+			}
+		}
 		if (Widget->Title.Text) {
 			vimgui_label_alignment Alignment = 0;
 			if (Widget->Title.Alignment) Alignment = Widget->Title.Alignment;
@@ -108,38 +148,9 @@ VimguiEnd(plore_vimgui_context *Context) {
 								   .ColourFlags = Widget->Title.ColourFlags,
 							   },
 							   .Height = 32.0f,
+							   .TextCount = TextCount,
 						   });
-		}
-		
-		//
-		// @Cleanup
-		//
-		// @Cutnpaste above, from Widget->Title.Text
-		if (Widget->Secondary.Text) {
-			vimgui_label_alignment Alignment = 0;
-			if (Widget->Secondary.Alignment) Alignment = Widget->Secondary.Alignment;
-			else if (Widget->Alignment) Alignment = Widget->Alignment;
 			
-			if (Alignment == VimguiLabelAlignment_Left || Alignment == VimguiLabelAlignment_Center) {
-				if (Widget->Title.Text && 
-					(Widget->Title.Alignment == VimguiLabelAlignment_Left) || 
-					(Widget->Title.Alignment == VimguiLabelAlignment_Default)) {
-					Widget->Rect.P.X += (StringLength(Widget->Title.Text) + 1) * Context->RenderList->Font->Fonts[0].Data[0].xadvance; // @Cleanup
-				}
-			}
-			
-			PushRenderText(Context->RenderList, 
-						   (vimgui_render_text_desc) {
-						       .Rect = Widget->Rect,
-						       .Text = {
-								   .Text = Widget->Secondary.Text,
-								   .Alignment = Alignment,
-								   .Colour = Widget->Secondary.Colour,
-								   .Pad = Widget->Secondary.Pad,
-								   .ColourFlags = Widget->Title.ColourFlags,
-							   },
-							   .Height = 32.0f,
-						   });
 		}
 		
 	}
@@ -462,6 +473,11 @@ PushRenderText(plore_render_list *RenderList, vimgui_render_text_desc Desc) {
 	Assert(RenderList && RenderList->TextCount < ArrayCount(RenderList->Text));
 	render_text *T = RenderList->Text + RenderList->TextCount++;
 	
+	u64 MaxTextCount = Desc.Rect.Span.W / RenderList->Font->Fonts[0].Data[0].xadvance - Desc.TextCount;
+	u64 ThisTextLength = StringLength(Desc.Text.Text);
+	if (ThisTextLength > MaxTextCount) {
+		Desc.Text.Text[MaxTextCount] = '\0';
+	}
 	
 	v2 TextP = {
 		.X = Desc.Text.Pad.X + Desc.Rect.P.X,

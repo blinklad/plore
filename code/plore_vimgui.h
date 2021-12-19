@@ -203,6 +203,7 @@ PushWidget(plore_vimgui_context *Context, vimgui_window *Parent, vimgui_widget W
 typedef struct vimgui_render_text_desc {
 	rectangle Rect; 
 	v4 _TextColour; 
+	u64 TextCount; // @Cleanup
 	vimgui_label_desc Text;
 	f32 Height;
 } vimgui_render_text_desc;
