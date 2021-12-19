@@ -323,6 +323,7 @@ PLORE_VIM_COMMAND(MoveRight) {
 	u64 WasGivenScalar = Command.Scalar > 1;
 	u64 ScalarCount = 0;
 	while (Command.Scalar--) {
+		if (!State->DirectoryState->Current.Count) break;
 		plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(FileContext, &State->DirectoryState->Current.File.Path);
 		plore_file *CursorEntry = State->DirectoryState->Current.Entries + CursorResult.Cursor->Cursor;
 		
@@ -350,7 +351,9 @@ PLORE_VIM_COMMAND(MoveRight) {
 					DoOpenFile(State, VimContext, FileContext, OpenTheFile);
 				} 
 			} else {
-				DrawText("Unknown extension - specify a handler", CursorEntry->Path.FilePart);
+				if (State->DirectoryState->Current.Valid) {
+					DrawText("Unknown extension for `%s`", CursorEntry->Path.FilePart);
+				}
 			}
 		}
 		
