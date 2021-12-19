@@ -1,57 +1,35 @@
 // TODO(Evan): Metaprogram tables.
 internal v4
-GetTextColour(text_colour TextColour) {
+GetTextColour(text_colour TextColour, text_colour_flags Flags) {
+	Assert(TextColour < TextColour_Count);
 	v4 Result = {0};
-	switch (TextColour) {
-		case TextColour_Default: {
-			Result = V4(1, 1, 1, 1);
-		} break;
-		
-		case TextColour_PrimaryFade:
-		case TextColour_Primary: {
-			Result = V4(0.4, 0.5, 0.6, 1);
-			if (TextColour == TextColour_PrimaryFade) Result.A = 0.3f;
-		} break;
-		
-		case TextColour_SecondaryFade: 
-		case TextColour_Secondary: {
-			Result = V4(0.9, 0.85, 0.80, 1);
-			if (TextColour == TextColour_SecondaryFade) Result.A = 0.3f;
-		} break;
-		
-		case TextColour_TertiaryFade:
-		case TextColour_Tertiary: {
-			Result = V4(0.4, 0.4, 0.70, 0.4);
-			if (TextColour == TextColour_TertiaryFade) Result.A = 0.3f;
-		} break;
-		
-		case TextColour_Prompt: {
-			Result = V4(0.2, 0.85, 0.10, 1.0);
-		} break;
-		
-		case TextColour_PromptCursor: {
-			Result = V4(0.8, 0.3, 0.3, 1);
-		} break;
-		
-		case TextColour_CursorInfo: {
-			Result = V4(0.8, 0.4, 0.4, 1);
-		} break;
-		
-		case TextColour_TabActive: {
-			Result = V4(0.8, 0.4, 0.4, 1);
-		} break;
-		
-		case TextColour_Tab: {
-			Result = V4(0.8, 0.4, 0.4, 0.4);
-		} break;
-		
-		
-		InvalidDefaultCase;
-		
+	v4 *Table = PloreTextColours;
+	if (Flags == TextColourFlags_Dark) {
+		Table = PloreDarkTextColours;
+	} else if (Flags == TextColourFlags_Fade) {
+		Table = PloreFadeTextColours;
 	}
 	
+	Result = Table[TextColour];
 	return(Result);
 }
+
+// TODO(Evan): Metaprogram tables.
+internal v4
+GetWidgetColour(widget_colour WidgetColour, widget_colour_flags Flags) {
+	Assert(WidgetColour < WidgetColour_Count);
+	v4 Result = {0};
+	v4 *Table = PloreWidgetColours;
+	if (Flags == WidgetColourFlags_Hot) {
+		Table = PloreHotWidgetColours;
+	} else if (Flags == WidgetColourFlags_Focus) {
+		Table = PloreFocusWidgetColours;
+	}
+	
+	Result = Table[WidgetColour];
+	return(Result);
+}
+
 
 internal void
 VimguiInit(plore_vimgui_context *Context, plore_render_list *RenderList) {
@@ -103,54 +81,15 @@ VimguiEnd(plore_vimgui_context *Context) {
 		vimgui_widget *Widget = Context->ThisFrame.Widgets + Context->ThisFrame.WidgetCount-W-1;
 		
 		vimgui_window *Window = GetWindow(Context, Widget->ID);
+		if (!Window) Window = GetWindow(Context, Widget->WindowID);
 		
-		v4 BackgroundColour = {0};
-		switch (Widget->Type) {
-			case WidgetType_Button: {
-				switch (Widget->BackgroundColour) {
-					case WidgetColour_Default:
-					case WidgetColour_Primary: {
-						BackgroundColour = V4(0.10, 0.1, 0.1, 1.0);
-					} break;
-					
-					case WidgetColour_Secondary: {
-						BackgroundColour = V4(0.2, 0.1, 0.1, 1);
-					}; break;
-					
-					case WidgetColour_Tertiary: {
-						BackgroundColour = V4(0.5, 0.4, 0.4, 1);
-					} break;
-					
-					case WidgetColour_Quaternary: {
-						BackgroundColour = V4(0.40, 0.5, 0.4, 1);
-					} break;
-				}
-				
-			} break;
-			
-			case WidgetType_Window: {
-				switch (Widget->BackgroundColour) {
-					case WidgetColour_Default: {
-						BackgroundColour = V4(0.0, 0.0, 0.0, 1.0);
-					} break;
-					
-					case WidgetColour_Primary: {
-					    BackgroundColour = V4(0.05, 0.05, 0.05, 1.0);
-					} break;
-					
-						
-				}
-			} break;
-			
-			default: break;
+		if (Context->HotWidgetID == Widget->ID ) {
+			Widget->BackgroundColourFlags = WidgetColourFlags_Hot;
+		} else if (Widget->Type == WidgetType_Window && Context->HotWindow == Widget->ID) {
+			if (!Widget->BackgroundColourFlags) Widget->BackgroundColourFlags = WidgetColourFlags_Hot;
 		}
 		
-		
-		if (Context->ActiveWindow == Widget->WindowID) {
-			BackgroundColour.RGB = MultiplyVec3f(BackgroundColour.RGB, 1.40f);
-		} else if (Context->HotWindow == Widget->WindowID) {
-			BackgroundColour.RGB = MultiplyVec3f(BackgroundColour.RGB, 1.10f);
-		}
+		v4 BackgroundColour = GetWidgetColour(Widget->BackgroundColour, Widget->BackgroundColourFlags);
 		
 		PushRenderQuad(Context->RenderList, (vimgui_render_quad_desc) { 
 						   .Rect = Widget->Rect, 
@@ -163,6 +102,9 @@ VimguiEnd(plore_vimgui_context *Context) {
 			if (Widget->Title.Alignment) Alignment = Widget->Title.Alignment;
 			else if (Widget->Alignment) Alignment = Widget->Alignment;
 			
+			//
+			// @Cleanup
+			//
 			PushRenderText(Context->RenderList, 
 						   (vimgui_render_text_desc) {
 						       .Rect = Widget->Rect,
@@ -171,11 +113,15 @@ VimguiEnd(plore_vimgui_context *Context) {
 								   .Alignment = Alignment,
 								   .Colour = Widget->Title.Colour,
 								   .Pad = Widget->Title.Pad,
+								   .ColourFlags = Widget->Title.ColourFlags,
 							   },
 							   .Height = 32.0f,
 						   });
 		}
 		
+		//
+		// @Cleanup
+		//
 		// @Cutnpaste above, from Widget->Title.Text
 		if (Widget->Secondary.Text) {
 			vimgui_label_alignment Alignment = 0;
@@ -198,6 +144,7 @@ VimguiEnd(plore_vimgui_context *Context) {
 								   .Alignment = Alignment,
 								   .Colour = Widget->Secondary.Colour,
 								   .Pad = Widget->Secondary.Pad,
+								   .ColourFlags = Widget->Title.ColourFlags,
 							   },
 							   .Height = 32.0f,
 						   });
@@ -343,6 +290,7 @@ typedef struct vimgui_button_desc {
 	u64 ID;
 	rectangle Rect;
 	widget_colour BackgroundColour;
+	widget_colour_flags BackgroundColourFlags;
 } vimgui_button_desc;
 
 internal b64
@@ -410,6 +358,7 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 				   .WindowID = Window->ID,
 				   .Rect = Desc.Rect,
 				   .BackgroundColour = Desc.BackgroundColour,
+				   .BackgroundColourFlags = Desc.BackgroundColourFlags,
 				   .Title = Desc.Title,
 				   .Secondary = Desc.Secondary,
 			   });
@@ -423,8 +372,10 @@ typedef struct vimgui_window_desc {
 	char *Title;
 	rectangle Rect;
 	widget_colour BackgroundColour;
+	widget_colour_flags BackgroundColourFlags;
 	text_colour TextColour;
 	b64 ForceFocus;
+	b64 NeverFocus;
 	b64 Hidden;
 } vimgui_window_desc;
 
@@ -498,6 +449,7 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 					   .Rect = MaybeWindow->Rect,
 					   .Title = MaybeWindow->Title,
 					   .BackgroundColour = Desc.BackgroundColour,
+					   .BackgroundColourFlags = Desc.BackgroundColourFlags,
 //					   .TextColour = Desc.TextColour,
 					   .Alignment = VimguiLabelAlignment_Center,
 				   });
@@ -574,7 +526,7 @@ PushRenderText(plore_render_list *RenderList, vimgui_render_text_desc Desc) {
 			.P = TextP,
 			.Span = Desc.Rect.Span,
 		},
-		.Colour = GetTextColour(Desc.Text.Colour),
+		.Colour = GetTextColour(Desc.Text.Colour, Desc.Text.ColourFlags),
 		.Height = Desc.Height,
 	};
 	

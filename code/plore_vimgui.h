@@ -4,34 +4,106 @@
 #define PLORE_VIMGUI_H
 
 
+//
+// TODO(Evan): Move to colour #defines, maybe uint32 hex literals?
+// NOTE(Evan): Widget Colours.
+// Normal, Hot, Focus
+//                    R   G   B   A             R   G   B   A,        R,  G,  B,  A
+#define PLORE_WIDGET_COLOURS \
+PLORE_X(Default,      0.07,  0.07, 0.07,  1.0,   0.09, 0.09, 0.09, 1,  0.11, 0.11, 0.11,  1) \
+PLORE_X(Primary,      0.07,  0.07, 0.07,  1.0,   0.09, 0.09, 0.09, 1,  0.11, 0.11, 0.11,  1) \
+PLORE_X(Secondary,    0.2,  0.1,   0.1,  1.0,   0.2,  0.1,  0.1,  1,  1,    1,    1,     1) \
+PLORE_X(Tertiary,     0.5,  0.4,   0.4,  1.0,   0,  0,  0,  1,        1,    1,    1,     1) \
+PLORE_X(Quaternary,   0.4,  0.5,   0.4,  1.0,   0,  0,  0,  1,        1,    1,    1,     1) \
+PLORE_X(RowPrimary,   0.16, 0.16,  0.16, 1.0,   0.25, 0.25, 0.25, 1.0,   0.3, 0.3,  0.3,  1)  \
+PLORE_X(RowSecondary, 0.2,  0.1,   0.1,  1.0,   0.3, 0.1, 0.1, 1,  0.4,  0.1,  0.1,   1) \
+PLORE_X(RowTertiary,  0.1,  0.2,   0.1,  1.0,   0.1, 0.3, 0.1, 1,  0.1,  0.3,  0.1,   1) \
+PLORE_X(Window,       0,    0,     0,    1.0,   0.05, 0.05, 0.05, 1,  0.14, 0.14, 0.14,  1) 
+
+#define PLORE_X(Name, _R, _G, _B, _A, _hR, _hG, _hB, _hA, _fR, _fG, _fB, _fA) WidgetColour_##Name,
 typedef enum widget_colour {
-	WidgetColour_Default,
-	WidgetColour_Primary,
-	WidgetColour_Secondary,
-	WidgetColour_Tertiary,
-	WidgetColour_Quaternary,
+	PLORE_WIDGET_COLOURS
 	WidgetColour_Count,
 	_WidgetColour_ForceU64 = 0xFFFFFFFF,
 } widget_colour;
+#undef PLORE_X
 
+#define PLORE_X(Name, R, G, B, A, _hR, _hG, _hB, _hA, _fR, _fG, _fB, _fA) { R, G, B, A },
+global v4 PloreWidgetColours[] = {
+	PLORE_WIDGET_COLOURS
+};
+#undef PLORE_X
+
+#define PLORE_X(Name, _R, _G, _B, _A, hR, hG, hB, hA, _fR, _fG, _fB, _fA) { hR, hG, hB, hA },
+global v4 PloreHotWidgetColours[] = {
+	PLORE_WIDGET_COLOURS
+};
+#undef PLORE_X
+
+#define PLORE_X(Name, _R, _G, _B, _A, _hR, _hG, _hB, _hA, fR, fG, fB, fA) { fR, fG, fB, fA },
+global v4 PloreFocusWidgetColours[] = {
+	PLORE_WIDGET_COLOURS
+};
+#undef PLORE_X
+
+typedef enum widget_colour_flags {
+	WidgetColourFlags_Default,
+	WidgetColourFlags_Normal,
+	WidgetColourFlags_Hot,
+	WidgetColourFlags_Focus,
+	_WidgetColourFlags_ForceU64 = 0xFFFFFFFF,
+} widget_colour_flags;
+
+//
+//
+// TODO(Evan): Move to colour #defines, maybe uint32 hex literals?
+// NOTE(Evan): Text Colours.
+//
+//      Name    Light R    G     B       Fade Alpha   Dark R    G    B    A
+#define PLORE_TEXT_COLOURS                                                       \
+PLORE_X(Default,      1,   1,    1,      0.3,              0,   0,   0,   1.0f)  \
+PLORE_X(Primary,      0.4, 0.5,  0.6,    0.3f,             0.4, 0.5, 0.6, 1.0f)  \
+PLORE_X(Secondary,    0.9, 0.85, 0.80,   0.3,                0.5, 0.5, 0.5, 1.0f)  \
+PLORE_X(Tertiary,     0.4, 0.4,  0.70,   0.4,              0.5, 0.5, 0.5, 1.0f)  \
+PLORE_X(Prompt,       0.2, 0.85, 0.10,   1.0,              0.5, 0.5, 0.5, 1.0f)  \
+PLORE_X(PromptCursor, 0.8, 0.3,  0.3,    1,                0.5, 0.5, 0.5, 1.0f)  \
+PLORE_X(CursorInfo,   0.8, 0.4,  0.4,    1,                0.5, 0.5, 0.5, 1.0f)  \
+PLORE_X(TabActive,    0.8, 0.4,  0.4,    1,                0.5, 0.5, 0.5, 1.0f)  \
+PLORE_X(Tab,          0.8, 0.4,  0.4,    0.4,              0.5, 0.5, 0.5, 1.0f)  \
+PLORE_X(Lister,       1.0, 1.0,  1.0,    0.5,              0.5, 0.5, 0.5, 1.0f)
+
+#define PLORE_X(Name, _R, _G, _B, _A, _dR, _dG, _dB, _dA) TextColour_##Name,
 typedef enum text_colour {
-	TextColour_Default,
-	TextColour_Primary,
-	TextColour_PrimaryFade,
-	TextColour_Secondary,
-	TextColour_SecondaryFade,
-	TextColour_Tertiary,
-	TextColour_TertiaryFade,
-	TextColour_Tab,
-	TextColour_TabActive,
-	TextColour_Prompt,
-	TextColour_PromptCursor,
-	TextColour_CursorInfo,
+	PLORE_TEXT_COLOURS
 	TextColour_Count,
-	TextColour_Lister,
 	_TextColour_ForceU64 = 0xFFFFFFFF,
 } text_colour;
+#undef PLORE_X
 
+typedef enum text_colour_flags {
+	TextColourFlags_Default,
+	TextColourFlags_Dark,
+	TextColourFlags_Fade,
+	_TextColourFlags_ForceU64 = 0xFFFFFFFF,
+} text_colour_flags;
+
+#define PLORE_X(Name, R, G, B, _A, _dR, _dG, _dB, _dA) { R, G, B, 1 },
+global v4 PloreTextColours[] = {
+	PLORE_TEXT_COLOURS
+};
+#undef PLORE_X
+
+#define PLORE_X(Name, R, G, B, A, _dR, _dG, _dB, _dA) { R, G, B, A },
+global v4 PloreFadeTextColours[] = {
+	PLORE_TEXT_COLOURS
+};
+#undef PLORE_X
+
+#define PLORE_X(Name, _R, _G, _B, _A, dR, dG, dB, dA) { dR, dG, dB, dA },
+global v4 PloreDarkTextColours[] = {
+	PLORE_TEXT_COLOURS
+};
+#undef PLORE_X
 
 // NOTE(Evan): Container for other widgets. These are garbage collected when inactive.
 typedef struct vimgui_window {
@@ -71,6 +143,7 @@ typedef struct vimgui_label_desc {
 	char *Text;
 	vimgui_label_alignment Alignment;
 	text_colour Colour;
+	text_colour_flags ColourFlags;
 	v2 Pad;
 } vimgui_label_desc;
 
@@ -81,6 +154,7 @@ typedef struct vimgui_widget {
 	widget_type Type;
 	rectangle Rect;
 	widget_colour BackgroundColour;
+	widget_colour_flags BackgroundColourFlags;
 	vimgui_label_desc Title;
 	vimgui_label_desc Secondary;
 	vimgui_label_alignment Alignment;
