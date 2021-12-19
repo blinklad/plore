@@ -58,7 +58,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 * Filtering by: Extension, File/Directory/Symlink, Filesize
 * Sorting by: Extension, last write date, size
 * ~~Command previews~~
-* Lister for: Selected files, yanked files, bookmarked directories,
+* Lister for: Selected files, yanked files, bookmarked directories, commands
 * ~~Deletion~~
 * ~~User-defined trash~~
 * Movement:
@@ -76,7 +76,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 * Split tabs!
 * ~~Vim commands supporting scalars (e.g., 5yy, 2j)~~
 * Clipboard handling.
-* Hidden file toggling.
+* ~~Hidden file toggling.~~
 * ~~Date display.~~
 * Size display
 * Undo for: Rename, Paste, Delete (PLORE_TRASH/Recycle Bin only). 
