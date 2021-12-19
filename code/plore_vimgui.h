@@ -120,6 +120,7 @@ typedef struct vimgui_window {
 	i64 Generation; // NOTE(Evan): When a window is "touched", this is incremented.
 	                // If the generation lags behind the global context, the window is deleted. 
 	b64 Hidden;
+	b64 NeverFocus;
 } vimgui_window;
 
 typedef enum widget_type {
@@ -177,7 +178,6 @@ typedef struct plore_vimgui_context {
 	b64 GUIPassActive;
 	b64 LayoutPassActive;
 	u64 HotWidgetID;
-	u64 ActiveWidgetID;
 	
 	vimgui_window Windows[8];
 	u64 WindowCount;

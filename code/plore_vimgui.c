@@ -64,14 +64,6 @@ VimguiEnd(plore_vimgui_context *Context) {
 	vimgui_widget *Widgets = Context->ThisFrame.Widgets;
 	Assert(Context->ThisFrame.WidgetCount);
 	
-	u64 ActiveWindowID = Context->ActiveWindow;
-	
-	// NOTE(Evan): Push focused widgets (including window) to the top.
-	for (u64 W = 0; W < Context->ThisFrame.WidgetCount; W++) {
-		if (Widgets[W].WindowID == ActiveWindowID) {
-			Widgets[W].Layer += 2;
-		}
-	}
 #define PloreSortPredicate(A, B) A.Layer < B.Layer
 	PloreSort(Context->ThisFrame.Widgets, Context->ThisFrame.WidgetCount, vimgui_widget)
 #undef PloreSortPredicate
@@ -185,35 +177,6 @@ GetLayoutWindow(plore_vimgui_context *Context) {
 }
 
 internal vimgui_window *
-GetHotWindow(plore_vimgui_context *Context) {
-	vimgui_window *Window = 0;
-	for (u64 W = 0; W < Context->WindowCount; W++) {
-		vimgui_window *MaybeWindow = Context->Windows + W;
-		if (MaybeWindow->ID == Context->HotWindow) {
-			Window = MaybeWindow;
-			break;
-		}
-	}
-	
-	return(Window);
-}
-
-internal vimgui_window *
-GetActiveWindow(plore_vimgui_context *Context) {
-	vimgui_window *Window = 0;
-	for (u64 W = 0; W < Context->WindowCount; W++) {
-		vimgui_window *MaybeWindow = Context->Windows + W;
-		if (MaybeWindow->ID == Context->ActiveWindow) {
-			Window = MaybeWindow;
-			break;
-		}
-	}
-	
-	return(Window);
-}
-
-
-internal vimgui_window *
 GetWindow(plore_vimgui_context *Context, u64 ID) {
 	vimgui_window *MaybeWindow = 0;
 	for (u64 W = 0; W < Context->WindowCount; W++) {
@@ -236,7 +199,9 @@ SetActiveWindow(plore_vimgui_context *Context, vimgui_window *Window) {
 
 internal void
 SetHotWindow(plore_vimgui_context *Context, vimgui_window *Window) {
-	Context->HotWindow = Window->ID;
+	if (!Window->NeverFocus) {
+		Context->HotWindow = Window->ID;
+	}
 }
 
 typedef struct vimgui_image_desc {
@@ -260,7 +225,6 @@ Image(plore_vimgui_context *Context, vimgui_image_desc Desc) {
 		Context->HotWidgetID = MyID;
 		if (Context->ThisFrame.Input.pKeys[PloreKey_MouseLeft]) {
 			SetActiveWindow(Context, Window);
-			Context->ActiveWidgetID = MyID;
 			Result = true;
 		}
 	}
@@ -343,7 +307,6 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 		Context->HotWidgetID = MyID;
 		if (Context->ThisFrame.Input.pKeys[PloreKey_MouseLeft]) {
 			SetActiveWindow(Context, Window);
-			Context->ActiveWidgetID = MyID;
 			Result = true;
 		}
 	}
@@ -398,6 +361,7 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 			MaybeWindow->ID = MyID;
 			MaybeWindow->Title = Desc.Title;
 			MaybeWindow->Generation = Context->GenerationCount;
+			MaybeWindow->NeverFocus = Desc.NeverFocus;
 		}
 	}
 	
@@ -409,6 +373,7 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 			return(false); 
 		}
 		
+		MaybeWindow->NeverFocus = Desc.NeverFocus;
 		
 		u64 MyParentIndex = Context->ThisFrame.ParentStackCount;
 		Context->ThisFrame.ParentStack[Context->ThisFrame.ParentStackCount++] = MaybeWindow->ID;
@@ -417,13 +382,12 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 		
 		// NOTE(Evan): Only check if the active window needs updating if focus wasn't stolen.
 		if (!Context->ThisFrame.WindowFocusStolen || Desc.ForceFocus) {
-			if (IsWithinRectangleInclusive(Context->ThisFrame.Input.MouseP, Desc.Rect) && !Context->HotWindow) {
-				Context->HotWindow = MyID;
+			if (IsWithinRectangleInclusive(Context->ThisFrame.Input.MouseP, Desc.Rect)) {
+				SetHotWindow(Context, MaybeWindow);
 			} else if (Desc.ForceFocus) {
 				Context->ActiveWindow = MyID;
 				Context->ThisFrame.WindowFocusStolen = true;
 			}
-				
 		}
 		MaybeWindow->Rect = Desc.Rect;
 		
