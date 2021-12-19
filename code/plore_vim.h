@@ -20,11 +20,13 @@ PLORE_X(MoveDown,        "move_down",        "Move Down",           0)          
 PLORE_X(JumpTop,         "jump_top",         "Jump To Top",         0)                               \
 PLORE_X(JumpBottom,      "jump_bottom",      "Jump To Bottom",      0)                               \
 PLORE_X(Yank,            "yank",             "Yank",                0)                               \
+PLORE_X(YankAll,         "yank_all",         "Yank All",            0)                               \
 PLORE_X(ClearYank,       "clear_yank",       "Clear Yank",          0)                               \
 PLORE_X(Paste,           "paste",            "Paste",               0)                               \
 PLORE_X(Select,          "select",           "Select",              0)                               \
 PLORE_X(SelectUp,        "select_up",        "Select Up",           0)                               \
 PLORE_X(SelectDown,      "select_down",      "Select Down",         0)                               \
+PLORE_X(SelectAll,       "select_all",       "Select All",          0)                               \
 PLORE_X(ISearch,         "isearch",          "ISearch",             "ISearch:")                      \
 PLORE_X(ChangeDirectory, "change_directory", "Change Directory",    "Change directory to?")          \
 PLORE_X(RenameFile,      "rename_file",      "Rename File",         "Rename file to?")               \
@@ -133,6 +135,18 @@ global vim_binding VimBindings[] = {
 		}
 	},
 	{
+		.Type = VimCommandType_YankAll,
+		.Keys = {
+			{
+				.Input = PloreKey_Y,
+			},
+			{
+				.Input = PloreKey_G,
+				.Modifier = PloreKey_Shift,
+			},
+		},
+	},
+	{
 		.Type = VimCommandType_ClearYank,
 		.Keys = {
 			{
@@ -181,6 +195,15 @@ global vim_binding VimBindings[] = {
 	},
 	{
 		.Type = VimCommandType_SelectDown,
+		.Keys = {
+			{
+				.Input = PloreKey_Space,
+				.Modifier = PloreKey_Ctrl,
+			},
+		}
+	},
+	{
+		.Type = VimCommandType_SelectAll,
 		.Keys = {
 			{
 				.Input = PloreKey_Space,

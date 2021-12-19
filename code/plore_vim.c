@@ -16,7 +16,7 @@ ClearCommands(plore_vim_context *Context) {
 }
 
 internal void
-StartInsertForCommand(plore_vim_context *VimContext, vim_command Command) {
+InsertBegin(plore_vim_context *VimContext, vim_command Command) {
 	VimContext->Mode = VimMode_Insert;
 	SetActiveCommand(VimContext, Command);
 }
@@ -508,7 +508,7 @@ PLORE_VIM_COMMAND(ISearch)  {
 		switch (Command.State) {
 			case VimCommandState_Start: {
 				ClearCommands(VimContext);
-				StartInsertForCommand(VimContext, Command);
+				InsertBegin(VimContext, Command);
 			} break;
 			
 			case VimCommandState_Incomplete: {
@@ -531,7 +531,7 @@ PLORE_VIM_COMMAND(ChangeDirectory) {
 		switch (Command.State) {
 			case VimCommandState_Start: {
 				ClearCommands(VimContext);
-				StartInsertForCommand(VimContext, Command);
+				InsertBegin(VimContext, Command);
 			} break;
 			
 			case VimCommandState_Incomplete: {
@@ -553,7 +553,7 @@ PLORE_VIM_COMMAND(RenameFile) {
 			MemoryCopy(Result.CommandKeys, VimContext->CommandKeys, sizeof(VimContext->CommandKeys));
 			VimContext->CommandKeyCount = Result.CommandKeyCount;
 			
-			StartInsertForCommand(VimContext, Command);
+			InsertBegin(VimContext, Command);
 		} break;
 		
 		case VimCommandState_Incomplete: {
@@ -655,7 +655,7 @@ PLORE_VIM_COMMAND(CreateFile) {
 		switch (Command.State) {
 			case VimCommandState_Start: {
 				ClearCommands(VimContext);
-				StartInsertForCommand(VimContext, Command);
+				InsertBegin(VimContext, Command);
 			} break;
 		}
 	}
@@ -668,7 +668,7 @@ PLORE_VIM_COMMAND(CreateDirectory) {
 		switch (Command.State) {
 			case VimCommandState_Start: {
 				ClearCommands(VimContext);
-				StartInsertForCommand(VimContext, Command);
+				InsertBegin(VimContext, Command);
 			} break;
 		}
 	}
@@ -693,8 +693,28 @@ PLORE_VIM_COMMAND(DeleteFile) {
 		switch (Command.State) {
 			case VimCommandState_Start: {
 				ClearCommands(VimContext);
-				StartInsertForCommand(VimContext, Command);
+				InsertBegin(VimContext, Command);
 			} break;
+		}
+	}
+}
+
+PLORE_VIM_COMMAND(YankAll) {
+	plore_file_listing *CurrentDirectory = &State->DirectoryState->Current;
+	for (u64 F = 0; F < CurrentDirectory->Count; F++) {
+		plore_file *File = CurrentDirectory->Entries + F;
+		if (!IsYanked(FileContext, &File->Path)) {
+			ToggleYanked(FileContext, &File->Path);
+		}
+	}
+}
+
+PLORE_VIM_COMMAND(SelectAll) {
+	plore_file_listing *CurrentDirectory = &State->DirectoryState->Current;
+	for (u64 F = 0; F < CurrentDirectory->Count; F++) {
+		plore_file *File = CurrentDirectory->Entries + F;
+		if (!IsSelected(FileContext, &File->Path)) {
+			ToggleSelected(FileContext, &File->Path);
 		}
 	}
 }
