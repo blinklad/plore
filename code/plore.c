@@ -48,11 +48,20 @@ STBIRealloc(void *Ptr, u64 Size) {
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+typedef enum file_sort_mask {
+	FileSort_Size,
+	FileSort_Name,
+	FileSort_Modified,
+	FileSort_Count,
+	_FileSort_ForceU64 = 0xffffffff,
+} file_sort_mask;
+
 typedef struct plore_file_filter_state {
 	char TextFilter[PLORE_MAX_PATH];
 	u64 TextFilterCount;
 	
 	b64 ShowHidden;
+	file_sort_mask SortAscending[FileSort_Count];
 } plore_file_filter_state;
 
 typedef struct plore_current_directory_state {
@@ -482,22 +491,42 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	
 	
 	typedef struct plore_viewable_directory {
+		plore_file_listing *_File;
 		plore_file_listing *File;
 		b64 Focus;
 	} plore_viewable_directory;
 	
 	plore_viewable_directory ViewDirectories[3] = {
 		[0] = {
-			.File = State->FileContext->InTopLevelDirectory ? 0 : &State->DirectoryState->Parent,
+			._File = !State->FileContext->InTopLevelDirectory ? ViewDirectories[0].File = &State->DirectoryState->Parent : 0,
 		},
 		[1] = {
-			.File = &State->DirectoryState->Current,
+			._File = &State->DirectoryState->Current,
 			.Focus = true,
-		},
+		}, 
 		[2] = {
-			.File = &State->DirectoryState->Cursor.Valid ? &State->DirectoryState->Cursor : 0,
+			State->DirectoryState->Cursor.Valid ? ViewDirectories[2].File = &State->DirectoryState->Cursor : 0,
 		},
+		
 	};
+	
+	
+	for (u64 V = 0; V < ArrayCount(ViewDirectories); V++) {
+		// TODO(Evan): Skip hidden.
+		// TODO(Evan): Canonicalized cursors!
+		if (ViewDirectories[V]._File) {
+			ViewDirectories[V].File = PushStruct(&State->FrameArena, plore_file_listing);
+			MemoryCopy(ViewDirectories[V]._File, ViewDirectories[V].File, sizeof(plore_file_listing));
+			
+			#if 1
+			if (ViewDirectories[V].File->Count) {
+#define PloreSortPredicate(A, B) ((State->FilterState.SortAscending[FileSort_Name]) ? StringCompare(A.Path.Absolute, B.Path.Absolute) : StringCompare(A.Path.Absolute, B.Path.Absolute))
+				PloreSort(ViewDirectories[V].File->Entries, ViewDirectories[V].File->Count, plore_file)
+#undef PloreSortPredicate
+			}
+			#endif
+		}
+	}
 	
 	typedef struct image_preview_handle {
 		plore_path Path;
