@@ -78,7 +78,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 * Clipboard handling.
 * ~~Hidden file toggling.~~
 * ~~Date display.~~
-* Size display
+* ~~Size display.~~
 * Undo for: Rename, Paste, Delete (PLORE_TRASH/Recycle Bin only). 
 * Persistent: Undo, command history, marked files/directories, bookmarks. Requires plore.history.
 * VIMGUI work:
