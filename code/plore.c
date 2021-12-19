@@ -829,7 +829,10 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 						for (u64 Row = RowStart; Row < RowEnd; Row++) {
 							plore_file *RowEntry = Listing->Entries + Row;
 							
-							if (RowEntry->Hidden && !State->FilterState.ShowHidden) continue;
+							if (RowEntry->Hidden && !State->FilterState.ShowHidden) {
+								if (RowEnd < Listing->Count-1) RowEnd++;
+								continue;
+							}
 							
 							widget_colour BackgroundColour = WidgetColour_RowPrimary;
 							widget_colour_flags WidgetColourFlags = WidgetColourFlags_Default;
@@ -861,8 +864,29 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								if (!PassesFilter) TextColourFlags = TextColourFlags_Fade;
 							}
 							
-							u64 Size = 256;
-							char *Timestamp = PloreTimeFormat(&State->FrameArena, RowEntry->LastModification, "%b %d %x");
+							char *Timestamp = PloreTimeFormat(&State->FrameArena, RowEntry->LastModification, "%b %x");
+							
+							char *SecondaryText = Timestamp;
+							if (RowEntry->Type == PloreFileNode_File) {
+								char *EntrySizeLabel = " b";
+								u64 EntrySize = RowEntry->Bytes;
+								if (EntrySize > Megabytes(1)) {
+									EntrySize /= Megabytes(1); 
+									EntrySizeLabel = "mB";
+								} else if (EntrySize > Kilobytes(1)) {
+									EntrySize /= Kilobytes(1);
+									EntrySizeLabel = "kB";
+								}
+								
+								u64 Size = 256;
+								SecondaryText = PushBytes(&State->FrameArena, Size);
+								StringPrintSized(SecondaryText, Size, "%s %4d%s", Timestamp, EntrySize, EntrySizeLabel);
+							} else {
+								u64 Size = 256;
+								SecondaryText = PushBytes(&State->FrameArena, Size);
+								StringPrintSized(SecondaryText, Size, "%s%7s", Timestamp, "-");
+							}
+							
 								
 							if (Button(State->VimguiContext, (vimgui_button_desc) {
 											   .Title     = { 
@@ -873,7 +897,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 												   .ColourFlags = TextColourFlags,
 											   },
 											   .Secondary = { 
-												   .Text = Timestamp, 
+												   .Text = SecondaryText, 
 												   .Alignment = VimguiLabelAlignment_Right,
 												   .Colour = TextColour_Tertiary,
 												   .ColourFlags = TextColourFlags,
