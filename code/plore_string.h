@@ -138,6 +138,26 @@ Substring(char *S, char *Substring) {
 	return(Result);
 }
 
+// NOTE(Evan): Returns whether A is lexicographically greater than A.
+internal b64
+StringCompare(char *A, char *B) {
+	b64 Result = false;
+	
+	u64 LenA = StringLength(A);
+	u64 LenB = StringLength(B);
+	
+	while (*A && *B) {
+		if (*A != *B) {
+			if (*B > *A) Result = false;
+			else         Result = true;
+			
+			break;
+		} else *A++, *B++;
+	}
+	
+	return(Result);
+}
+
 internal char *
 StringConcatenate(char *Left, u64 LeftBufferSize, char *Right) {
 	char *Result = Left;
