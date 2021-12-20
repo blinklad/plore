@@ -456,9 +456,10 @@ AcceptsPattern(vim_binding *Binding) {
 	return(Result);
 }
 
+typedef struct plore_tab plore_tab;
 
 #define PLORE_VIM_COMMAND_FUNCTION(Name) \
-void Name(plore_state *State, plore_vim_context *VimContext, plore_file_context *FileContext, vim_command Command)
+void Name(plore_state *State, plore_tab *Tab, plore_vim_context *VimContext, plore_file_context *FileContext, vim_command Command)
 
 typedef PLORE_VIM_COMMAND_FUNCTION(vim_command_function);
 #define PLORE_VIM_COMMAND(CommandName) PLORE_VIM_COMMAND_FUNCTION(Do##CommandName)
