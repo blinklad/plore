@@ -61,7 +61,8 @@ typedef struct plore_file_filter_state {
 	u64 TextFilterCount;
 	
 	b64 ShowHidden;
-	file_sort_mask SortAscending[FileSort_Count];
+	file_sort_mask SortMask;
+	b64 SortAscending;
 } plore_file_filter_state;
 
 typedef struct plore_current_directory_state {
@@ -79,8 +80,8 @@ typedef struct plore_current_directory_state {
 
 typedef struct plore_tab {
 	plore_path CurrentDirectory; // NOTE(Evan): Needs to be cached, as current directory is set for the entire process.
-	plore_current_directory_state DirectoryState;
-	interact_state InteractState; // @Cleanup
+	plore_current_directory_state *DirectoryState;
+	plore_file_filter_state *FilterState;
 	plore_file_context *FileContext;
 	b64 Active;
 } plore_tab;
@@ -92,11 +93,6 @@ typedef struct plore_state {
 	plore_tab Tabs[8];
 	u64 TabCount;
 	u64 TabCurrent;
-	
-	plore_current_directory_state *DirectoryState;
-	plore_file_context *FileContext;
-	interact_state InteractState; // @Cleanup
-	plore_file_filter_state FilterState;
 	
 	plore_memory *Memory;
 	plore_vim_context *VimContext;
@@ -193,8 +189,9 @@ GetKey(char C) {
 
 internal plore_file *
 GetCursorFile(plore_state *State) {
-	plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(State->FileContext, &State->DirectoryState->Current.File.Path);
-	plore_file *CursorEntry = State->DirectoryState->Current.Entries + CursorResult.Cursor->Cursor;
+	plore_tab *Tab = GetCurrentTab(State);
+	plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(Tab->FileContext, &Tab->DirectoryState->Current.File.Path);
+	plore_file *CursorEntry = Tab->DirectoryState->Current.Entries + CursorResult.Cursor->Cursor;
 	
 	return(CursorEntry);
 }
@@ -203,12 +200,14 @@ GetCursorFile(plore_state *State) {
 internal plore_path *
 GetImpliedSelection(plore_state *State) {
 	plore_path *Result = 0;
-	plore_file_context *FileContext = State->FileContext;
+	
+	plore_tab *Tab = GetCurrentTab(State);
+	plore_file_context *FileContext = Tab->FileContext;
 	
 	if (FileContext->SelectedCount == 1) {
 		Result = &FileContext->Selected[0];
 	} else if (!FileContext->SelectedCount) {
-		plore_file_listing *Cursor = &State->DirectoryState->Cursor;
+		plore_file_listing *Cursor = &Tab->DirectoryState->Cursor;
 		if (Cursor->Valid) {
 //			if ((Cursor->File.Type == PloreFileNode_Directory && !Cursor->Count)) return(Result);
 			
@@ -283,6 +282,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		for (u64 T = 0; T < ArrayCount(State->Tabs); T++) {
 			plore_tab *Tab = State->Tabs + T;
 			Tab->FileContext = PushStruct(&State->Arena, plore_file_context);
+			Tab->FilterState = PushStruct(&State->Arena, plore_file_filter_state);
+			Tab->DirectoryState = PushStruct(&State->Arena, plore_current_directory_state);
 			for (u64 Dir = 0; Dir < ArrayCount(Tab->FileContext->CursorSlots); Dir++) {
 				Tab->FileContext->CursorSlots[Dir] = PushStruct(&State->Arena, plore_file_listing_cursor);
 			}
@@ -290,8 +291,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		
 		State->TabCount = 1;
 		State->Tabs[0].Active = true;
-		State->FileContext = State->Tabs[0].FileContext;
-		State->DirectoryState = &State->Tabs[0].DirectoryState;
 		
 		State->Font = FontInit(&State->Arena, "C:\\plore\\data\\fonts\\Inconsolata-Light.ttf");
 		
@@ -401,64 +400,60 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		}
 		
 		if (Command.Type) {
-			switch (State->InteractState) {
-				case (InteractState_FileExplorer): {
-					switch (VimContext->Mode) {
-						case VimMode_Normal: {
-							VimCommands[Command.Type](State, VimContext, State->FileContext, Command);
+			switch (VimContext->Mode) {
+				case VimMode_Normal: {
+					VimCommands[Command.Type](State, Tab, VimContext, Tab->FileContext, Command);
+				} break;
+				
+				case VimMode_Insert: {
+					Assert(VimContext->ActiveCommand.Type);
+					
+					// NOTE(Evan): Mirror the insert state. 
+					VimContext->ActiveCommand.State = Command.State;
+					
+					switch (Command.State) {
+						case VimCommandState_Start: 
+						case VimCommandState_Incomplete: {
+							VimCommands[VimContext->ActiveCommand.Type](State, Tab, VimContext, Tab->FileContext, VimContext->ActiveCommand);
 						} break;
 						
-						case VimMode_Insert: {
-							Assert(VimContext->ActiveCommand.Type);
+						case VimCommandState_Finish: {
+							// NOTE(Evan): Copy insertion into the active command, then call the active command function before cleaning up.
+							u64 Size = 512;
+							VimContext->ActiveCommand.Shell = PushBytes(&VimContext->CommandArena, Size);
+							VimKeysToString(VimContext->ActiveCommand.Shell, Size, VimContext->CommandKeys);
 							
-							// NOTE(Evan): Mirror the insert state. 
-							VimContext->ActiveCommand.State = Command.State;
 							
-							switch (Command.State) {
-								case VimCommandState_Start: 
-								case VimCommandState_Incomplete: {
-									VimCommands[VimContext->ActiveCommand.Type](State, VimContext, State->FileContext, VimContext->ActiveCommand);
-								} break;
-								
-								case VimCommandState_Finish: {
-									// NOTE(Evan): Copy insertion into the active command, then call the active command function before cleaning up.
-									u64 Size = 512;
-									VimContext->ActiveCommand.Shell = PushBytes(&VimContext->CommandArena, Size);
-									VimKeysToString(VimContext->ActiveCommand.Shell, Size, VimContext->CommandKeys);
-									
-									
-									VimCommands[VimContext->ActiveCommand.Type](State, VimContext, State->FileContext, VimContext->ActiveCommand);
-									
-									ClearCommands(VimContext);
-									ClearArena(&VimContext->CommandArena);
-									VimContext->Mode = VimMode_Normal;
-									VimContext->ActiveCommand = ClearStruct(vim_command);
-								} break;
-								
-								InvalidDefaultCase;
-							}
-						} break;
-						
-						case VimMode_Lister: {
-							switch (Command.State) {
-								case VimCommandState_Start:
-								case VimCommandState_Incomplete: {
-									VimCommands[VimContext->ActiveCommand.Type](State, VimContext, State->FileContext, VimContext->ActiveCommand);
-								} break;
-								
-								case VimCommandState_Finish: {
-									VimCommands[VimContext->ActiveCommand.Type](State, VimContext, State->FileContext, VimContext->ActiveCommand);
-									ResetVimState(VimContext);
-								} break;
-								
-								InvalidDefaultCase;
-							}
+							VimCommands[VimContext->ActiveCommand.Type](State, Tab, VimContext, Tab->FileContext, VimContext->ActiveCommand);
+							
+							ClearCommands(VimContext);
+							ClearArena(&VimContext->CommandArena);
+							VimContext->Mode = VimMode_Normal;
+							VimContext->ActiveCommand = ClearStruct(vim_command);
 						} break;
 						
 						InvalidDefaultCase;
-						
 					}
 				} break;
+				
+				case VimMode_Lister: {
+					switch (Command.State) {
+						case VimCommandState_Start:
+						case VimCommandState_Incomplete: {
+							VimCommands[VimContext->ActiveCommand.Type](State, Tab, VimContext, Tab->FileContext, VimContext->ActiveCommand);
+						} break;
+						
+						case VimCommandState_Finish: {
+							VimCommands[VimContext->ActiveCommand.Type](State, Tab, VimContext, Tab->FileContext, VimContext->ActiveCommand);
+							ResetVimState(VimContext);
+						} break;
+						
+						InvalidDefaultCase;
+					}
+				} break;
+				
+				InvalidDefaultCase;
+				
 			}
 		}
 		
@@ -498,14 +493,14 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	
 	plore_viewable_directory ViewDirectories[3] = {
 		[0] = {
-			._File = !State->FileContext->InTopLevelDirectory ? ViewDirectories[0].File = &State->DirectoryState->Parent : 0,
+			._File = !Tab->FileContext->InTopLevelDirectory ? ViewDirectories[0].File = &Tab->DirectoryState->Parent : 0,
 		},
 		[1] = {
-			._File = &State->DirectoryState->Current,
+			._File = &Tab->DirectoryState->Current,
 			.Focus = true,
 		}, 
 		[2] = {
-			State->DirectoryState->Cursor.Valid ? ViewDirectories[2].File = &State->DirectoryState->Cursor : 0,
+			.File = Tab->DirectoryState->Cursor.Valid ? ViewDirectories[2].File = &Tab->DirectoryState->Cursor : 0,
 		},
 		
 	};
@@ -518,13 +513,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			ViewDirectories[V].File = PushStruct(&State->FrameArena, plore_file_listing);
 			MemoryCopy(ViewDirectories[V]._File, ViewDirectories[V].File, sizeof(plore_file_listing));
 			
-			#if 1
-			if (ViewDirectories[V].File->Count) {
-#define PloreSortPredicate(A, B) ((State->FilterState.SortAscending[FileSort_Name]) ? StringCompare(A.Path.Absolute, B.Path.Absolute) : StringCompare(A.Path.Absolute, B.Path.Absolute))
-				PloreSort(ViewDirectories[V].File->Entries, ViewDirectories[V].File->Count, plore_file)
-#undef PloreSortPredicate
-			}
-			#endif
 		}
 	}
 	
@@ -537,7 +525,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	b64 StoleFocus = false;
 	
 	if (Window(State->VimguiContext, (vimgui_window_desc) {
-					   .ID = (u64) State->DirectoryState->Current.File.Path.Absolute,
+					   .ID = (u64) Tab->DirectoryState->Current.File.Path.Absolute,
 					   .Rect = { 
 						   .P = V2(0, 0), 
 						   .Span = { 
@@ -661,7 +649,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 						   })) {
 			}
 		} else if (VimContext->Mode == VimMode_Lister && VimContext->ActiveCommand.Type == VimCommandType_OpenFile) {
-			plore_file_listing *Listing = &State->DirectoryState->Cursor;
+			plore_file_listing *Listing = &Tab->DirectoryState->Cursor;
 			plore_handler *Handlers = PloreFileExtensionHandlers[Listing->File.Extension];
 			u64 HandlerCount = 0;
 			
@@ -752,7 +740,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							.Scalar = 1,
 							.State = VimCommandState_Start,
 						};
-						VimCommands[Command.Type](State, State->VimContext, State->FileContext, Command);
+						VimCommands[Command.Type](State, Tab, State->VimContext, Tab->FileContext, Command);
 					}
 					
 					H -= FooterHeight;
@@ -783,8 +771,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		b64 ShowOrBlink = DoBlink || VimContext->CommandKeyCount || VimContext->Mode != VimMode_Normal || DidInput;
 		StringPrintSized(Buffer, BufferSize, "%s%s", (ShowOrBlink ? ">>" : ""), CommandString);
 		
-		if (State->DirectoryState->Cursor.Valid) {
-			plore_file *CursorFile = &State->DirectoryState->Cursor.File;
+		if (Tab->DirectoryState->Cursor.Valid) {
+			plore_file *CursorFile = &Tab->DirectoryState->Cursor.File;
 			StringPrintSized(CursorInfo, 
 							 ArrayCount(CursorInfo),
 						     "[%s] %s %s", 
@@ -827,7 +815,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			plore_viewable_directory *Directory = ViewDirectories + Col;
 			plore_file_listing *Listing = Directory->File;
 			if (!Listing) continue; /* Parent can be null, if we are currently looking at a top-level directory. */
-			plore_file_listing_cursor *RowCursor = GetCursor(State->FileContext, Listing->File.Path.Absolute);
+			plore_file_listing_cursor *RowCursor = GetCursor(Tab->FileContext, Listing->File.Path.Absolute);
 			char *Title = Listing->File.Path.FilePart;
 			
 			widget_colour_flags WindowColourFlags = WidgetColourFlags_Default;
@@ -863,7 +851,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 						for (u64 Row = RowStart; Row < RowEnd; Row++) {
 							plore_file *RowEntry = Listing->Entries + Row;
 							
-							if (RowEntry->Hidden && !State->FilterState.ShowHidden) {
+							if (RowEntry->Hidden && !Tab->FilterState->ShowHidden) {
 								if (RowEnd < Listing->Count-1) RowEnd++;
 								continue;
 							}
@@ -876,16 +864,16 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							b64 CursorHover = RowCursor && RowCursor->Cursor == Row;
 							if (CursorHover) WidgetColourFlags = WidgetColourFlags_Focus;
 							
-							if (IsYanked(State->FileContext, &RowEntry->Path)) {
+							if (IsYanked(Tab->FileContext, &RowEntry->Path)) {
 								BackgroundColour = WidgetColour_RowSecondary;
-							} else if (IsSelected(State->FileContext, &RowEntry->Path)) {
+							} else if (IsSelected(Tab->FileContext, &RowEntry->Path)) {
 								BackgroundColour = WidgetColour_RowTertiary;
 							} 
 							
 							
 							b64 PassesFilter = true;
-							if (State->FilterState.TextFilterCount) {
-								PassesFilter = SubstringNoCase(RowEntry->Path.FilePart, State->FilterState.TextFilter).IsContained;
+							if (Tab->FilterState->TextFilterCount) {
+								PassesFilter = SubstringNoCase(RowEntry->Path.FilePart, Tab->FilterState->TextFilter).IsContained;
 							}
 							
 							
@@ -951,7 +939,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								} else {
 									Platform->SetCurrentDirectory(Listing->File.Path.Absolute);
 								}
-								plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(State->FileContext, &Listing->File.Path);
+								plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(Tab->FileContext, &Listing->File.Path);
 								CursorResult.Cursor->Cursor = Row;
 							}
 						}
@@ -1114,22 +1102,54 @@ CreateFileListing(plore_file_listing *Listing, plore_file_listing_desc Desc) {
 	
 }
 
+
+plore_inline b64 
+PloreFileSortHelper(plore_file *A, plore_file *B, file_sort_mask SortMask, b64 Ascending) {
+	b64 Result = false;
+	
+	switch (SortMask) {
+		case FileSort_Name: {
+			Result = StringCompare(A->Path.Absolute, B->Path.Absolute);
+		} break;
+		
+		case FileSort_Modified: {
+			Result = A->LastModification.T > B->LastModification.T;
+		} break;
+		
+		case FileSort_Size: {
+			Result = A->Bytes > B->Bytes;
+		} break;
+	}
+	
+	if (Ascending) Result = !Result;
+	return(Result);
+}
+
 internal void
 SynchronizeCurrentDirectory(plore_tab *Tab) {
 	plore_file_context *FileContext = Tab->FileContext;
-	plore_current_directory_state *CurrentState = &Tab->DirectoryState;
+	plore_current_directory_state *CurrentState = Tab->DirectoryState;
+	plore_file_filter_state *FilterState = Tab->FilterState; 
 	Tab->CurrentDirectory = Platform->GetCurrentDirectoryPath();
 	
 	CurrentState->Cursor = (plore_file_listing) {0};
 	CurrentState->Current = (plore_file_listing) {0};
 	
+#define PloreSortPredicate(A, B) PloreFileSortHelper(&A, &B, Tab->FilterState->SortMask, Tab->FilterState->SortAscending)
+	
 	CreateFileListing(&CurrentState->Current, ListingFromDirectoryPath(&Tab->CurrentDirectory));
 	FileContext->InTopLevelDirectory = Platform->IsPathTopLevel(CurrentState->Current.File.Path.Absolute, PLORE_MAX_PATH);
+	if (CurrentState->Current.Count) PloreSort(CurrentState->Current.Entries, CurrentState->Current.Count, plore_file)
 	
 	if (CurrentState->Current.Valid && CurrentState->Current.Count) {
 		plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(FileContext, &CurrentState->Current.File.Path);
+		
+		
 		plore_file *CursorEntry = CurrentState->Current.Entries + CursorResult.Cursor->Cursor;
+		
+		
 		CreateFileListing(&CurrentState->Cursor, ListingFromFile(CursorEntry));
+		if (CurrentState->Cursor.Count) PloreSort(CurrentState->Cursor.Entries, CurrentState->Cursor.Count, plore_file)
 	}
 	
 	if (!FileContext->InTopLevelDirectory) {
@@ -1144,7 +1164,9 @@ SynchronizeCurrentDirectory(plore_tab *Tab) {
 		CreateFileListing(&CurrentState->Parent, ListingFromDirectoryPath(&CurrentCopy.File.Path));
 		
 		plore_file_listing_cursor_get_or_create_result ParentResult = GetOrCreateCursor(FileContext, &CurrentState->Parent.File.Path);
+		if (CurrentState->Parent.Count) PloreSort(CurrentState->Parent.Entries, CurrentState->Parent.Count, plore_file)
 		
+#undef PloreSortPredicate
 		// Make sure the parent's cursor is set to the current directory.
 		// The parent's row will be invalid on plore startup.
 		if (!ParentResult.DidAlreadyExist) {
@@ -1164,6 +1186,7 @@ SynchronizeCurrentDirectory(plore_tab *Tab) {
 	} else {
 		CurrentState->Parent.Valid = false;
 	}
+	
 }
 
 internal char *
@@ -1288,12 +1311,9 @@ SetCurrentTab(plore_state *State, u64 NewTab) {
 		}
 		
 		Result = true;
-		
 		Tab->Active = true;
+		
 		State->TabCurrent = NewTab;
-		State->DirectoryState = &Tab->DirectoryState;
-		State->InteractState = InteractState_FileExplorer; // @Cleanup
-		State->FileContext = Tab->FileContext;
 		Platform->SetCurrentDirectory(Tab->CurrentDirectory.Absolute);
 		
 		SynchronizeCurrentDirectory(Tab);

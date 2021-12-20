@@ -323,13 +323,13 @@ PLORE_VIM_COMMAND(MoveRight) {
 	u64 WasGivenScalar = Command.Scalar > 1;
 	u64 ScalarCount = 0;
 	while (Command.Scalar--) {
-		if (!State->DirectoryState->Current.Count) break;
-		plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(FileContext, &State->DirectoryState->Current.File.Path);
-		plore_file *CursorEntry = State->DirectoryState->Current.Entries + CursorResult.Cursor->Cursor;
+		if (!Tab->DirectoryState->Current.Count) break;
+		plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(FileContext, &Tab->DirectoryState->Current.File.Path);
+		plore_file *CursorEntry = Tab->DirectoryState->Current.Entries + CursorResult.Cursor->Cursor;
 		
 		if (CursorEntry->Type == PloreFileNode_Directory) {
 			PrintLine("Moving down a directory, from %s to %s", 
-					  State->DirectoryState->Current.File.Path.Absolute, 
+					  Tab->DirectoryState->Current.File.Path.Absolute, 
 					  CursorEntry->Path.Absolute);
 			Platform->SetCurrentDirectory(CursorEntry->Path.Absolute);
 			
@@ -348,16 +348,16 @@ PLORE_VIM_COMMAND(MoveRight) {
 						.Shell = DefaultHandler
 					};
 					SetActiveCommand(VimContext, OpenTheFile);
-					DoOpenFile(State, VimContext, FileContext, OpenTheFile);
+					DoOpenFile(State, GetCurrentTab(State), VimContext, FileContext, OpenTheFile);
 				} 
 			} else {
-				if (State->DirectoryState->Current.Valid) {
+				if (Tab->DirectoryState->Current.Valid) {
 					DrawText("Unknown extension for `%s`", CursorEntry->Path.FilePart);
 				}
 			}
 		}
 		
-		if (!State->DirectoryState->Current.Count) return;
+		if (!Tab->DirectoryState->Current.Count) return;
 		
 	}
 	Command.Scalar = ScalarCount;
@@ -365,26 +365,27 @@ PLORE_VIM_COMMAND(MoveRight) {
 
 internal void
 MoveHelper(plore_state *State, vim_command Command, i64 Direction) {
-	plore_file_context *FileContext = State->FileContext;
-	if (State->DirectoryState->Current.Count) {
-		plore_file_listing_cursor_get_or_create_result Current = GetOrCreateCursor(FileContext, &State->DirectoryState->Current.File.Path);
+	plore_tab *Tab = GetCurrentTab(State);
+	plore_file_context *FileContext = Tab->FileContext;
+	if (Tab->DirectoryState->Current.Count) {
+		plore_file_listing_cursor_get_or_create_result Current = GetOrCreateCursor(FileContext, &Tab->DirectoryState->Current.File.Path);
 		u64 CursorStart = Current.Cursor->Cursor;
 		
-		u64 Magnitude = Command.Scalar % State->DirectoryState->Current.Count;
+		u64 Magnitude = Command.Scalar % Tab->DirectoryState->Current.Count;
 		
 		while (Magnitude) {
 			if (Direction == -1) {
 				if (Current.Cursor->Cursor == 0) {
-					Current.Cursor->Cursor = State->DirectoryState->Current.Count-1;
+					Current.Cursor->Cursor = Tab->DirectoryState->Current.Count-1;
 				} else {
-					Current.Cursor->Cursor = (Current.Cursor->Cursor-1) % State->DirectoryState->Current.Count;
+					Current.Cursor->Cursor = (Current.Cursor->Cursor-1) % Tab->DirectoryState->Current.Count;
 				}
 			} else if (Direction == +1) {
-				Current.Cursor->Cursor = (Current.Cursor->Cursor + 1) % State->DirectoryState->Current.Count;
+				Current.Cursor->Cursor = (Current.Cursor->Cursor + 1) % Tab->DirectoryState->Current.Count;
 			}
 			
-			plore_file *NewSelected = State->DirectoryState->Current.Entries + Current.Cursor->Cursor;
-			if (!State->FilterState.ShowHidden) {
+			plore_file *NewSelected = Tab->DirectoryState->Current.Entries + Current.Cursor->Cursor;
+			if (!Tab->FilterState->ShowHidden) {
 				if (NewSelected->Hidden) {
 					if (Current.Cursor->Cursor == CursorStart) break;
 					else                                       continue;
@@ -410,9 +411,9 @@ PLORE_VIM_COMMAND(Yank)  {
 		FileContext->YankedCount = FileContext->SelectedCount;
 	} else { 
 		if (Command.Scalar > 1) {
-			plore_file_listing *CurrentDirectory = &State->DirectoryState->Current;
+			plore_file_listing *CurrentDirectory = &Tab->DirectoryState->Current;
 			if (CurrentDirectory->Count) {
-				plore_file_listing_cursor_get_or_create_result CurrentResult = GetOrCreateCursor(FileContext, &State->DirectoryState->Current.File.Path);
+				plore_file_listing_cursor_get_or_create_result CurrentResult = GetOrCreateCursor(FileContext, &Tab->DirectoryState->Current.File.Path);
 				u64 Cursor = CurrentResult.Cursor->Cursor;
 				while (Command.Scalar--) {
 					ToggleYanked(FileContext, &CurrentDirectory->Entries[Cursor].Path);
@@ -437,7 +438,7 @@ PLORE_VIM_COMMAND(ClearYank)  {
 PLORE_VIM_COMMAND(Paste)  {
 	if (FileContext->YankedCount) { // @Cleanup
 		u64 PastedCount = 0;
-		plore_file_listing *Current = &State->DirectoryState->Current;
+		plore_file_listing *Current = &Tab->DirectoryState->Current;
 		u64 WeAreTopLevel = Platform->IsPathTopLevel(Current->File.Path.Absolute, PLORE_MAX_PATH);
 		for (u64 M = 0; M < FileContext->YankedCount; M++) {
 			plore_path *Movee = FileContext->Yanked + M;
@@ -467,23 +468,24 @@ PLORE_VIM_COMMAND(Paste)  {
 }
 
 internal void DoSelectHelper(plore_state *State, vim_command Command, i64 Direction) {
-	plore_file_context *FileContext = State->FileContext;
-	plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(FileContext, &State->DirectoryState->Current.File.Path);
-	plore_file *Selectee = State->DirectoryState->Current.Entries + CursorResult.Cursor->Cursor;
+	plore_tab *Tab = GetCurrentTab(State);
+	plore_file_context *FileContext = Tab->FileContext;
+	plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(FileContext, &Tab->DirectoryState->Current.File.Path);
+	plore_file *Selectee = Tab->DirectoryState->Current.Entries + CursorResult.Cursor->Cursor;
 	u64 ScalarCount = 0;
 	u64 StartScalar = CursorResult.Cursor->Cursor;
 	while (Command.Scalar--) {
-		ToggleSelected(FileContext, &State->DirectoryState->Cursor.File.Path);
+		ToggleSelected(FileContext, &Tab->DirectoryState->Cursor.File.Path);
 		if (Direction == +1) {
-			CursorResult.Cursor->Cursor = (CursorResult.Cursor->Cursor + 1) % State->DirectoryState->Current.Count;
+			CursorResult.Cursor->Cursor = (CursorResult.Cursor->Cursor + 1) % Tab->DirectoryState->Current.Count;
 		} else {
 			if (CursorResult.Cursor->Cursor == 0) {
-				CursorResult.Cursor->Cursor = State->DirectoryState->Current.Count - 1;
+				CursorResult.Cursor->Cursor = Tab->DirectoryState->Current.Count - 1;
 			} else {
 				CursorResult.Cursor->Cursor -= 1;
 			}
 		}
-		Selectee = State->DirectoryState->Current.Entries + CursorResult.Cursor->Cursor;
+		Selectee = Tab->DirectoryState->Current.Entries + CursorResult.Cursor->Cursor;
 		
 		ScalarCount++;
 		if (CursorResult.Cursor->Cursor == StartScalar) break;
@@ -498,33 +500,33 @@ PLORE_VIM_COMMAND(SelectDown)  {
 	DoSelectHelper(State, Command, +1);
 }
 PLORE_VIM_COMMAND(JumpTop)  {
-	plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(FileContext, &State->DirectoryState->Current.File.Path);
+	plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(FileContext, &Tab->DirectoryState->Current.File.Path);
 	CursorResult.Cursor->Cursor = 0;
 }
 
 PLORE_VIM_COMMAND(JumpBottom)  {
-	plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(FileContext, &State->DirectoryState->Current.File.Path);
-	if (State->DirectoryState->Current.Count) {
-		CursorResult.Cursor->Cursor = State->DirectoryState->Current.Count-1;
+	plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(FileContext, &Tab->DirectoryState->Current.File.Path);
+	if (Tab->DirectoryState->Current.Count) {
+		CursorResult.Cursor->Cursor = Tab->DirectoryState->Current.Count-1;
 	}
 }
 
 PLORE_VIM_COMMAND(ISearch)  {
 	if (Command.Shell) {
-		if (State->DirectoryState->Current.Count) {
-			for (u64 F = 0; F < State->DirectoryState->Current.Count; F++) {
-				plore_file *File = State->DirectoryState->Current.Entries + F;
+		if (Tab->DirectoryState->Current.Count) {
+			for (u64 F = 0; F < Tab->DirectoryState->Current.Count; F++) {
+				plore_file *File = Tab->DirectoryState->Current.Entries + F;
 				
 				// TODO(Evan): Filter highlighting.
-				if (SubstringNoCase(File->Path.FilePart, State->FilterState.TextFilter).IsContained) {
-					plore_file_listing_cursor *CurrentCursor = GetCursor(FileContext, State->DirectoryState->Current.File.Path.Absolute);
+				if (SubstringNoCase(File->Path.FilePart, Tab->FilterState->TextFilter).IsContained) {
+					plore_file_listing_cursor *CurrentCursor = GetCursor(FileContext, Tab->DirectoryState->Current.File.Path.Absolute);
 					CurrentCursor->Cursor = F;
-					MemoryClear(State->FilterState.TextFilter, ArrayCount(State->FilterState.TextFilter));
+					MemoryClear(Tab->FilterState->TextFilter, ArrayCount(Tab->FilterState->TextFilter));
 					break;
 				}
 			}
 			
-			State->FilterState.TextFilterCount = 0;
+			Tab->FilterState->TextFilterCount = 0;
 		}
 	} else {
 		switch (Command.State) {
@@ -534,8 +536,8 @@ PLORE_VIM_COMMAND(ISearch)  {
 			} break;
 			
 			case VimCommandState_Incomplete: {
-				State->FilterState.TextFilterCount = VimKeysToString(State->FilterState.TextFilter, 
-																	 ArrayCount(State->FilterState.TextFilter), 
+				Tab->FilterState->TextFilterCount = VimKeysToString(Tab->FilterState->TextFilter, 
+																	 ArrayCount(Tab->FilterState->TextFilter), 
 																	 VimContext->CommandKeys).BytesWritten;
 			} break;
 			case VimCommandState_Finish: {
@@ -599,9 +601,9 @@ PLORE_VIM_COMMAND(RenameFile) {
 }
 
 PLORE_VIM_COMMAND(Select) {
-	plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(FileContext, &State->DirectoryState->Current.File.Path);
-	plore_file *Selectee = State->DirectoryState->Current.Entries + CursorResult.Cursor->Cursor;
-	ToggleSelected(FileContext, &State->DirectoryState->Cursor.File.Path);
+	plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(FileContext, &Tab->DirectoryState->Current.File.Path);
+	plore_file *Selectee = Tab->DirectoryState->Current.Entries + CursorResult.Cursor->Cursor;
+	ToggleSelected(FileContext, &Tab->DirectoryState->Cursor.File.Path);
 }
 
 PLORE_VIM_COMMAND(NewTab) {
@@ -617,8 +619,6 @@ PLORE_VIM_COMMAND(NewTab) {
 
 PLORE_VIM_COMMAND(CloseTab) {
 	if (State->TabCount > 1) {
-		plore_tab *Tab = GetCurrentTab(State);
-		
 		u64 TabIndex = 0xdeadbeef;
 		for (u64 T = 0; T < State->TabCount; T++) {
 			plore_tab *Other = State->Tabs + T;
@@ -665,7 +665,7 @@ PLORE_VIM_COMMAND(OpenShell) {
 PLORE_VIM_COMMAND(CreateFile) {
 	if (Command.Shell) {
 		char *FilePath = PushBytes(&State->FrameArena, PLORE_MAX_PATH);
-		u64 BytesWritten = CStringCopy(State->DirectoryState->Current.File.Path.Absolute, FilePath, PLORE_MAX_PATH);
+		u64 BytesWritten = CStringCopy(Tab->DirectoryState->Current.File.Path.Absolute, FilePath, PLORE_MAX_PATH);
 		FilePath[BytesWritten++] = '\\';
 		CStringCopy(Command.Shell, FilePath+BytesWritten, PLORE_MAX_PATH);
 		PrintLine("%s", FilePath);
@@ -722,7 +722,7 @@ PLORE_VIM_COMMAND(DeleteFile) {
 }
 
 PLORE_VIM_COMMAND(YankAll) {
-	plore_file_listing *CurrentDirectory = &State->DirectoryState->Current;
+	plore_file_listing *CurrentDirectory = &Tab->DirectoryState->Current;
 	for (u64 F = 0; F < CurrentDirectory->Count; F++) {
 		plore_file *File = CurrentDirectory->Entries + F;
 		if (!IsYanked(FileContext, &File->Path)) {
@@ -732,7 +732,7 @@ PLORE_VIM_COMMAND(YankAll) {
 }
 
 PLORE_VIM_COMMAND(SelectAll) {
-	plore_file_listing *CurrentDirectory = &State->DirectoryState->Current;
+	plore_file_listing *CurrentDirectory = &Tab->DirectoryState->Current;
 	for (u64 F = 0; F < CurrentDirectory->Count; F++) {
 		plore_file *File = CurrentDirectory->Entries + F;
 		if (!IsSelected(FileContext, &File->Path)) {
@@ -742,8 +742,8 @@ PLORE_VIM_COMMAND(SelectAll) {
 }
 
 PLORE_VIM_COMMAND(ShowHiddenFiles) {
-	State->FilterState.ShowHidden = !State->FilterState.ShowHidden;
-	if (!State->FilterState.ShowHidden) {
+	Tab->FilterState->ShowHidden = !Tab->FilterState->ShowHidden;
+	if (!Tab->FilterState->ShowHidden) {
 		plore_file *Cursor = GetCursorFile(State);
 		if (Cursor->Hidden) {
 			DrawText("Cursor is hidden now!");
