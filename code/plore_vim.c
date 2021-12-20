@@ -601,12 +601,13 @@ PLORE_VIM_COMMAND(Select) {
 }
 
 PLORE_VIM_COMMAND(NewTab) {
-	if (State->TabCount == ArrayCount(State->Tabs)) return;
-	
 	if (Command.Pattern[0]) {
 		i32 NewTab = StringToI32(Command.Pattern);
-		if (NewTab <= 0) return;
+		if (NewTab <= 0)                           return;
+		else if (NewTab > ArrayCount(State->Tabs)) return;
+		
 		NewTab -= 1;
+		DrawText("Opening tab %d", NewTab+1);
 		SetCurrentTab(State, NewTab);
 	}
 }
@@ -614,7 +615,7 @@ PLORE_VIM_COMMAND(NewTab) {
 PLORE_VIM_COMMAND(CloseTab) {
 	if (State->TabCount > 1) {
 		u64 TabIndex = 0xdeadbeef;
-		for (u64 T = 0; T < State->TabCount; T++) {
+		for (u64 T = 0; T < ArrayCount(State->Tabs); T++) {
 			plore_tab *Other = State->Tabs + T;
 			if (Tab == Other) {
 				TabIndex = T;
@@ -623,11 +624,10 @@ PLORE_VIM_COMMAND(CloseTab) {
 		}
 		
 		Assert(TabIndex < ArrayCount(State->Tabs));
-		Assert(TabIndex < State->TabCount);
 		
-		u64 tBefore = 0;
-		u64 tAfter = State->TabCount;
-		for (u64 T = 0; T < State->TabCount; T++) {
+		i64 tBefore = -1;
+		i64 tAfter = -1;
+		for (u64 T = 0; T < ArrayCount(State->Tabs); T++) {
 			plore_tab *Other = State->Tabs + T;
 			if (Other == Tab) continue;
 			
@@ -641,10 +641,14 @@ PLORE_VIM_COMMAND(CloseTab) {
 		
 		u64 tTarget = 0;
 		if (AbsDifference(TabIndex, tBefore) > AbsDifference(TabIndex, tAfter)) {
-			tTarget = tAfter;
+			if (tAfter == -1) tTarget = tBefore;
+			else              tTarget = tAfter;
 		} else {
-			tTarget = tBefore;
+			if (tBefore == -1) tTarget = tAfter;
+			else               tTarget = tBefore;
 		}
+		Assert(tTarget > 0);
+		Assert(State->Tabs[tTarget].Active);
 		
 		ClearTab(State, TabIndex);
 		SetCurrentTab(State, tTarget);
