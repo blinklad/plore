@@ -514,15 +514,15 @@ PLORE_VIM_COMMAND(ISearch)  {
 				plore_file *File = Tab->DirectoryState->Current.Entries + F;
 				
 				// TODO(Evan): Filter highlighting.
-				if (SubstringNoCase(File->Path.FilePart, Tab->FilterState->TextFilter).IsContained) {
+				if (SubstringNoCase(File->Path.FilePart, Tab->FilterState->ISearchFilter).IsContained) {
 					plore_file_listing_cursor *CurrentCursor = GetCursor(FileContext, Tab->DirectoryState->Current.File.Path.Absolute);
 					CurrentCursor->Cursor = F;
-					MemoryClear(Tab->FilterState->TextFilter, ArrayCount(Tab->FilterState->TextFilter));
+					MemoryClear(Tab->FilterState->ISearchFilter, ArrayCount(Tab->FilterState->ISearchFilter));
 					break;
 				}
 			}
 			
-			Tab->FilterState->TextFilterCount = 0;
+			Tab->FilterState->ISearchFilterCount = 0;
 		}
 	} else {
 		switch (Command.State) {
@@ -532,8 +532,8 @@ PLORE_VIM_COMMAND(ISearch)  {
 			} break;
 			
 			case VimCommandState_Incomplete: {
-				Tab->FilterState->TextFilterCount = VimKeysToString(Tab->FilterState->TextFilter, 
-																	 ArrayCount(Tab->FilterState->TextFilter), 
+				Tab->FilterState->ISearchFilterCount = VimKeysToString(Tab->FilterState->ISearchFilter, 
+																	 ArrayCount(Tab->FilterState->ISearchFilter), 
 																	 VimContext->CommandKeys).BytesWritten;
 			} break;
 			case VimCommandState_Finish: {
@@ -542,6 +542,10 @@ PLORE_VIM_COMMAND(ISearch)  {
 		}
 		
 	}
+}
+
+PLORE_VIM_COMMAND(TextFilter) {
+	DrawText("(((goyim)))");
 }
 
 PLORE_VIM_COMMAND(ChangeDirectory) {

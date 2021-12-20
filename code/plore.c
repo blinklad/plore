@@ -57,8 +57,16 @@ typedef enum file_sort_mask {
 } file_sort_mask;
 
 typedef struct plore_file_filter_state {
+	// NOTE(Evan): This is used to temporarily match against files during ISearch, including files processed by TextFilter.
+	char ISearchFilter[PLORE_MAX_PATH];
+	u64 ISearchFilterCount;
+	
+	// NOTE(Evan): This hard-removes matching file entries from the directory listing, persisting for the tab's lifetime.
 	char TextFilter[PLORE_MAX_PATH];
 	u64 TextFilterCount;
+	
+	char ExtensionFilter[PLORE_MAX_PATH];
+	u64 ExtensionFilterCount;
 	
 	file_sort_mask SortMask;
 	b64 SortAscending;
@@ -868,8 +876,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							
 							
 							b64 PassesFilter = true;
-							if (Tab->FilterState->TextFilterCount) {
-								PassesFilter = SubstringNoCase(RowEntry->Path.FilePart, Tab->FilterState->TextFilter).IsContained;
+							if (Tab->FilterState->ISearchFilterCount) {
+								PassesFilter = SubstringNoCase(RowEntry->Path.FilePart, Tab->FilterState->ISearchFilter).IsContained;
 							}
 							
 							
