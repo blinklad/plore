@@ -318,6 +318,10 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		State->VimguiContext = PushStruct(&State->Arena, plore_vimgui_context);
 		VimguiInit(State->VimguiContext, State->RenderList);
 		
+		
+		
+		SynchronizeCurrentDirectory(GetCurrentTab(State));
+		
 	}
 	
 	
@@ -342,9 +346,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	
 	// CLEANUP(Evan): We Begin() here as the render list is shared for debug draw purposes right now.
 	VimguiBegin(State->VimguiContext, BufferedInput, PlatformAPI->WindowDimensions);
-	
-	// TODO(Evan): File watching so this function doesn't need to be called eagerly.
-	SynchronizeCurrentDirectory(Tab);
 	
 	b64 DidInput = false;
 	vim_key BufferedKeys[64] = {0};
