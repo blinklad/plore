@@ -92,6 +92,8 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 - Persistent: Undo, command history, marked files/directories, bookmarks. Requires plore.history.
 - Track: File ownership (not POSIX, but probably "owned by current user, system, or other")
 - Recursive ISearch.
+- Track/calculate: Directory cumulative size.
+- CursorInfo: Display cumulative size and number of files
 
 ### VIMGUI TODOs:
    - ~~Actual alpha blending~~
