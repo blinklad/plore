@@ -439,6 +439,15 @@ global vim_binding VimBindings[] = {
 			},
 		},
 	},
+	{
+		.Type = VimCommandType_MoveRight,
+		.Keys = {
+			
+			{
+				.Input = PloreKey_Return,
+			},
+		},
+	},
 };
 
 

@@ -101,7 +101,7 @@ MakeCommand(plore_vim_context *Context) {
 				C++;
 			}
 			
-			if (C->Input == PloreKey_Return) return(Result);
+			if (C->Input == PloreKey_Return && Context->CommandKeyCount > 1) return(Result);
 			
 			if (BufferCount) {
 				Result.Command.Scalar = StringToI32(Buffer);
