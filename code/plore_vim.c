@@ -751,16 +751,26 @@ PLORE_VIM_COMMAND(ShowHiddenFiles) {
 	}
 }
 
+internal void
+PloreSortHelper(plore_tab *Tab, file_sort_mask SortMask) {
+	if (Tab->FilterState->SortMask != SortMask) {
+		Tab->FilterState->SortAscending = false;
+	} else {
+		Tab->FilterState->SortAscending = !Tab->FilterState->SortAscending;
+	}
+	Tab->FilterState->SortMask = SortMask;
+}
+
 PLORE_VIM_COMMAND(ToggleSortName) {
-	State->FilterState.SortAscending[FileSort_Name] = !State->FilterState.SortAscending[FileSort_Name];
+	PloreSortHelper(Tab, FileSort_Name);
 }
 
 PLORE_VIM_COMMAND(ToggleSortSize) {
-	State->FilterState.SortAscending[FileSort_Size] = !State->FilterState.SortAscending[FileSort_Size];
+	PloreSortHelper(Tab, FileSort_Size);
 }
 
 PLORE_VIM_COMMAND(ToggleSortModified) {
-	State->FilterState.SortAscending[FileSort_Modified] = !State->FilterState.SortAscending[FileSort_Modified];
+	PloreSortHelper(Tab, FileSort_Modified);
 }
 
 
