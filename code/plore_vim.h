@@ -3,46 +3,46 @@
 #ifndef PLORE_VIM_H
 #define PLORE_VIM_H
 
-struct plore_vim_context;
 typedef struct plore_vim_context plore_vim_context;
 
 //
 //
 // NOTE(Evan):
 //
-//      VimCommand       Command Name        Command Display Name   Insert Prompt (optional)
+//      VimCommand           Command Name                    Command Display Name/Documentation                   Insert Prompt (optional)
 #define VIM_COMMANDS \
-PLORE_X(None,                "none",                         "None",                         0)                                 \
-PLORE_X(MoveLeft,            "move_left",                    "Move Left",                    0)                                 \
-PLORE_X(MoveRight,           "move_right",                   "Move Right",                   0)                                 \
-PLORE_X(MoveUp,              "move_up",                      "Move Up",                      0)                                 \
-PLORE_X(MoveDown,            "move_down",                    "Move Down",                    0)                                 \
-PLORE_X(JumpTop,             "jump_top",                     "Jump To Top",                  0)                                 \
-PLORE_X(JumpBottom,          "jump_bottom",                  "Jump To Bottom",               0)                                 \
-PLORE_X(Yank,                "yank",                         "Yank",                         0)                                 \
-PLORE_X(YankAll,             "yank_all",                     "Yank All",                     0)                                 \
-PLORE_X(ClearYank,           "clear_yank",                   "Clear Yank",                   0)                                 \
-PLORE_X(Paste,               "paste",                        "Paste",                        0)                                 \
-PLORE_X(Select,              "select",                       "Select",                       0)                                 \
-PLORE_X(SelectUp,            "select_up",                    "Select Up",                    0)                                 \
-PLORE_X(SelectDown,          "select_down",                  "Select Down",                  0)                                 \
-PLORE_X(SelectAll,           "select_all",                   "Select All",                   0)                                 \
-PLORE_X(ISearch,             "isearch",                      "ISearch",                      "ISearch:")                        \
-PLORE_X(ChangeDirectory,     "change_directory",             "Change Directory",             "Change directory to?")            \
-PLORE_X(RenameFile,          "rename_file",                  "Rename File",                  "Rename file to?")                 \
-PLORE_X(OpenFile,            "open_file",                    "Open File",                    0)                                 \
-PLORE_X(NewTab,              "new_file",                     "New Tab",                      0)                                 \
-PLORE_X(CloseTab,            "close_file",                   "Close Tab",                    0)                                 \
-PLORE_X(OpenShell,           "open_shell",                   "Open Shell",                   0)                                 \
-PLORE_X(CreateFile,          "create_file",                  "Create File",                  "Create file with name?")          \
-PLORE_X(CreateDirectory,     "create_directory",             "Create Directory",             "Create directory with name?")     \
-PLORE_X(ShowHiddenFiles,     "show_hidden_files",            "Show Hidden Files",            0)                                 \
-PLORE_X(ToggleSortName,      "toggle_sort_by_name",          "Toggle Sort By Name",          0)                                 \
-PLORE_X(ToggleSortSize,      "toggle_sort_by_size",          "Toggle Sort By Size",          0)                                 \
-PLORE_X(ToggleSortModified,  "toggle_sort_by_modified_date", "Toggle Sort By Modified Date", 0)                                 \
-PLORE_X(DeleteFile,          "delete_file",                  "Delete File",                  "Delete file? ('yes' to confirm)") \
-PLORE_X(VerticalSplit,       "vertical_split",               "Vertical Split",               0)                                 \
-PLORE_X(HorizontalSplit,     "horizontal_split",             "Horizontal Split",             0)
+PLORE_X(None,                "none",                         "None",                                                                     0)                                 \
+PLORE_X(MoveLeft,            "move_left",                    "Move cursor left, up directory tree",                                      0)                                 \
+PLORE_X(MoveRight,           "move_right",                   "Move cursor right, down directory tree or opening file under cursor",      0)                                 \
+PLORE_X(MoveUp,              "move_up",                      "Move up within current directory",                                         0)                                 \
+PLORE_X(MoveDown,            "move_down",                    "Move down within current directory",                                       0)                                 \
+PLORE_X(JumpTop,             "jump_top",                     "Jump to top of directory",                                                 0)                                 \
+PLORE_X(JumpBottom,          "jump_bottom",                  "Jump to bottom of directory",                                              0)                                 \
+PLORE_X(Yank,                "yank",                         "Yank file under cursor",                                                   0)                                 \
+PLORE_X(YankAll,             "yank_all",                     "Yank all files in directory",                                              0)                                 \
+PLORE_X(ClearYank,           "clear_yank",                   "Clear yank in all directories",                                            0)                                 \
+PLORE_X(Paste,               "paste",                        "Paste yanked file/s in current directory",                                 0)                                 \
+PLORE_X(Select,              "select",                       "Select file under cursor",                                                 0)                                 \
+PLORE_X(SelectUp,            "select_up",                    "Select and move cursor upwards in current directory",                      0)                                 \
+PLORE_X(SelectDown,          "select_down",                  "Select and move cursor downwards in current directory",                    0)                                 \
+PLORE_X(SelectAll,           "select_all",                   "Select all files in current directory",                                    0)                                 \
+PLORE_X(ISearch,             "isearch",                      "Interactive search in current directory, highlighting matching files",     "ISearch:")                        \
+PLORE_X(TextFilter,          "text_filter",                  "Interactively set text filter, hiding all matching files",                 "Hide files matching text:")       \
+PLORE_X(ChangeDirectory,     "change_directory",             "Interactive change directory/drive",                                       "Change directory to?")            \
+PLORE_X(RenameFile,          "rename_file",                  "Interactive rename file",                                                  "Rename file to?")                 \
+PLORE_X(OpenFile,            "open_file",                    "Displays all file extension handlers for file under cursor",               0)                                 \
+PLORE_X(NewTab,              "new_file",                     "Create new or switch to already existing tab with provided number",        0)                                 \
+PLORE_X(CloseTab,            "close_file",                   "Close tab with provided number",                                           0)                                 \
+PLORE_X(OpenShell,           "open_shell",                   "Open shell in current directory",                                          0)                                 \
+PLORE_X(CreateFile,          "create_file",                  "Interactive create file, in current directory",                            "Create file with name?")          \
+PLORE_X(CreateDirectory,     "create_directory",             "Interactive create directory, in current directory",                       "Create directory with name?")     \
+PLORE_X(ShowHiddenFiles,     "toggle_show_hidden_files",     "Toggle visibility of hidden files",                                        0)                                 \
+PLORE_X(ToggleSortName,      "toggle_sort_by_name",          "Toggle sorting by name        (default descending)",                       0)                                 \
+PLORE_X(ToggleSortSize,      "toggle_sort_by_size",          "Toggle sort by size           (default descending)",                       0)                                 \
+PLORE_X(ToggleSortModified,  "toggle_sort_by_modified_date", "Toggle sort by modified date  (default descending)",                       0)                                 \
+PLORE_X(DeleteFile,          "delete_file",                  "Interactive delete file, with confirmation",                               "Delete file? ('yes' to confirm)") \
+PLORE_X(VerticalSplit,       "vertical_split",               "Vertical split a new tab, or already existing tab, with provided number",  0)                                 \
+PLORE_X(HorizontalSplit,     "horizontal_split",             "Horizontal split a new tab, or already existing tab, with provided number",0)
 
 #define PLORE_X(Name, Ignored1, _Ignored2, _Ignored3) VimCommandType_##Name,
 typedef enum vim_command_type {
@@ -275,6 +275,18 @@ global vim_binding VimBindings[] = {
 			},
 		},
 		
+	},
+	{
+		.Type = VimCommandType_TextFilter,
+		.Keys = {
+			{
+				.Input = PloreKey_F,
+				.Modifier = PloreKey_Shift,
+			},
+			{
+				.Input = PloreKey_F,
+			},
+		},
 	},
 	{
 		.Type = VimCommandType_JumpTop,
