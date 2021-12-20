@@ -60,9 +60,15 @@ typedef struct plore_file_filter_state {
 	char TextFilter[PLORE_MAX_PATH];
 	u64 TextFilterCount;
 	
-	b64 ShowHidden;
 	file_sort_mask SortMask;
 	b64 SortAscending;
+	
+	struct {
+		plore_file_extension Extensions[PloreFileExtension_Count];
+		plore_file_node FileNodes[PloreFileNode_Count];
+		b64 HiddenFiles;
+	} HideMask;
+	
 } plore_file_filter_state;
 
 typedef struct plore_current_directory_state {
@@ -282,10 +288,15 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		for (u64 T = 0; T < ArrayCount(State->Tabs); T++) {
 			plore_tab *Tab = State->Tabs + T;
 			Tab->FileContext = PushStruct(&State->Arena, plore_file_context);
+			
+			// NOTE(Evan): Don't show hidden files by default!
 			Tab->FilterState = PushStruct(&State->Arena, plore_file_filter_state);
+			Tab->FilterState->HideMask.HiddenFiles = true; 
+			
 			Tab->DirectoryState = PushStruct(&State->Arena, plore_current_directory_state);
 			for (u64 Dir = 0; Dir < ArrayCount(Tab->FileContext->CursorSlots); Dir++) {
 				Tab->FileContext->CursorSlots[Dir] = PushStruct(&State->Arena, plore_file_listing_cursor);
+				
 			}
 		}
 		
@@ -486,17 +497,16 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	
 	
 	typedef struct plore_viewable_directory {
-		plore_file_listing *_File;
 		plore_file_listing *File;
 		b64 Focus;
 	} plore_viewable_directory;
 	
 	plore_viewable_directory ViewDirectories[3] = {
 		[0] = {
-			._File = !Tab->FileContext->InTopLevelDirectory ? ViewDirectories[0].File = &Tab->DirectoryState->Parent : 0,
+			.File = !Tab->FileContext->InTopLevelDirectory ? ViewDirectories[0].File = &Tab->DirectoryState->Parent : 0,
 		},
 		[1] = {
-			._File = &Tab->DirectoryState->Current,
+			.File = &Tab->DirectoryState->Current,
 			.Focus = true,
 		}, 
 		[2] = {
@@ -504,17 +514,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		},
 		
 	};
-	
-	
-	for (u64 V = 0; V < ArrayCount(ViewDirectories); V++) {
-		// TODO(Evan): Skip hidden.
-		// TODO(Evan): Canonicalized cursors!
-		if (ViewDirectories[V]._File) {
-			ViewDirectories[V].File = PushStruct(&State->FrameArena, plore_file_listing);
-			MemoryCopy(ViewDirectories[V]._File, ViewDirectories[V].File, sizeof(plore_file_listing));
-			
-		}
-	}
 	
 	typedef struct image_preview_handle {
 		plore_path Path;
@@ -851,11 +850,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 						for (u64 Row = RowStart; Row < RowEnd; Row++) {
 							plore_file *RowEntry = Listing->Entries + Row;
 							
-							if (RowEntry->Hidden && !Tab->FilterState->ShowHidden) {
-								if (RowEnd < Listing->Count-1) RowEnd++;
-								continue;
-							}
-							
 							widget_colour BackgroundColour = WidgetColour_RowPrimary;
 							widget_colour_flags WidgetColourFlags = WidgetColourFlags_Default;
 							text_colour TextColour = 0;
@@ -869,6 +863,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							} else if (IsSelected(Tab->FileContext, &RowEntry->Path)) {
 								BackgroundColour = WidgetColour_RowTertiary;
 							} 
+							// TODO(Evan): Hidden files could have a slightly different colour while we're viewing them.
 							
 							
 							b64 PassesFilter = true;
@@ -1125,6 +1120,31 @@ PloreFileSortHelper(plore_file *A, plore_file *B, file_sort_mask SortMask, b64 A
 	return(Result);
 }
 
+plore_inline b64
+ExtensionIsFiltered(plore_file_extension *List, plore_file_extension Extension) {
+	for (plore_file_extension E = 0; E < PloreFileExtension_Count; E++) if (List[E] && (Extension == E)) return(true);
+	return(false);
+}
+
+plore_inline b64
+FileNodeIsFiltered(plore_file_node *List, plore_file_node FileNode) {
+	for (plore_file_node F = 0; F < PloreFileExtension_Count; F++) if (List[F] && (FileNode == F)) return(true);
+	return(false);
+}
+
+
+internal void
+FilterFileListing(plore_file_listing *Listing, plore_file_filter_state *FilterState) {
+	for (u64 F = 0; F < Listing->Count; F++) {
+		if (ExtensionIsFiltered(FilterState->HideMask.Extensions, Listing->Entries[F].Extension) ||
+			FileNodeIsFiltered(FilterState->HideMask.FileNodes, Listing->Entries[F].Type)        ||
+			Listing->Entries[F].Hidden && FilterState->HideMask.HiddenFiles) {
+			
+			Listing->Entries[F] = Listing->Entries[--Listing->Count];
+		}
+	}
+}
+
 internal void
 SynchronizeCurrentDirectory(plore_tab *Tab) {
 	plore_file_context *FileContext = Tab->FileContext;
@@ -1139,6 +1159,8 @@ SynchronizeCurrentDirectory(plore_tab *Tab) {
 	
 	CreateFileListing(&CurrentState->Current, ListingFromDirectoryPath(&Tab->CurrentDirectory));
 	FileContext->InTopLevelDirectory = Platform->IsPathTopLevel(CurrentState->Current.File.Path.Absolute, PLORE_MAX_PATH);
+	FilterFileListing(&CurrentState->Current, FilterState);
+	
 	if (CurrentState->Current.Count) PloreSort(CurrentState->Current.Entries, CurrentState->Current.Count, plore_file)
 	
 	if (CurrentState->Current.Valid && CurrentState->Current.Count) {
@@ -1149,6 +1171,7 @@ SynchronizeCurrentDirectory(plore_tab *Tab) {
 		
 		
 		CreateFileListing(&CurrentState->Cursor, ListingFromFile(CursorEntry));
+		FilterFileListing(&CurrentState->Cursor, FilterState);
 		if (CurrentState->Cursor.Count) PloreSort(CurrentState->Cursor.Entries, CurrentState->Cursor.Count, plore_file)
 	}
 	
@@ -1164,6 +1187,7 @@ SynchronizeCurrentDirectory(plore_tab *Tab) {
 		CreateFileListing(&CurrentState->Parent, ListingFromDirectoryPath(&CurrentCopy.File.Path));
 		
 		plore_file_listing_cursor_get_or_create_result ParentResult = GetOrCreateCursor(FileContext, &CurrentState->Parent.File.Path);
+		FilterFileListing(&CurrentState->Parent, FilterState);
 		if (CurrentState->Parent.Count) PloreSort(CurrentState->Parent.Entries, CurrentState->Parent.Count, plore_file)
 		
 #undef PloreSortPredicate
