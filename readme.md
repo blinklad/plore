@@ -74,7 +74,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 - Fully integrated vim bindings and movement; every action is keyboard-initiated, although some controls can be selected via mouse.
 - Basic selection and marking, _a la_ ranger
 - Basic file preview for .jpg, .png, .bmp
-- Multiple tabs, each with their own state (selection, filter)
+- Multiple tabs, each with their own state (selection, filter, etc)
 - Sorting, filtering
 
 
@@ -90,6 +90,8 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 - Clipboard handling.
 - Undo for: Rename, Paste, Delete (PLORE_TRASH/Recycle Bin only). 
 - Persistent: Undo, command history, marked files/directories, bookmarks. Requires plore.history.
+- Track: File ownership (not POSIX, but probably "owned by current user, system, or other")
+- Recursive ISearch.
 
 ### VIMGUI TODOs:
    - ~~Actual alpha blending~~
