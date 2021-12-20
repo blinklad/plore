@@ -179,7 +179,7 @@ typedef struct plore_vimgui_context {
 	b64 LayoutPassActive;
 	u64 HotWidgetID;
 	
-	vimgui_window Windows[8];
+	vimgui_window Windows[64];
 	u64 WindowCount;
 	u64 ActiveWindow;
 	u64 HotWindow;
