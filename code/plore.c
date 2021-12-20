@@ -543,7 +543,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		u64 TabCount = 0;
 		
 		plore_tab *Active = GetCurrentTab(State);
-		for (u64 T = 0; T < State->TabCount; T++) {
+		for (u64 T = 0; T < ArrayCount(State->Tabs); T++) {
 			plore_tab *Tab = State->Tabs + T;
 			if (Tab->Active) {
 				TabCount++;
@@ -1340,7 +1340,11 @@ SetCurrentTab(plore_state *State, u64 NewTab) {
 		State->TabCurrent = NewTab;
 		Platform->SetCurrentDirectory(Tab->CurrentDirectory.Absolute);
 		
-		SynchronizeCurrentDirectory(Tab);
+		// NOTE(Evan): Setting a new tab will always be a frame late.
+		// Otherwise, if a Button() or Window() call stores a pointer to a plore_file, Synchronize() will change the underlying
+		// backing store for that string - i.e., we're fucked!
+		// This could be solved in other ways, but it's not worth the complexity for now. Just render at least 60fps.
+		//SynchronizeCurrentDirectory(Tab);
 	}
 	
 	return(Result);
