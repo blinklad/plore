@@ -34,7 +34,6 @@ Confirmation(char *S) {
 internal void
 ResetVimState(plore_vim_context *Context) {
 	ClearCommands(Context);
-	ClearArena(&Context->CommandArena);
 	Context->Mode = VimMode_Normal;
 	Context->ActiveCommand = ClearStruct(vim_command);
 	Context->ListerCursor = 0;
@@ -159,9 +158,9 @@ MakeCommand(plore_vim_context *Context) {
 						}
 						if (NonScalarEntries < CommandLength) continue;
 						
-						b64 StraightMatch = MemoryCompare(VimBindings[Candidate].Keys, C, NonScalarEntries * sizeof(vim_key) == 0);
+						b64 StraightMatch = StructArrayMatch(VimBindings[Candidate].Keys, C, NonScalarEntries, vim_key);
 						
-						b64 PatternMatch = true;
+						b64 PatternMatch = false;
 						
 						if (AcceptsPattern(VimBindings + Candidate)) {
 							for (u64 K = 0; K < ArrayCount(VimBindings[Candidate].Keys); K++) {
@@ -607,7 +606,6 @@ PLORE_VIM_COMMAND(NewTab) {
 		else if (NewTab > ArrayCount(State->Tabs)) return;
 		
 		NewTab -= 1;
-		DrawText("Opening tab %d", NewTab+1);
 		SetCurrentTab(State, NewTab);
 	}
 }
@@ -647,7 +645,7 @@ PLORE_VIM_COMMAND(CloseTab) {
 			if (tBefore == -1) tTarget = tAfter;
 			else               tTarget = tBefore;
 		}
-		Assert(tTarget > 0);
+		Assert(tTarget < ArrayCount(State->Tabs)-1);
 		Assert(State->Tabs[tTarget].Active);
 		
 		ClearTab(State, TabIndex);
@@ -763,6 +761,14 @@ PLORE_VIM_COMMAND(ToggleSortSize) {
 
 PLORE_VIM_COMMAND(ToggleSortModified) {
 	PloreSortHelper(Tab, FileSort_Modified);
+}
+
+PLORE_VIM_COMMAND(VerticalSplit) {
+	DrawText("VSplit");
+}
+
+PLORE_VIM_COMMAND(HorizontalSplit) {
+	DrawText("HSplit");
 }
 
 
