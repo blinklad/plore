@@ -385,12 +385,6 @@ MoveHelper(plore_state *State, vim_command Command, i64 Direction) {
 			}
 			
 			plore_file *NewSelected = Tab->DirectoryState->Current.Entries + Current.Cursor->Cursor;
-			if (!Tab->FilterState->ShowHidden) {
-				if (NewSelected->Hidden) {
-					if (Current.Cursor->Cursor == CursorStart) break;
-					else                                       continue;
-				}
-			}
 			Magnitude--;
 		}
 		
@@ -742,13 +736,7 @@ PLORE_VIM_COMMAND(SelectAll) {
 }
 
 PLORE_VIM_COMMAND(ShowHiddenFiles) {
-	Tab->FilterState->ShowHidden = !Tab->FilterState->ShowHidden;
-	if (!Tab->FilterState->ShowHidden) {
-		plore_file *Cursor = GetCursorFile(State);
-		if (Cursor->Hidden) {
-			DrawText("Cursor is hidden now!");
-		}
-	}
+	Tab->FilterState->HideMask.HiddenFiles = !Tab->FilterState->HideMask.HiddenFiles;
 }
 
 internal void
