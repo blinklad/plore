@@ -45,7 +45,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 * Asynchronous file management, for e.g., `mv`s.
 * File change notifications, for name changes, time of last edit, photo preview, etc.
 * Commands:
-   - ~~Basic vim movement (hjkl) for directory traversal, _a la_ ranger.
+   - ~~Basic vim movement (hjkl) for directory traversal.
    - ~~Moving 'into' a file opens the default extension handler.~~
    - ~~Scalar vim movement~~
    - ~~Interactive change directory~~
@@ -62,6 +62,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
    - ~~Open file, from list of candidate extension handlers~~
    - ~~Create tab~~
    - ~~Toggle hidden file display~~
+   - ~~Sorting by various file metadata~~
    - Interactive open file, using user-specified shell.
    - ISearch select numbered candidates
    - ISearch select all candidates
@@ -70,15 +71,16 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
    - ~~Close tab.~~
 
 ### Features:
-- Fully integrated vim bindings and movement   [X]
-- Basic selection and marking                  [X]
-- Basic file preview for .jpg, .png, .bmp      [X]
-- Multiple tabs                                [X]
+- Fully integrated vim bindings and movement; every action is keyboard-initiated, although some controls can be selected via mouse.
+- Basic selection and marking, _a la_ ranger
+- Basic file preview for .jpg, .png, .bmp
+- Multiple tabs, each with their own state (selection, filter)
+- Sorting, filtering
 
 
 ### File Management TODOs:
 - Filtering by: Extension, File/Directory/Symlink, Filesize
-- Sorting by: Extension, last write date, size
+- Sorting by: ~~Extension~~, ~~last write date~~, ~~size~~
 - Lister for: Selected files, yanked files, bookmarked directories, commands
 - Paginated movement, i.e. ctrl-u, ctrl-d, and centering.
 - Smooth scrolling - maybe.
