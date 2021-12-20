@@ -310,7 +310,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 #endif
 		
 		State->VimContext = PushStruct(&State->Arena, plore_vim_context);
-		State->VimContext->CommandArena = SubArena(&State->Arena, Kilobytes(1), 16);
 		State->VimContext->Mode = VimMode_Normal;
 		
 		State->RenderList = PushStruct(&State->Arena, plore_render_list);
@@ -431,14 +430,13 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 						case VimCommandState_Finish: {
 							// NOTE(Evan): Copy insertion into the active command, then call the active command function before cleaning up.
 							u64 Size = 512;
-							VimContext->ActiveCommand.Shell = PushBytes(&VimContext->CommandArena, Size);
+							VimContext->ActiveCommand.Shell = PushBytes(&State->FrameArena, Size);
 							VimKeysToString(VimContext->ActiveCommand.Shell, Size, VimContext->CommandKeys);
 							
 							
 							VimCommands[VimContext->ActiveCommand.Type](State, Tab, VimContext, Tab->FileContext, VimContext->ActiveCommand);
 							
 							ClearCommands(VimContext);
-							ClearArena(&VimContext->CommandArena);
 							VimContext->Mode = VimMode_Normal;
 							VimContext->ActiveCommand = ClearStruct(vim_command);
 						} break;
@@ -489,8 +487,10 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	f32 fCols = (f32) Cols;
 	f32 PadX = 10.0f;
 	f32 PadY = 10.0f;
-	f32 W = ((PlatformAPI->WindowDimensions.X  - 0)            - (fCols + 1) * PadX) / fCols;
-	f32 H = ((PlatformAPI->WindowDimensions.Y - FooterHeight)  - (1     + 1) * PadY) / 1;
+	f32 StartW = ((PlatformAPI->WindowDimensions.X  - 0)            - (fCols + 1) * PadX) / fCols;
+	f32 StartH = ((PlatformAPI->WindowDimensions.Y - FooterHeight)  - (1     + 1) * PadY) / 1;
+	f32 W = StartW;
+	f32 H = StartH;
 	f32 X = 10;
 	f32 Y = 0;
 	
@@ -724,10 +724,10 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 									   .ID = ID,
 									   .Title = {
 										   .Text = CandidateString,
-										   .Pad = V2(16, 8),
+										   .Pad = V2(16, 16),
 									   },
 									   .Rect = {
-										   .P = V2(PadX, PlatformAPI->WindowDimensions.Y - FooterHeight - CandidateCount*FooterHeight - 20),
+										   .P = V2(PadX, PlatformAPI->WindowDimensions.Y - FooterHeight - CandidateCount*(FooterHeight + PadY) + PadY - 20),
 										   .Span = V2(PlatformAPI->WindowDimensions.X-2*PadX, FooterHeight + PadY)
 									   },
 									   .BackgroundColourFlags = WidgetColourFlags_Focus,
@@ -742,11 +742,11 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 						VimCommands[Command.Type](State, Tab, State->VimContext, Tab->FileContext, Command);
 					}
 					
-					H -= FooterHeight;
+					H -= FooterHeight + PadY;
 				}
 			}
 			
-			H -= 20;
+			H -= 20-PadY;
 			
 			StoleFocus = true;
 		}
@@ -809,7 +809,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		
 		for (u64 Col = 0; Col < Cols; Col++) {
 			v2 P      = V2(X, Y);
-			v2 Span   = V2(W-3, H-22);
+			v2 Span   = V2(W-3, H-24);
 			
 			plore_viewable_directory *Directory = ViewDirectories + Col;
 			plore_file_listing *Listing = Directory->File;
@@ -831,7 +831,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							   .BackgroundColour      = WidgetColour_Primary,
 							   .BackgroundColourFlags = WindowColourFlags,
 						   })) {
-				u64 PageMax = (u64) Ceiling(Span.H / FileRowHeight);
+				u64 PageMax = (u64) Floor(H / FileRowHeight)-1;
 				u64 Cursor = 0;
 				u64 RowStart = Cursor;
 				u64 RowEnd = Listing->Count;
@@ -904,10 +904,18 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								StringPrintSized(SecondaryText, Size, "%s%7s", Timestamp, "-");
 							}
 							
+							b64 DisplayFileNumbers = false;
+							u64 FileNameSize = 256;
+							char *FileName = PushBytes(&State->FrameArena, FileNameSize);
+							if (DisplayFileNumbers) {
+								StringPrintSized(FileName, FileNameSize, "%-3d %s", Row, Listing->Entries[Row].Path.FilePart);
+							} else {
+								StringPrintSized(FileName, FileNameSize, "%s", Listing->Entries[Row].Path.FilePart);
+							}
 								
 							if (Button(State->VimguiContext, (vimgui_button_desc) {
 											   .Title     = { 
-												   .Text = Listing->Entries[Row].Path.FilePart, 
+												   .Text = FileName,
 												   .Alignment = VimguiLabelAlignment_Left ,
 												   .Colour = TextColour,
 												   .Pad = V2(4, 0),
@@ -1340,11 +1348,14 @@ SetCurrentTab(plore_state *State, u64 NewTab) {
 		State->TabCurrent = NewTab;
 		Platform->SetCurrentDirectory(Tab->CurrentDirectory.Absolute);
 		
+		//
 		// NOTE(Evan): Setting a new tab will always be a frame late.
 		// Otherwise, if a Button() or Window() call stores a pointer to a plore_file, Synchronize() will change the underlying
 		// backing store for that string - i.e., we're fucked!
 		// This could be solved in other ways, but it's not worth the complexity for now. Just render at least 60fps.
-		//SynchronizeCurrentDirectory(Tab);
+		//
+		//SynchronizeCurrentDirectory(Tab);		
+		
 	}
 	
 	return(Result);
