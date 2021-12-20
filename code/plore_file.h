@@ -9,6 +9,7 @@
 typedef enum plore_file_node { 
 	PloreFileNode_File, 
 	PloreFileNode_Directory,
+	PloreFileNode_Count,
 	_PloreFileNode_ForceU64 = 0xFFFFFFFF,
 } plore_file_node;
 
