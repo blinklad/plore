@@ -1355,15 +1355,24 @@ ClearTab(plore_state *State, u64 TabIndex) {
 	Assert(TabIndex < ArrayCount(State->Tabs));
 	Assert(State->TabCount > 1);
 	
+	State->TabCount--;
+	
 	plore_tab *Tab = State->Tabs + TabIndex;
 	
 	plore_file_context *FileContext = Tab->FileContext;
+	plore_file_filter_state *FilterState = Tab->FilterState;
+	plore_current_directory_state *DirectoryState = Tab->DirectoryState;
+	
 	*Tab = ClearStruct(plore_tab);
 	Tab->FileContext = FileContext;
+	Tab->FilterState = FilterState;
+	Tab->DirectoryState = DirectoryState;
 	
 	Tab->FileContext->SelectedCount       = 0;
 	Tab->FileContext->YankedCount         = 0;
 	Tab->FileContext->FileCount           = 0;
 	Tab->FileContext->InTopLevelDirectory = 0;
+	Tab->FilterState->HideMask.HiddenFiles = true; // Default!
+	for (u64 C = 0; C < ArrayCount(Tab->FileContext->CursorSlots); C++) Tab->FileContext->CursorSlots[C]->Cursor.Cursor = 0;
 	
 }
