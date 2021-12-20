@@ -170,14 +170,17 @@ MakeCommand(plore_vim_context *Context) {
 									if (Key->Modifier != C[K].Modifier || Key->Pattern != C[K].Pattern) {
 										PatternMatch = false;
 										break;
+									} else {
+										PatternMatch = true;
+										Assert(Result.Command.PatternCount < ArrayCount(Result.Command.Pattern) - 1);
+										Result.Command.Pattern[Result.Command.PatternCount++] = PloreKeyCharacters[C[K].Input];
 									}
-									
-									Assert(Result.Command.PatternCount < ArrayCount(Result.Command.Pattern) - 1);
-									Result.Command.Pattern[Result.Command.PatternCount++] = PloreKeyCharacters[C[K].Input];
 								} else {
 									if (MemoryCompare(C+K, Key, sizeof(vim_key)) != 0) {
 										PatternMatch = false;
 										break;
+									} else {
+										PatternMatch = true;
 									}
 								}
 							}
