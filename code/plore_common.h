@@ -123,6 +123,9 @@ MemoryCompare(void *_A, void *_B, u64 ByteCount) {
 	return(Result);
 }
 
+#define StructCopy(Source, Destination, type)             MemoryCopy(Source, Destination, sizeof(type))
+#define StructArrayCopy(Source, Destination, Count, type) MemoryCopy(Source, Destination, Count*sizeof(type))
+
 #define StructArrayMatch(A, B, Count, type) (MemoryCompare(A, B, Count*sizeof(type)) == 0)
 #define StructMatch(A, B, type)             (MemoryCompare(A, B, sizeof(type)) == 0)
 
