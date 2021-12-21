@@ -63,6 +63,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
    - ~~Create tab~~
    - ~~Toggle hidden file display~~
    - ~~Sorting by various file metadata~~
+   - ~~Filter any files matching substring~~
    - Interactive open file, using user-specified shell.
    - ISearch select numbered candidates
    - ISearch select all candidates
@@ -75,16 +76,17 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 - Basic selection and marking, _a la_ ranger
 - Basic file preview for .jpg, .png, .bmp
 - Multiple tabs, each with their own state (selection, filter, etc)
-- Sorting, filtering
+- Searching, sorting, filtering
 
 
 ### File Management TODOs:
-- Filtering by: Extension, File/Directory/Symlink, Filesize
+- Filtering by: Extension, File/Directory/Symlink, Filesize, ~~Arbitrary text~~
 - Sorting by: ~~Extension~~, ~~last write date~~, ~~size~~
+- A simplified subset of regular expressions for filtering and extension handling.
 - Lister for: Selected files, yanked files, bookmarked directories, commands
 - Paginated movement, i.e. ctrl-u, ctrl-d, and centering.
 - Smooth scrolling - maybe.
-- Robust photo preview - BMP doesn't handle top-to-bottom, stb_image doesn't handle DEFLATE.
+- Robust photo preview - BMP doesn't handle top-to-bottom, stb_image doesn't handle DEFLATE. _Probably_ `libpng` and/or `libjpg`.
 - Robust text-like ASCII file preview (ASCII only)
 - Split tabs.
 - Clipboard handling.
@@ -123,3 +125,17 @@ Assuming you have Visual Studio 2019's `vcvarsall.bat` installed at `C:\Program 
 0. (optional) Tweak the file extension handlers in `plore_file.h` to programs of your choice.
 1. Run `build.bat`.
 2. Launch the executable from the parent directory of `build`, i.e., `$ build\win32_plore.exe`.
+
+There is currently no discovery of the executable's runtime location, so make sure to run it from the parent of `build`.
+
+### "Documentation"/notes
+The codebase is scattered with comments where they are useful. 
+Most paradigms, memory lifetimes, and examples for extension would be self-explanatory, albeit some important ones are not documented, such as the command key interpreter. 
+
+I would suggest to ignore the murky parts until they are fixed, as I am not interested whatsoever in "cleaning up" or documenting working (but messy) code when there's a lot of features and polish I would rather do. 
+
+I am happy to explain any part of the codebase, though, and conversation in general is welcome.
+
+Basic "user" documentation exists in the form of `plore_vim.h`, where all the commands and bindings are specified.
+
+Eventually, a small metaprogram will generate information currently maintained in the X macros, along with similar occurences with `plore_file` extension handlers and `plore_vimgui` skinning.
