@@ -15,6 +15,33 @@ ClearCommands(plore_vim_context *Context) {
 	Context->CommandKeyCount = 0;
 }
 
+
+typedef struct string_to_command_result {
+	vim_key CommandKeys[CommandBufferSize];
+	u64 CommandKeyCount;
+} string_to_command_result;
+
+internal string_to_command_result
+StringToCommand(char *S) {
+	string_to_command_result Result = {0};
+	
+	while (*S) {
+		char C = *S++;
+		Result.CommandKeys[Result.CommandKeyCount++] = (vim_key) {
+			.Input = GetKey(C),
+			.Modifier = IsUpper(C) ? PloreKey_Shift : PloreKey_None, // @Cleanup
+		};
+	}
+	return(Result);
+}
+
+internal void
+SetVimCommandFromString(plore_vim_context *Context, char *S) {
+	string_to_command_result Result = StringToCommand(S);
+	MemoryCopy(Result.CommandKeys, Context->CommandKeys, sizeof(Context->CommandKeys));
+	Context->CommandKeyCount = Result.CommandKeyCount;
+}
+
 internal void
 InsertBegin(plore_vim_context *VimContext, vim_command Command) {
 	VimContext->Mode = VimMode_Insert;
@@ -50,23 +77,19 @@ PeekLatestKey(plore_vim_context *Context) {
 	return(Result);
 }
 
-typedef struct string_to_command_result {
-	vim_key CommandKeys[CommandBufferSize];
-	u64 CommandKeyCount;
-} string_to_command_result;
 
-internal string_to_command_result
-StringToCommand(char *S) {
-	string_to_command_result Result = {0};
-	
-	while (*S) {
-		char C = *S++;
-		Result.CommandKeys[Result.CommandKeyCount++] = (vim_key) {
-			.Input = GetKey(C),
-			.Modifier = IsUpper(C) ? PloreKey_Shift : PloreKey_None, // @Cleanup
-		};
-	}
+plore_inline b64
+RequireBackspace(vim_key *Key) {
+	b64 Result = Key->Input == PloreKey_Backspace;
 	return(Result);
+}
+
+internal void
+DoBackSpace(plore_vim_context *Context) {
+	if (Context->CommandKeyCount > 1) {
+		Context->CommandKeys[--Context->CommandKeyCount] = ClearStruct(vim_key);
+	}
+	Context->CommandKeys[--Context->CommandKeyCount] = ClearStruct(vim_key);
 }
 
 internal make_command_result
@@ -210,8 +233,10 @@ MakeCommand(plore_vim_context *Context) {
 			Result.Command.Type = Context->ActiveCommand.Type;
 			if (LatestKey) {
 				if (Context->CommandKeyCount == ArrayCount(Context->CommandKeys)) {
-					DrawText("Command key count reached, changing to normal mode.");
-					ResetVimState(Context);
+					if (RequireBackspace(LatestKey)) DoBackSpace(Context);
+					else                             Context->CommandKeys[--Context->CommandKeyCount] = ClearStruct(vim_key);
+					
+					Result.Command.State = VimCommandState_Incomplete;
 				} else if (LatestKey->Input == PloreKey_Return) {
 					Result.Command.Type = Context->ActiveCommand.Type;
 					Result.Command.State = VimCommandState_Finish;
@@ -240,13 +265,7 @@ MakeCommand(plore_vim_context *Context) {
 							Context->CommandKeys[--Context->CommandKeyCount] = ClearStruct(vim_key); 
 						} break;
 						case VimMode_Insert: {
-							if (LatestKey->Input == PloreKey_Backspace) {
-								if (Context->CommandKeyCount > 1) {
-									Context->CommandKeys[--Context->CommandKeyCount] = ClearStruct(vim_key);
-								}
-								Context->CommandKeys[--Context->CommandKeyCount] = ClearStruct(vim_key);
-							} 
-							
+							if (RequireBackspace(LatestKey)) DoBackSpace(Context);
 						} break;
 						
 					}
