@@ -56,14 +56,23 @@ typedef enum file_sort_mask {
 	_FileSort_ForceU64 = 0xffffffff,
 } file_sort_mask;
 
+typedef enum text_filter_state {
+	TextFilterState_Show,
+	TextFilterState_Hide,
+	TextFilterState_Count,
+	_TextFilterState_ForceU64 = 0xffffffff,
+} text_filter_state;
+
 typedef struct plore_file_filter_state {
 	// NOTE(Evan): This is used to temporarily match against files during ISearch, including files processed by TextFilter.
 	char ISearchFilter[PLORE_MAX_PATH];
 	u64 ISearchFilterCount;
 	
-	// NOTE(Evan): This hard-removes matching file entries from the directory listing, persisting for the tab's lifetime.
+	// NOTE(Evan): This hard-removes matching/non-matching file entries from the directory listing, persisting for the tab's lifetime.
+	// Matching/non-matching is given by the flag below.
 	char TextFilter[PLORE_MAX_PATH];
 	u64 TextFilterCount;
+	text_filter_state TextFilterState;
 	
 	char ExtensionFilter[PLORE_MAX_PATH];
 	u64 ExtensionFilterCount;
@@ -1186,16 +1195,29 @@ FilterFileListing(memory_arena *Arena, plore_file_listing *Listing, plore_file_f
 	
 	plore_file *ListingsToKeep = PushArray(Arena, plore_file, Listing->Count);
 	u64 ListingsToKeepCount = 0;
+	b64 HasTextFilter = FilterState->TextFilterCount;
 	
 	for (u64 F = 0; F < Listing->Count; F++) {
-		b64 HasFilter = FilterState->TextFilterCount;
 		plore_file *File = Listing->Entries + F;
 		
 		b64 Discard = 
-		   (ExtensionIsFiltered(FilterState->HideMask.Extensions, File->Extension)            ||
+		    ExtensionIsFiltered(FilterState->HideMask.Extensions, File->Extension)            ||
 			FileNodeIsFiltered(FilterState->HideMask.FileNodes,   File->Type)                 ||
-		   (File->Hidden && FilterState->HideMask.HiddenFiles)                                ||
-		   (HasFilter && SubstringNoCase(File->Path.FilePart, TextFilterPattern).IsContained));
+		   (File->Hidden && FilterState->HideMask.HiddenFiles);
+		 if (HasTextFilter) {
+			 switch (FilterState->TextFilterState) {
+				 case TextFilterState_Hide: {
+					 Discard = Discard || SubstringNoCase(File->Path.FilePart, TextFilterPattern).IsContained;
+				 } break;
+				 
+				 case TextFilterState_Show: {
+					 Discard = Discard || !SubstringNoCase(File->Path.FilePart, TextFilterPattern).IsContained;
+				 } break;
+				 
+				 InvalidDefaultCase;
+			 }
+				 
+		 }
 			
 		if (!Discard) ListingsToKeep[ListingsToKeepCount++] = *File;
 	}

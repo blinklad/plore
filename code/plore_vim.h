@@ -27,7 +27,8 @@ PLORE_X(SelectUp,            "select_up",                    "Select and move cu
 PLORE_X(SelectDown,          "select_down",                  "Select and move cursor downwards in current directory",                    0)                                 \
 PLORE_X(SelectAll,           "select_all",                   "Select all files in current directory",                                    0)                                 \
 PLORE_X(ISearch,             "isearch",                      "Interactive search in current directory, highlighting matching files",     "ISearch:")                        \
-PLORE_X(TextFilter,          "text_filter",                  "Interactively set text filter, hiding all matching files",                 "Hide files matching text:")       \
+PLORE_X(TextFilterHide,      "text_filter_hide",             "Interactively set text filter, hiding all matching files",                 "Hide files matching text:")       \
+PLORE_X(TextFilterShow,      "text_filter_show",             "Interactively set text filter, showing all matching files",                "Show files matching text:")       \
 PLORE_X(ChangeDirectory,     "change_directory",             "Interactive change directory/drive",                                       "Change directory to?")            \
 PLORE_X(RenameFile,          "rename_file",                  "Interactive rename file",                                                  "Rename file to?")                 \
 PLORE_X(OpenFile,            "open_file",                    "Displays all file extension handlers for file under cursor",               0)                                 \
@@ -277,14 +278,26 @@ global vim_binding VimBindings[] = {
 		
 	},
 	{
-		.Type = VimCommandType_TextFilter,
+		.Type = VimCommandType_TextFilterHide,
 		.Keys = {
 			{
 				.Input = PloreKey_F,
 				.Modifier = PloreKey_Shift,
 			},
 			{
+				.Input = PloreKey_H,
+			},
+		},
+	},
+	{
+		.Type = VimCommandType_TextFilterShow,
+		.Keys = {
+			{
 				.Input = PloreKey_F,
+				.Modifier = PloreKey_Shift,
+			},
+			{
+				.Input = PloreKey_S,
 			},
 		},
 	},

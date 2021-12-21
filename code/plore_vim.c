@@ -563,13 +563,44 @@ PLORE_VIM_COMMAND(ISearch)  {
 	}
 }
 
-PLORE_VIM_COMMAND(TextFilter) {
+PLORE_VIM_COMMAND(TextFilterHide) {
 	if (Command.Shell) {
 	} else {
 		switch (Command.State) {
 			case VimCommandState_Start: {
-				SetVimCommandFromString(VimContext, Tab->FilterState->TextFilter);
 				InsertBegin(VimContext, Command);
+				if (Tab->FilterState->TextFilterState != TextFilterState_Hide) {
+					Tab->FilterState->TextFilterCount = 0;
+					MemoryClear(Tab->FilterState->TextFilter, ArrayCount(Tab->FilterState->TextFilter));
+				} 
+				SetVimCommandFromString(VimContext, Tab->FilterState->TextFilter);
+				
+				Tab->FilterState->TextFilterState = TextFilterState_Hide;
+			} break;
+			
+			case VimCommandState_Incomplete: {
+				Tab->FilterState->TextFilterCount = VimKeysToString(Tab->FilterState->TextFilter, 
+																	ArrayCount(Tab->FilterState->TextFilter), 
+																	VimContext->CommandKeys).BytesWritten;
+			} break;
+		}
+	}
+}
+
+PLORE_VIM_COMMAND(TextFilterShow) {
+	if (Command.Shell) {
+	} else {
+		switch (Command.State) {
+			case VimCommandState_Start: {
+				InsertBegin(VimContext, Command);
+				if (Tab->FilterState->TextFilterState != TextFilterState_Show) {
+					Tab->FilterState->TextFilterCount = 0;
+					MemoryClear(Tab->FilterState->TextFilter, ArrayCount(Tab->FilterState->TextFilter));
+				} 
+				
+				SetVimCommandFromString(VimContext, Tab->FilterState->TextFilter);
+				
+				Tab->FilterState->TextFilterState = TextFilterState_Show;
 			} break;
 			
 			case VimCommandState_Incomplete: {
