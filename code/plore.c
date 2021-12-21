@@ -774,10 +774,19 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		}
 		
 		// NOTE(Evan): Prompt string.
+		char *FilterText = 0;
+		if (Tab->FilterState->TextFilterCount) {
+			u64 FilterTextSize = 256;
+			
+			FilterText = PushBytes(&State->FrameArena, FilterTextSize);
+			StringPrintSized(FilterText, FilterTextSize, "Filter: %s ", Tab->FilterState->TextFilter);
+		}
+		
 		u64 BufferSize = 256;
 		char *Buffer = PushBytes(&State->FrameArena, BufferSize);
 		b64 ShowOrBlink = DoBlink || VimContext->CommandKeyCount || VimContext->Mode != VimMode_Normal || DidInput;
-		StringPrintSized(Buffer, BufferSize, "%s%s", (ShowOrBlink ? ">>" : ""), CommandString);
+		StringPrintSized(Buffer, BufferSize, "%s%s%s", (FilterText ? FilterText : ""), (ShowOrBlink ? ">>" : ""), CommandString);
+		
 		
 		if (Tab->DirectoryState->Cursor.Valid) {
 			plore_file *CursorFile = &Tab->DirectoryState->Cursor.File;
