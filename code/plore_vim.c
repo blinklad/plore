@@ -357,7 +357,7 @@ PLORE_VIM_COMMAND(MoveRight) {
 			ScalarCount++;
 			
 			if (Platform->IsPathTopLevel(CursorEntry->Path.Absolute, PLORE_MAX_PATH)) return;
-			else SynchronizeCurrentDirectory(GetCurrentTab(State));
+			else SynchronizeCurrentDirectory(&State->FrameArena, GetCurrentTab(State));
 		} else if (!WasGivenScalar) {
 			if (CursorEntry->Extension) {
 				u64 HandlerCount = GetHandlerCount(CursorEntry->Extension);
@@ -564,7 +564,21 @@ PLORE_VIM_COMMAND(ISearch)  {
 }
 
 PLORE_VIM_COMMAND(TextFilter) {
-	DrawText("(((goyim)))");
+	if (Command.Shell) {
+	} else {
+		switch (Command.State) {
+			case VimCommandState_Start: {
+				SetVimCommandFromString(VimContext, Tab->FilterState->TextFilter);
+				InsertBegin(VimContext, Command);
+			} break;
+			
+			case VimCommandState_Incomplete: {
+				Tab->FilterState->TextFilterCount = VimKeysToString(Tab->FilterState->TextFilter, 
+																	ArrayCount(Tab->FilterState->TextFilter), 
+																	VimContext->CommandKeys).BytesWritten;
+			} break;
+		}
+	}
 }
 
 PLORE_VIM_COMMAND(ChangeDirectory) {
@@ -592,10 +606,7 @@ PLORE_VIM_COMMAND(RenameFile) {
 	
 	switch (Command.State) {
 		case VimCommandState_Start: {
-			string_to_command_result Result = StringToCommand(Selected->FilePart);
-			MemoryCopy(Result.CommandKeys, VimContext->CommandKeys, sizeof(VimContext->CommandKeys));
-			VimContext->CommandKeyCount = Result.CommandKeyCount;
-			
+			SetVimCommandFromString(VimContext, Selected->FilePart);
 			InsertBegin(VimContext, Command);
 		} break;
 		
