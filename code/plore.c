@@ -168,8 +168,8 @@ internal char *
 VimBindingToString(char *Buffer, u64 BufferSize, vim_binding *Binding);
 	
 internal void
-SynchronizeCurrentDirectory(plore_tab *Tab);
-
+SynchronizeCurrentDirectory(memory_arena *FrameArena, plore_tab *Tab);
+	
 internal plore_file *
 GetCursorFile(plore_state *State);
 
@@ -327,13 +327,13 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		VimguiInit(State->VimguiContext, State->RenderList);
 		
 		
+		SynchronizeCurrentDirectory(&State->FrameArena, GetCurrentTab(State));
 		
-		SynchronizeCurrentDirectory(GetCurrentTab(State));
-		
+	} else {
+		ClearArena(&State->FrameArena);
 	}
 	
 	
-	ClearArena(&State->FrameArena);
 	
 #if defined(PLORE_INTERNAL)
 	if (PloreInput->DLLWasReloaded) {
@@ -483,7 +483,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		}
 	}
 	
-	SynchronizeCurrentDirectory(GetCurrentTab(State));
+	SynchronizeCurrentDirectory(&State->FrameArena, GetCurrentTab(State));
 	
 	//
 	// NOTE(Evan): GUI stuff.
@@ -1149,34 +1149,68 @@ FileNodeIsFiltered(plore_file_node *List, plore_file_node FileNode) {
 	return(false);
 }
 
-
 internal void
-FilterFileListing(plore_file_listing *Listing, plore_file_filter_state *FilterState) {
-	for (u64 F = 0; F < Listing->Count; F++) {
-		if (ExtensionIsFiltered(FilterState->HideMask.Extensions, Listing->Entries[F].Extension) ||
-			FileNodeIsFiltered(FilterState->HideMask.FileNodes, Listing->Entries[F].Type)        ||
-			Listing->Entries[F].Hidden && FilterState->HideMask.HiddenFiles) {
+FilterFileListing(memory_arena *Arena, plore_file_listing *Listing, plore_file_filter_state *FilterState) {
+	char TextFilterPattern[PLORE_MAX_PATH] = {0};
+	if (FilterState->TextFilterCount) {
+		MemoryCopy(FilterState->TextFilter, TextFilterPattern, FilterState->TextFilterCount);
+		TextFilterPattern[FilterState->TextFilterCount] = '\0';
+		
+		char *Current = TextFilterPattern;
+		while (*Current) {
+			char *Tail = Current;
 			
-			Listing->Entries[F] = Listing->Entries[--Listing->Count];
+			if (*Tail == '_' ||
+				*Tail == '-' ||
+				*Tail == ' ') {
+				u64 SourceLength = StringLength(Tail+1);
+				u64 DestLength = StringLength(Tail);
+				
+				if (SourceLength) CStringCopy(Tail+1, Tail, DestLength);
+				else *Tail = '\0';
+			} else {
+				Current++;
+			}
+			
 		}
 	}
+	
+	plore_file *ListingsToKeep = PushArray(Arena, plore_file, Listing->Count);
+	u64 ListingsToKeepCount = 0;
+	
+	for (u64 F = 0; F < Listing->Count; F++) {
+		b64 HasFilter = FilterState->TextFilterCount;
+		plore_file *File = Listing->Entries + F;
+		
+		b64 Discard = 
+		   (ExtensionIsFiltered(FilterState->HideMask.Extensions, File->Extension)            ||
+			FileNodeIsFiltered(FilterState->HideMask.FileNodes,   File->Type)                 ||
+		   (File->Hidden && FilterState->HideMask.HiddenFiles)                                ||
+		   (HasFilter && SubstringNoCase(File->Path.FilePart, TextFilterPattern).IsContained));
+			
+		if (!Discard) ListingsToKeep[ListingsToKeepCount++] = *File;
+	}
+	
+	StructArrayCopy(ListingsToKeep, Listing->Entries, ListingsToKeepCount, plore_file);
+	
+	Listing->Count = ListingsToKeepCount;
 }
 
 internal void
-SynchronizeCurrentDirectory(plore_tab *Tab) {
+SynchronizeCurrentDirectory(memory_arena *FrameArena, plore_tab *Tab) {
 	plore_file_context *FileContext = Tab->FileContext;
 	plore_current_directory_state *CurrentState = Tab->DirectoryState;
 	plore_file_filter_state *FilterState = Tab->FilterState; 
 	Tab->CurrentDirectory = Platform->GetCurrentDirectoryPath();
 	
-	CurrentState->Cursor = (plore_file_listing) {0};
-	CurrentState->Current = (plore_file_listing) {0};
+	CurrentState->Cursor = ClearStruct(plore_file_listing);
+	CurrentState->Current = ClearStruct(plore_file_listing);
 	
 #define PloreSortPredicate(A, B) PloreFileSortHelper(&A, &B, Tab->FilterState->SortMask, Tab->FilterState->SortAscending)
 	
 	CreateFileListing(&CurrentState->Current, ListingFromDirectoryPath(&Tab->CurrentDirectory));
 	FileContext->InTopLevelDirectory = Platform->IsPathTopLevel(CurrentState->Current.File.Path.Absolute, PLORE_MAX_PATH);
-	FilterFileListing(&CurrentState->Current, FilterState);
+	FilterFileListing(FrameArena, &CurrentState->Current, FilterState);
 	
 	if (CurrentState->Current.Count) PloreSort(CurrentState->Current.Entries, CurrentState->Current.Count, plore_file)
 	
@@ -1188,7 +1222,7 @@ SynchronizeCurrentDirectory(plore_tab *Tab) {
 		
 		
 		CreateFileListing(&CurrentState->Cursor, ListingFromFile(CursorEntry));
-		FilterFileListing(&CurrentState->Cursor, FilterState);
+		FilterFileListing(FrameArena, &CurrentState->Cursor, FilterState);
 		if (CurrentState->Cursor.Count) PloreSort(CurrentState->Cursor.Entries, CurrentState->Cursor.Count, plore_file)
 	}
 	
@@ -1204,10 +1238,9 @@ SynchronizeCurrentDirectory(plore_tab *Tab) {
 		CreateFileListing(&CurrentState->Parent, ListingFromDirectoryPath(&CurrentCopy.File.Path));
 		
 		plore_file_listing_cursor_get_or_create_result ParentResult = GetOrCreateCursor(FileContext, &CurrentState->Parent.File.Path);
-		FilterFileListing(&CurrentState->Parent, FilterState);
+		FilterFileListing(FrameArena, &CurrentState->Parent, FilterState);
 		if (CurrentState->Parent.Count) PloreSort(CurrentState->Parent.Entries, CurrentState->Parent.Count, plore_file)
 		
-#undef PloreSortPredicate
 		// Make sure the parent's cursor is set to the current directory.
 		// The parent's row will be invalid on plore startup.
 		if (!ParentResult.DidAlreadyExist) {
@@ -1227,6 +1260,8 @@ SynchronizeCurrentDirectory(plore_tab *Tab) {
 	} else {
 		CurrentState->Parent.Valid = false;
 	}
+	
+#undef PloreSortPredicate
 	
 }
 
