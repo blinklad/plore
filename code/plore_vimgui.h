@@ -137,7 +137,7 @@ typedef enum vimgui_label_alignment {
 	VimguiLabelAlignment_Right,
 	VimguiLabelAlignment_Center,
 	VimguiLabelAlignment_Count,
-	_VimguiLabelAlignment_ForceU64 = 0xffffffff,
+	_VimguiLabelAlignment_ForceU64 = 0xffffffffull,
 } vimgui_label_alignment;
 
 typedef struct vimgui_label_desc {
