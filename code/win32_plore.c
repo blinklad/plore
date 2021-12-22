@@ -1157,6 +1157,10 @@ int WinMain (
     PloreMemory.PermanentStorage.Memory = VirtualAlloc(0, PloreMemory.PermanentStorage.Size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 	MemoryClear(PloreMemory.PermanentStorage.Memory, PloreMemory.PermanentStorage.Size);
     Assert(PloreMemory.PermanentStorage.Memory);
+	
+	// NOTE(Evan): Right now we check if the base pointer is 16-byte aligned, instead of memory_arenas aligning on initialization,
+	// as there is no initialization for arenas.
+	Assert(((u64)PloreMemory.PermanentStorage.Memory % 16) == 0);
 
     windows_context WindowsContext = WindowsCreateAndShowOpenGLWindow(Instance);
 	GlobalWindowsContext = &WindowsContext;
@@ -1171,7 +1175,7 @@ int WinMain (
 		WindowsPlatformAPI.WindowWidth = GlobalWindowsContext->Width;
 		WindowsPlatformAPI.WindowHeight = GlobalWindowsContext->Height;
 		
-        /* Grab any new keyboard / mouse / window events from message queue. */
+        // Grab any new keyboard / mouse / window events from message queue.
         MSG WindowMessage = {0};
 		
 		WindowsProcessMessages(GlobalWindowsContext, &GlobalPloreInput.ThisFrame);
