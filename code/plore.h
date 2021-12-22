@@ -183,6 +183,20 @@ typedef struct plore_memory {
 
 enum { PloreFileListing_Count = 256 };
 
+
+typedef enum text_filter_state {
+	TextFilterState_Show,
+	TextFilterState_Hide,
+	TextFilterState_Count,
+	_TextFilterState_ForceU64 = 0xffffffffull,
+} text_filter_state;
+
+typedef struct text_filter {
+	char Text[PLORE_MAX_PATH];
+	u64 TextCount;
+	text_filter_state State;
+} text_filter;
+
 typedef struct plore_file_listing {
 	plore_file File;
 	plore_file Entries[PloreFileListing_Count]; // NOTE(Evan): Directories only.
@@ -190,24 +204,25 @@ typedef struct plore_file_listing {
 	b64 Valid;
 } plore_file_listing;
 
-typedef struct plore_file_listing_cursor {
+typedef struct plore_file_listing_info {
 	plore_path Path;
+	text_filter Filter;
 	u64 Cursor;
-} plore_file_listing_cursor;
+} plore_file_listing_info;
 
-typedef struct plore_file_listing_cursor_slot {
+typedef struct plore_file_listing_info_slot {
 	b64 Allocated;
-	plore_file_listing_cursor Cursor;
-} plore_file_listing_cursor_slot;
+	plore_file_listing_info Info;
+} plore_file_listing_info_slot;
 
 typedef struct plore_file_context {
-	plore_path Selected[32];
+	plore_path Selected[256];
 	u64 SelectedCount;
 	
-	plore_path Yanked[32];
+	plore_path Yanked[256];
 	u64 YankedCount;
 	
-	plore_file_listing_cursor_slot *CursorSlots[512];
+	plore_file_listing_info_slot *InfoSlots[512];
 	u64 FileCount;
 	
 	b64 InTopLevelDirectory;
