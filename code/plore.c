@@ -53,26 +53,16 @@ typedef enum file_sort_mask {
 	FileSort_Name,
 	FileSort_Modified,
 	FileSort_Count,
-	_FileSort_ForceU64 = 0xffffffff,
+	_FileSort_ForceU64 = 0xffffffffull,
 } file_sort_mask;
-
-typedef enum text_filter_state {
-	TextFilterState_Show,
-	TextFilterState_Hide,
-	TextFilterState_Count,
-	_TextFilterState_ForceU64 = 0xffffffff,
-} text_filter_state;
 
 typedef struct plore_file_filter_state {
 	// NOTE(Evan): This is used to temporarily match against files during ISearch, including files processed by TextFilter.
-	char ISearchFilter[PLORE_MAX_PATH];
-	u64 ISearchFilterCount;
+	text_filter ISearchFilter;
 	
 	// NOTE(Evan): This hard-removes matching/non-matching file entries from the directory listing, persisting for the tab's lifetime.
 	// Matching/non-matching is given by the flag below.
-	char TextFilter[PLORE_MAX_PATH];
-	u64 TextFilterCount;
-	text_filter_state TextFilterState;
+	text_filter GlobalListingFilter;
 	
 	char ExtensionFilter[PLORE_MAX_PATH];
 	u64 ExtensionFilterCount;
@@ -102,6 +92,7 @@ typedef struct plore_current_directory_state {
 
 
 typedef struct plore_tab {
+	memory_arena Arena;          // NOTE(Evan): Zeroed when tab is closed.
 	plore_path CurrentDirectory; // NOTE(Evan): Needs to be cached, as current directory is set for the entire process.
 	plore_current_directory_state *DirectoryState;
 	plore_file_filter_state *FilterState;
@@ -149,7 +140,7 @@ internal load_image_result
 LoadImage(memory_arena *Arena, char *AbsolutePath, u64 MaxX, u64 MaxY);
 
 internal void
-PrintDirectory(plore_file_listing_cursor *Directory);
+PrintDirectory(plore_file_listing_info *Directory);
 
 plore_inline b64
 IsYanked(plore_file_context *Context, plore_path *Yankee);
@@ -208,13 +199,14 @@ GetKey(char C) {
 #include "plore_vim.c"
 #include "plore_vimgui.c"
 #include "plore_time.c"
+#include "plore_tab.c"
 
 
 internal plore_file *
 GetCursorFile(plore_state *State) {
 	plore_tab *Tab = GetCurrentTab(State);
-	plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(Tab->FileContext, &Tab->DirectoryState->Current.File.Path);
-	plore_file *CursorEntry = Tab->DirectoryState->Current.Entries + CursorResult.Cursor->Cursor;
+	plore_file_listing_info_get_or_create_result CursorResult = GetOrCreateFileInfo(Tab->FileContext, &Tab->DirectoryState->Current.File.Path);
+	plore_file *CursorEntry = Tab->DirectoryState->Current.Entries + CursorResult.Info->Cursor;
 	
 	return(CursorEntry);
 }
@@ -232,9 +224,7 @@ GetImpliedSelection(plore_state *State) {
 	} else if (!FileContext->SelectedCount) {
 		plore_file_listing *Cursor = &Tab->DirectoryState->Cursor;
 		if (Cursor->Valid) {
-//			if ((Cursor->File.Type == PloreFileNode_Directory && !Cursor->Count)) return(Result);
-			
-			Result = &GetOrCreateCursor(FileContext, &Cursor->File.Path).Cursor->Path;
+			Result = &GetOrCreateFileInfo(FileContext, &Cursor->File.Path).Info->Path;
 		}
 	}
 	
@@ -304,21 +294,10 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		
 		for (u64 T = 0; T < ArrayCount(State->Tabs); T++) {
 			plore_tab *Tab = State->Tabs + T;
-			Tab->FileContext = PushStruct(&State->Arena, plore_file_context);
-			
-			// NOTE(Evan): Don't show hidden files by default!
-			Tab->FilterState = PushStruct(&State->Arena, plore_file_filter_state);
-			Tab->FilterState->HideMask.HiddenFiles = true; 
-			
-			Tab->DirectoryState = PushStruct(&State->Arena, plore_current_directory_state);
-			for (u64 Dir = 0; Dir < ArrayCount(Tab->FileContext->CursorSlots); Dir++) {
-				Tab->FileContext->CursorSlots[Dir] = PushStruct(&State->Arena, plore_file_listing_cursor);
-				
-			}
+			Tab->Arena = SubArena(&State->Arena, Megabytes(2), 16);
 		}
 		
-		State->TabCount = 1;
-		State->Tabs[0].Active = true;
+		InitTab(State, &State->Tabs[0]);
 		
 		State->Font = FontInit(&State->Arena, "C:\\plore\\data\\fonts\\Inconsolata-Light.ttf");
 		
@@ -493,6 +472,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	}
 	
 	SynchronizeCurrentDirectory(&State->FrameArena, GetCurrentTab(State));
+	
+	Tab = GetCurrentTab(State);
 	
 	//
 	// NOTE(Evan): GUI stuff.
@@ -784,11 +765,11 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		
 		// NOTE(Evan): Prompt string.
 		char *FilterText = 0;
-		if (Tab->FilterState->TextFilterCount) {
+		if (Tab->FilterState->GlobalListingFilter.TextCount) {
 			u64 FilterTextSize = 256;
 			
 			FilterText = PushBytes(&State->FrameArena, FilterTextSize);
-			StringPrintSized(FilterText, FilterTextSize, "Filter: %s ", Tab->FilterState->TextFilter);
+			StringPrintSized(FilterText, FilterTextSize, "Filter: %s ", Tab->FilterState->GlobalListingFilter.Text);
 		}
 		
 		u64 BufferSize = 256;
@@ -841,7 +822,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			plore_viewable_directory *Directory = ViewDirectories + Col;
 			plore_file_listing *Listing = Directory->File;
 			if (!Listing) continue; /* Parent can be null, if we are currently looking at a top-level directory. */
-			plore_file_listing_cursor *RowCursor = GetCursor(Tab->FileContext, Listing->File.Path.Absolute);
+			plore_file_listing_info *RowCursor = GetInfo(Tab->FileContext, Listing->File.Path.Absolute);
 			char *Title = Listing->File.Path.FilePart;
 			
 			widget_colour_flags WindowColourFlags = WidgetColourFlags_Default;
@@ -894,8 +875,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							
 							
 							b64 PassesFilter = true;
-							if (Tab->FilterState->ISearchFilterCount) {
-								PassesFilter = SubstringNoCase(RowEntry->Path.FilePart, Tab->FilterState->ISearchFilter).IsContained;
+							if (Tab->FilterState->ISearchFilter.TextCount) {
+								PassesFilter = SubstringNoCase(RowEntry->Path.FilePart, Tab->FilterState->ISearchFilter.Text).IsContained;
 							}
 							
 							
@@ -969,8 +950,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								} else {
 									Platform->SetCurrentDirectory(Listing->File.Path.Absolute);
 								}
-								plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(Tab->FileContext, &Listing->File.Path);
-								CursorResult.Cursor->Cursor = Row;
+								plore_file_listing_info_get_or_create_result CursorResult = GetOrCreateFileInfo(Tab->FileContext, &Listing->File.Path);
+								CursorResult.Info->Cursor = Row;
 							}
 						}
 					} break;
@@ -1167,35 +1148,40 @@ FileNodeIsFiltered(plore_file_node *List, plore_file_node FileNode) {
 	return(false);
 }
 
+internal char *
+RemoveSeparators(char *S, u64 Size) {
+	char *Current = S;
+	while (*Current) {
+		char *Tail = Current;
+		
+		if (*Tail == '_' ||
+			*Tail == '-' ||
+			*Tail == ' ') {
+			u64 SourceLength = StringLength(Tail+1);
+			u64 DestLength = StringLength(Tail);
+			
+			if (SourceLength) CStringCopy(Tail+1, Tail, DestLength);
+			else *Tail = '\0';
+		} else {
+			Current++;
+		}
+		
+	}
+	
+	return(S);
+}
+
 internal void
 FilterFileListing(memory_arena *Arena, plore_file_listing *Listing, plore_file_filter_state *FilterState) {
 	char TextFilterPattern[PLORE_MAX_PATH] = {0};
-	if (FilterState->TextFilterCount) {
-		MemoryCopy(FilterState->TextFilter, TextFilterPattern, FilterState->TextFilterCount);
-		TextFilterPattern[FilterState->TextFilterCount] = '\0';
-		
-		char *Current = TextFilterPattern;
-		while (*Current) {
-			char *Tail = Current;
-			
-			if (*Tail == '_' ||
-				*Tail == '-' ||
-				*Tail == ' ') {
-				u64 SourceLength = StringLength(Tail+1);
-				u64 DestLength = StringLength(Tail);
-				
-				if (SourceLength) CStringCopy(Tail+1, Tail, DestLength);
-				else *Tail = '\0';
-			} else {
-				Current++;
-			}
-			
-		}
+	if (FilterState->GlobalListingFilter.TextCount) {
+		CStringCopy(FilterState->GlobalListingFilter.Text, TextFilterPattern, FilterState->GlobalListingFilter.TextCount);
+		RemoveSeparators(TextFilterPattern, ArrayCount(TextFilterPattern));
 	}
 	
 	plore_file *ListingsToKeep = PushArray(Arena, plore_file, Listing->Count);
 	u64 ListingsToKeepCount = 0;
-	b64 HasTextFilter = FilterState->TextFilterCount;
+	b64 HasTextFilter = FilterState->GlobalListingFilter.TextCount;
 	
 	for (u64 F = 0; F < Listing->Count; F++) {
 		plore_file *File = Listing->Entries + F;
@@ -1204,19 +1190,22 @@ FilterFileListing(memory_arena *Arena, plore_file_listing *Listing, plore_file_f
 		    ExtensionIsFiltered(FilterState->HideMask.Extensions, File->Extension)            ||
 			FileNodeIsFiltered(FilterState->HideMask.FileNodes,   File->Type)                 ||
 		   (File->Hidden && FilterState->HideMask.HiddenFiles);
-		 if (HasTextFilter) {
-			 switch (FilterState->TextFilterState) {
-				 case TextFilterState_Hide: {
-					 Discard = Discard || SubstringNoCase(File->Path.FilePart, TextFilterPattern).IsContained;
-				 } break;
+		if (HasTextFilter) {
+			char FileNamePattern[PLORE_MAX_PATH] = {0};
+			CStringCopy(File->Path.FilePart, FileNamePattern, ArrayCount(FileNamePattern));
+			RemoveSeparators(FileNamePattern, ArrayCount(FileNamePattern));
+			
+			switch (FilterState->GlobalListingFilter.State) {
+				case TextFilterState_Hide: {
+					Discard = Discard || SubstringNoCase(FileNamePattern, TextFilterPattern).IsContained;
+				} break;
+					 
+				case TextFilterState_Show: {
+					Discard = Discard || !SubstringNoCase(FileNamePattern, TextFilterPattern).IsContained;
+				} break;
 				 
-				 case TextFilterState_Show: {
-					 Discard = Discard || !SubstringNoCase(File->Path.FilePart, TextFilterPattern).IsContained;
-				 } break;
-				 
-				 InvalidDefaultCase;
-			 }
-				 
+			}
+			 
 		 }
 			
 		if (!Discard) ListingsToKeep[ListingsToKeepCount++] = *File;
@@ -1246,10 +1235,10 @@ SynchronizeCurrentDirectory(memory_arena *FrameArena, plore_tab *Tab) {
 	if (CurrentState->Current.Count) PloreSort(CurrentState->Current.Entries, CurrentState->Current.Count, plore_file)
 	
 	if (CurrentState->Current.Valid && CurrentState->Current.Count) {
-		plore_file_listing_cursor_get_or_create_result CursorResult = GetOrCreateCursor(FileContext, &CurrentState->Current.File.Path);
+		plore_file_listing_info_get_or_create_result CursorResult = GetOrCreateFileInfo(FileContext, &CurrentState->Current.File.Path);
 		
 		
-		plore_file *CursorEntry = CurrentState->Current.Entries + CursorResult.Cursor->Cursor;
+		plore_file *CursorEntry = CurrentState->Current.Entries + CursorResult.Info->Cursor;
 		
 		
 		CreateFileListing(&CurrentState->Cursor, ListingFromFile(CursorEntry));
@@ -1268,7 +1257,7 @@ SynchronizeCurrentDirectory(memory_arena *FrameArena, plore_tab *Tab) {
 		}
 		CreateFileListing(&CurrentState->Parent, ListingFromDirectoryPath(&CurrentCopy.File.Path));
 		
-		plore_file_listing_cursor_get_or_create_result ParentResult = GetOrCreateCursor(FileContext, &CurrentState->Parent.File.Path);
+		plore_file_listing_info_get_or_create_result ParentResult = GetOrCreateFileInfo(FileContext, &CurrentState->Parent.File.Path);
 		FilterFileListing(FrameArena, &CurrentState->Parent, FilterState);
 		if (CurrentState->Parent.Count) PloreSort(CurrentState->Parent.Entries, CurrentState->Parent.Count, plore_file)
 		
@@ -1280,7 +1269,7 @@ SynchronizeCurrentDirectory(memory_arena *FrameArena, plore_tab *Tab) {
 				if (File->Type != PloreFileNode_Directory) continue;
 				
 				if (CStringsAreEqual(File->Path.Absolute, CurrentState->Current.File.Path.Absolute)) {
-					ParentResult.Cursor->Cursor = Row;
+					ParentResult.Info->Cursor = Row;
 					break;
 				}
 			}
@@ -1395,70 +1384,4 @@ LoadImage(memory_arena *Arena, char *AbsolutePath, u64 MaxX, u64 MaxY) {
 	
 	
 	return(Result);
-}
-	
-internal plore_tab *
-GetCurrentTab(plore_state *State) {
-	Assert(State->TabCurrent < ArrayCount(State->Tabs));
-	plore_tab *Result = State->Tabs + State->TabCurrent;
-	
-	return(Result);
-}
-
-internal b64
-SetCurrentTab(plore_state *State, u64 NewTab) {
-	b64 Result = false;
-	
-	Assert(NewTab < ArrayCount(State->Tabs));
-	plore_tab *Tab = State->Tabs + NewTab;
-	plore_tab *Previous = State->Tabs + State->TabCurrent;
-	if (Previous != Tab) {
-		if (!Tab->Active) {
-			State->TabCount++;
-		}
-		
-		Result = true;
-		Tab->Active = true;
-		
-		State->TabCurrent = NewTab;
-		Platform->SetCurrentDirectory(Tab->CurrentDirectory.Absolute);
-		
-		//
-		// NOTE(Evan): Setting a new tab will always be a frame late.
-		// Otherwise, if a Button() or Window() call stores a pointer to a plore_file, Synchronize() will change the underlying
-		// backing store for that string - i.e., we're fucked!
-		// This could be solved in other ways, but it's not worth the complexity for now. Just render at least 60fps.
-		//
-		//SynchronizeCurrentDirectory(Tab);		
-		
-	}
-	
-	return(Result);
-}
-
-internal void
-ClearTab(plore_state *State, u64 TabIndex) {
-	Assert(TabIndex < ArrayCount(State->Tabs));
-	Assert(State->TabCount > 1);
-	
-	State->TabCount--;
-	
-	plore_tab *Tab = State->Tabs + TabIndex;
-	
-	plore_file_context *FileContext = Tab->FileContext;
-	plore_file_filter_state *FilterState = Tab->FilterState;
-	plore_current_directory_state *DirectoryState = Tab->DirectoryState;
-	
-	*Tab = ClearStruct(plore_tab);
-	Tab->FileContext = FileContext;
-	Tab->FilterState = FilterState;
-	Tab->DirectoryState = DirectoryState;
-	
-	Tab->FileContext->SelectedCount       = 0;
-	Tab->FileContext->YankedCount         = 0;
-	Tab->FileContext->FileCount           = 0;
-	Tab->FileContext->InTopLevelDirectory = 0;
-	Tab->FilterState->HideMask.HiddenFiles = true; // Default!
-	for (u64 C = 0; C < ArrayCount(Tab->FileContext->CursorSlots); C++) Tab->FileContext->CursorSlots[C]->Cursor.Cursor = 0;
-	
 }
