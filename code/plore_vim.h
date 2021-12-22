@@ -26,6 +26,7 @@ PLORE_X(Select,              "select",                       "Select file under 
 PLORE_X(SelectUp,            "select_up",                    "Select and move cursor upwards in current directory",                      0)                                 \
 PLORE_X(SelectDown,          "select_down",                  "Select and move cursor downwards in current directory",                    0)                                 \
 PLORE_X(SelectAll,           "select_all",                   "Select all files in current directory",                                    0)                                 \
+PLORE_X(ClearSelect,         "clear_select",                 "Clear select in all directories",                                          0)                                 \
 PLORE_X(ISearch,             "isearch",                      "Interactive search in current directory, highlighting matching files",     "ISearch:")                        \
 PLORE_X(TextFilterHide,      "text_filter_hide",             "Interactively set text filter, hiding all matching files",                 "Hide files matching text:")       \
 PLORE_X(TextFilterShow,      "text_filter_show",             "Interactively set text filter, showing all matching files",                "Show files matching text:")       \
@@ -204,7 +205,7 @@ global vim_binding VimBindings[] = {
 		.Keys = {
 			{
 				.Input = PloreKey_Space,
-				.Modifier = PloreKey_Ctrl,
+				.Modifier = PloreKey_Shift,
 			},
 		}
 	},
@@ -212,8 +213,21 @@ global vim_binding VimBindings[] = {
 		.Type = VimCommandType_SelectAll,
 		.Keys = {
 			{
+				.Input = PloreKey_G,
+			},
+			{
 				.Input = PloreKey_Space,
-				.Modifier = PloreKey_Shift,
+			},
+		}
+	},
+	{
+		.Type = VimCommandType_ClearSelect,
+		.Keys = {
+			{
+				.Input = PloreKey_U,
+			},
+			{
+				.Input = PloreKey_Space,
 			},
 		}
 	},
