@@ -22,6 +22,13 @@ ClearArena(memory_arena *Arena) {
     Arena->BytesUsed = 0;
 }
 
+plore_inline void
+ZeroArena(memory_arena *Arena) {
+	Assert(Arena);
+	MemoryClear(Arena->Memory, Arena->BytesUsed);
+	Arena->BytesUsed = 0;
+}
+
 plore_inline memory_arena
 SubArena(memory_arena *Arena, uint64 Size, u64 Alignment) {
     Assert(Arena);
@@ -31,10 +38,10 @@ SubArena(memory_arena *Arena, uint64 Size, u64 Alignment) {
     
     memory_arena Result = {
         .Memory = (u8 *) Arena->Memory + Arena->BytesUsed,
-        .Size = EffectiveSize,
+        .Size = Size,
     };
     
-    Arena->BytesUsed += EffectiveSize;
+    Arena->BytesUsed = EffectiveSize;
     
     return(Result);
 }
@@ -43,18 +50,15 @@ plore_inline void *
 PushArena(memory_arena *Arena, uint64 BytesRequired, uint64 Alignment) {
     void *Result = 0;
     Assert(Arena && Arena->Memory);
-    Assert(BytesRequired < (Arena->Size - Arena->BytesUsed));
     
-    if (BytesRequired == 0) {
-        return(Result);
-    }
+    if (BytesRequired == 0) return(Result);
     
-    u64 EffectiveSize = AlignedSize(BytesRequired, Alignment);
-    Assert(BytesRequired + EffectiveSize <= Arena->Size);
+    u64 EffectiveSize = AlignedSize(Arena->BytesUsed + BytesRequired, Alignment);
+    Assert(EffectiveSize <= Arena->Size);
     
     Result = (uint8 *)Arena->Memory + Arena->BytesUsed;
-	MemoryClear(Result, EffectiveSize);
-    Arena->BytesUsed += EffectiveSize;
+	MemoryClear(Result, BytesRequired);
+    Arena->BytesUsed = EffectiveSize;
     
     return(Result);
 }
