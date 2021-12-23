@@ -392,9 +392,7 @@ global vim_binding VimBindings[] = {
 		.Keys = {
 			{
 				.Input = PloreKey_E,
-			},
-			{
-				.Input = PloreKey_E,
+				.Modifier = PloreKey_Shift,
 			},
 		},
 		.Shell = PLORE_EDITOR,

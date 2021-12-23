@@ -213,7 +213,6 @@ MakeCommand(plore_vim_context *Context) {
 							Result.Command.Type = VimBindings[Candidate].Type;
 							Result.Command.Mode = VimBindings[Candidate].Mode;
 							Result.Command.Shell = VimBindings[Candidate].Shell;
-							Result.Command.Arg = VimBindings[Candidate].Arg;
 							Result.Command.State = VimCommandState_Start;
 							break;
 						} 
