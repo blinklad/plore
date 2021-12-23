@@ -213,6 +213,7 @@ MakeCommand(plore_vim_context *Context) {
 							Result.Command.Type = VimBindings[Candidate].Type;
 							Result.Command.Mode = VimBindings[Candidate].Mode;
 							Result.Command.Shell = VimBindings[Candidate].Shell;
+							Result.Command.Arg = VimBindings[Candidate].Arg;
 							Result.Command.State = VimCommandState_Start;
 							break;
 						} 
@@ -292,8 +293,22 @@ PLORE_VIM_COMMAND(OpenFile) {
 	if (Selected->Type != PloreFileNode_File) return; // TODO(Evan): Multiple tabs?!
 	
 	if (Command.Shell) {
+		b64 MaybeQuoteArgs = true;
+		
+		// NOTE(Evan): Windows photo viewer does not allow the argument to be quoted.
+#if defined(PLORE_WINDOWS)
+		if (CStringsAreEqual(Command.Shell, PLORE_PHOTO_VIEWER)) {
+			DrawText("Photo viewer");
+			MaybeQuoteArgs = false;
+		}
+#endif
+		
 		if (Selected) {
-			Platform->RunShell(Command.Shell, Selected->Path.Absolute);
+			Platform->RunShell((platform_run_shell_desc) {
+								   .Command = Command.Shell, 
+								   .Args = Selected->Path.Absolute,
+								   .QuoteArgs = MaybeQuoteArgs,
+							   });
 		}
 		ResetVimState(VimContext);
 		
@@ -316,7 +331,11 @@ PLORE_VIM_COMMAND(OpenFile) {
 				Assert(VimContext->ListerCursor < GetHandlerCount(Selected->Extension));
 				
 				plore_handler *Handler = PloreFileExtensionHandlers[Selected->Extension] + VimContext->ListerCursor;
-				Platform->RunShell(Handler->Shell, Selected->Path.Absolute);
+				Platform->RunShell((platform_run_shell_desc) {
+									   .Command = Handler->Shell, 
+									   .Args = Selected->Path.Absolute,
+									   .QuoteArgs = true,
+								   });
 			} break;
 		}
 	}
@@ -718,7 +737,13 @@ PLORE_VIM_COMMAND(CloseTab) {
 }
 
 PLORE_VIM_COMMAND(OpenShell) {
-	Platform->RunShell(Command.Shell, "");
+	char *Arg = GetCursorFile(State)->Path.FilePart;
+	
+	Platform->RunShell((platform_run_shell_desc) {
+						   .Command = Command.Shell, 
+						   .Args = Arg,
+						   .QuoteArgs = true,
+					   });
 }
 
 PLORE_VIM_COMMAND(CreateFile) {
@@ -727,7 +752,6 @@ PLORE_VIM_COMMAND(CreateFile) {
 		u64 BytesWritten = CStringCopy(Tab->DirectoryState->Current.File.Path.Absolute, FilePath, PLORE_MAX_PATH);
 		FilePath[BytesWritten++] = '\\';
 		CStringCopy(Command.Shell, FilePath+BytesWritten, PLORE_MAX_PATH);
-		PrintLine("%s", FilePath);
 		
 		// TODO(Evan): Validate file name.
 		Platform->CreateFile(FilePath, false);
