@@ -729,7 +729,7 @@ PLORE_VIM_COMMAND(CloseTab) {
 			if (tBefore == -1) tTarget = tAfter;
 			else               tTarget = tBefore;
 		}
-		Assert(tTarget < ArrayCount(State->Tabs)-1);
+		Assert(tTarget < ArrayCount(State->Tabs));
 		Assert(State->Tabs[tTarget].Active);
 		
 		ClearTab(State, TabIndex);
@@ -850,9 +850,7 @@ PloreSortHelper(plore_tab *Tab, file_sort_mask SortMask) {
 }
 
 PLORE_VIM_COMMAND(ClearSelect) {
-	if (FileContext->SelectedCount) {
-		FileContext->SelectedCount = 0;
-	}
+	FileContext->SelectedCount = 0;
 }
 
 PLORE_VIM_COMMAND(ToggleSortName) {
