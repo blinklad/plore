@@ -80,9 +80,10 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 
 
 ### File Management TODOs:
-- Filtering by: Extension, File/Directory/Symlink, Filesize, ~~Arbitrary text~~
+- Filtering by: ~~Filename~~, ~~Extension~~, File/Directory/Symlink
+- ~~Global tab filtering~~
+- ~~Per-directory filtering~~
 - Sorting by: ~~Extension~~, ~~last write date~~, ~~size~~
-- A simplified subset of regular expressions for filtering and extension handling.
 - Lister for: Selected files, yanked files, bookmarked directories, commands
 - Paginated movement, i.e. ctrl-u, ctrl-d, and centering.
 - Smooth scrolling - maybe.
