@@ -881,6 +881,10 @@ PLORE_VIM_COMMAND(ToggleSortModified) {
 	PloreSortHelper(Tab, FileSort_Modified);
 }
 
+PLORE_VIM_COMMAND(ToggleSortExtension) {
+	PloreSortHelper(Tab, FileSort_Extension);
+}
+
 PLORE_VIM_COMMAND(VerticalSplit) {
 	DrawText("VSplit");
 }

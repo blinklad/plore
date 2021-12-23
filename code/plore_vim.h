@@ -46,6 +46,7 @@ PLORE_X(ShowHiddenFiles,         "toggle_show_hidden_files",     "Toggle visibil
 PLORE_X(ToggleSortName,          "toggle_sort_by_name",          "Toggle sorting by name        (default descending)",                              0)                                  \
 PLORE_X(ToggleSortSize,          "toggle_sort_by_size",          "Toggle sort by size           (default descending)",                              0)                                  \
 PLORE_X(ToggleSortModified,      "toggle_sort_by_modified_date", "Toggle sort by modified date  (default descending)",                              0)                                  \
+PLORE_X(ToggleSortExtension,     "toggle_sort_by_extension",     "Toggle sort by extension      (default descending)",                              0)                                  \
 PLORE_X(DeleteFile,              "delete_file",                  "Interactively delete file/s, with confirmation",                                  "Delete file/s? ('yes' to confirm)")\
 PLORE_X(VerticalSplit,           "vertical_split",               "Vertical split a new tab, or already existing tab, with provided number",         0)                                  \
 PLORE_X(HorizontalSplit,         "horizontal_split",             "Horizontal split a new tab, or already existing tab, with provided number",       0)
@@ -520,6 +521,18 @@ global vim_binding VimBindings[] = {
 			},
 			{
 				.Input = PloreKey_M,
+			},
+		},
+	},
+	{
+		.Type = VimCommandType_ToggleSortExtension,
+		.Keys = {
+			{
+				.Input = PloreKey_S,
+				.Modifier = PloreKey_Shift,
+			},
+			{
+				.Input = PloreKey_E,
 			},
 		},
 	},
