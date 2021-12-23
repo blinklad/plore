@@ -251,6 +251,9 @@ MakeCommand(plore_vim_context *Context) {
 							switch (LatestKey->Input) {
 								case PloreKey_Q: {
 									ResetVimState(Context);
+									Result.Command.State = VimCommandState_Finish;
+									Result.Command.Type = VimCommandType_None;
+									return(Result);
 								} break;
 								case PloreKey_J:
 								case PloreKey_K: {
