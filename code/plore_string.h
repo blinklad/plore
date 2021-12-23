@@ -143,9 +143,6 @@ internal b64
 StringCompare(char *A, char *B) {
 	b64 Result = false;
 	
-	u64 LenA = StringLength(A);
-	u64 LenB = StringLength(B);
-	
 	while (*A && *B) {
 		if (*A != *B) {
 			if (*B > *A) Result = false;
@@ -153,6 +150,25 @@ StringCompare(char *A, char *B) {
 			
 			break;
 		} else *A++, *B++;
+	}
+	
+	return(Result);
+}
+
+internal b64
+StringCompareReverse(char *A, char *B) {
+	b64 Result = false;
+	
+	u64 LenA = StringLength(A);
+	u64 LenB = StringLength(B);
+	
+	while (LenA-- && LenB--) {
+		if (A[LenA] != B[LenB]) {
+			if (B[LenB] > A[LenA]) Result = false;
+			else                   Result = true;
+			
+			break;
+		}
 	}
 	
 	return(Result);
