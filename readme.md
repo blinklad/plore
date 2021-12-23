@@ -88,7 +88,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 - Paginated movement, i.e. ctrl-u, ctrl-d, and centering.
 - Smooth scrolling - maybe.
 - Robust photo preview - BMP doesn't handle top-to-bottom, stb_image doesn't handle DEFLATE. _Probably_ `libpng` and/or `libjpg`.
-- Robust text-like ASCII file preview (ASCII only)
+- Robust text-like ASCII file preview
 - Split tabs.
 - Clipboard handling.
 - Undo for: Rename, Paste, Delete (PLORE_TRASH/Recycle Bin only). 
