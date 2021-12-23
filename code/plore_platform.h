@@ -136,6 +136,11 @@ typedef struct platform_run_shell_desc {
 #define PLATFORM_RUN_SHELL(name) b64 name(platform_run_shell_desc Desc)
 typedef PLATFORM_RUN_SHELL(platform_run_shell);
 
+
+// NOTE(Evan): Returns whether to execute debug trap.
+#define PLATFORM_DEBUG_ASSERT_HANDLER(name) b64 name(char *Message)
+typedef PLATFORM_DEBUG_ASSERT_HANDLER(platform_debug_assert_handler);
+
 // NOTE(Evan): Platform API
 typedef struct platform_api {
 	union {
@@ -146,6 +151,7 @@ typedef struct platform_api {
 		};
 	};
 
+	platform_debug_assert_handler        *DebugAssertHandler;
 	platform_create_texture_handle       *CreateTextureHandle;
 	platform_destroy_texture_handle      *DestroyTextureHandle;
 	    

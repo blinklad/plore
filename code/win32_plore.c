@@ -5,6 +5,38 @@
 #include "plore_platform.h"
 
 #include "win32_plore.h"
+global plore_input GlobalPloreInput;
+global windows_timer GlobalWindowsTimer;      // TODO(Evan): Timing!
+global windows_context *GlobalWindowsContext;
+global b64 GlobalRunning = true;
+
+PLATFORM_DEBUG_ASSERT_HANDLER(WindowsDebugAssertHandler) {
+	b64 Result = false;
+	int Action = MessageBox(GlobalWindowsContext->Window, 
+							Message, 
+							"Plore Assertion", 
+							MB_ICONEXCLAMATION | MB_CANCELTRYCONTINUE | MB_DEFBUTTON2);
+	
+	switch (Action) {
+		case IDCANCEL: {
+			_exit(-1);
+		} break;
+		
+		case IDTRYAGAIN: {
+			Result = true;
+		} break;
+		
+		case IDCONTINUE: {
+			Result = false;
+		} break;
+		
+		InvalidDefaultCase;
+	}
+	
+	return(Result);
+	
+}
+
 #include "win32_gl_loader.c"
 
 // NOTE(Evan): For GL bits!
@@ -15,11 +47,6 @@ PLATFORM_DEBUG_PRINT(WindowsDebugPrint);
 
 #include "plore_string.h"
 #include "plore_gl.c"
-
-global plore_input GlobalPloreInput;
-global windows_timer GlobalWindowsTimer;      // TODO(Evan): Timing!
-global windows_context *GlobalWindowsContext;
-global b64 GlobalRunning = true;
 
 internal plore_time
 WindowsFiletimeToPloreTime(FILETIME Filetime) {
@@ -1113,6 +1140,7 @@ int WinMain (
         .WindowHeight = DEFAULT_WINDOW_HEIGHT,
 		
 #if PLORE_INTERNAL
+		.DebugAssertHandler  = WindowsDebugAssertHandler,
         .DebugOpenFile       = WindowsDebugOpenFile,
         .DebugReadEntireFile = WindowsDebugReadEntireFile,
 		.DebugCloseFile      = WindowsDebugCloseFile,

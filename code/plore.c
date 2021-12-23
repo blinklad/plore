@@ -12,6 +12,21 @@ global platform_api *Platform;
 global platform_debug_print_line *PrintLine;
 global platform_debug_print *Print;
 
+#if defined(PLORE_INTERNAL)
+#ifdef Assert
+#undef Assert
+#define Assert(X) if (!(X)) {                                                                                      \
+					  char __AssertBuffer[256];                                                                    \
+					  StringPrintSized(__AssertBuffer,                                                             \
+					  ArrayCount(__AssertBuffer),                                                                  \
+						"Assert fired on line %d in file %s\n"                                                     \
+						"Try again to attach debugger, abort to exit, continue to ignore.",                        \
+					  __LINE__,                                                                                    \
+					  __FILE__);                                                                                   \
+					  if (Platform->DebugAssertHandler(__AssertBuffer)) Debugger;                                  \
+}
+#endif
+#endif
 
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "stb_truetype.h"

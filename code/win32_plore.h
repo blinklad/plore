@@ -20,6 +20,11 @@
 #undef PLORE_MAX_PATH
 #define PLORE_MAX_PATH MAX_PATH
 
+#ifdef Assert
+#undef Assert
+#define Assert(X) if (!(X)) { if (WindowsDebugAssertHandler("Assert fired in Windows platform layer.")) Debugger; }
+#endif
+
 typedef struct windows_context {
     HWND Window;
     HDC DeviceContext;
