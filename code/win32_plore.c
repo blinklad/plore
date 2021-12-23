@@ -462,10 +462,14 @@ PLATFORM_RUN_SHELL(WindowsRunShell) {
 		InitializeCriticalSection(&ProcessHandleTableGuard);
 	}
 	
-	if (!Args) Args = "";
+	if (!Desc.Args) Desc.Args = "";
 	
 	char Buffer[PLORE_MAX_PATH] = {0};
-	StringPrintSized(Buffer, PLORE_MAX_PATH, "cmd.exe /k %s %s", Command, Args);
+	if (Desc.QuoteArgs) {
+		StringPrintSized(Buffer, PLORE_MAX_PATH, "cmd.exe /s /k \"\"%s\" \"%s\"\"", Desc.Command, Desc.Args);
+	} else {
+		StringPrintSized(Buffer, PLORE_MAX_PATH, "cmd.exe /s /k \"%s %s\"", Desc.Command, Desc.Args);
+	}
 	WindowsDebugPrintLine("%s", Buffer);
 	
 	EnterCriticalSection(&ProcessHandleTableGuard);
@@ -523,7 +527,7 @@ PLATFORM_RUN_SHELL(WindowsRunShell) {
 														 WT_EXECUTEONLYONCE);
 														 
 	if (!DidRegisterCleanup) {
-		WindowsDebugPrintLine("Couldn't register %s for cleanup.", Args);
+		WindowsDebugPrintLine("Couldn't register %s for cleanup.", Desc.Args);
 	}
 	
 	MyProcess->IsRunning = true;
