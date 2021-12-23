@@ -584,48 +584,64 @@ PLORE_VIM_COMMAND(ISearch)  {
 	}
 }
 
-PLORE_VIM_COMMAND(TextFilterHide) {
-	if (Command.Shell) {
+internal void
+TextFilterHelper(plore_vim_context *VimContext, 
+				 plore_tab *Tab, 
+				 vim_command Command, 
+				 text_filter_state TargetState, 
+				 b64 Global) {
+	text_filter *Filter = 0;
+	if (Global) {
+		Filter = &Tab->FilterState->GlobalListingFilter;
 	} else {
-		switch (Command.State) {
-			case VimCommandState_Start: {
-				InsertBegin(VimContext, Command);
-				text_filter *Filter = &Tab->FilterState->GlobalListingFilter;
-				if (Filter->State != TextFilterState_Hide) *Filter = ClearStruct(text_filter);
-				SetVimCommandFromString(VimContext, Filter->Text);
-				
-				Filter->State = TextFilterState_Hide;
-			} break;
+		plore_file_listing_info *Info = GetOrCreateFileInfo(Tab->FileContext, &Tab->CurrentDirectory).Info;
+		Filter = &Info->Filter;
+	}
+	
+	switch (Command.State) {
+		case VimCommandState_Start: {
+			InsertBegin(VimContext, Command);
+			if (Filter->State != TargetState) *Filter = ClearStruct(text_filter);
+			SetVimCommandFromString(VimContext, Filter->Text);
 			
-			case VimCommandState_Incomplete: {
-				Tab->FilterState->GlobalListingFilter.TextCount = VimKeysToString(Tab->FilterState->GlobalListingFilter.Text, 
-																			ArrayCount(Tab->FilterState->GlobalListingFilter.Text), 
-																			VimContext->CommandKeys).BytesWritten;
-			} break;
-		}
+			Filter->State = TargetState;
+		} break;
+		
+		case VimCommandState_Incomplete: {
+			Filter->TextCount = VimKeysToString(Filter->Text, 
+											    ArrayCount(Filter->Text), 
+											    VimContext->CommandKeys).BytesWritten;
+		} break;
 	}
 }
 
-PLORE_VIM_COMMAND(TextFilterShow) {
-	if (Command.Shell) {
-	} else {
-		switch (Command.State) {
-			case VimCommandState_Start: {
-				InsertBegin(VimContext, Command);
-				text_filter *Filter = &Tab->FilterState->GlobalListingFilter;
-				if (Filter->State != TextFilterState_Show) *Filter = ClearStruct(text_filter);
-				SetVimCommandFromString(VimContext, Filter->Text);
-				
-				Filter->State = TextFilterState_Show;
-			} break;
-			
-			case VimCommandState_Incomplete: {
-				Tab->FilterState->GlobalListingFilter.TextCount = VimKeysToString(Tab->FilterState->GlobalListingFilter.Text, 
-																			ArrayCount(Tab->FilterState->GlobalListingFilter.Text), 
-																			VimContext->CommandKeys).BytesWritten;
-			} break;
-		}
+PLORE_VIM_COMMAND(TabTextFilterClear) {
+	Tab->FilterState->GlobalListingFilter = ClearStruct(text_filter);
+}
+
+PLORE_VIM_COMMAND(TabTextFilterHide) {
+	TextFilterHelper(VimContext, Tab, Command, TextFilterState_Hide, true);
+}
+
+PLORE_VIM_COMMAND(TabTextFilterShow) {
+	TextFilterHelper(VimContext, Tab, Command, TextFilterState_Show, true);
+}
+
+
+PLORE_VIM_COMMAND(DirectoryTextFilterClear) {
+	for (u64 D = 0; D < ArrayCount(FileContext->InfoSlots); D++) {
+		plore_file_listing_info_slot *Slot = FileContext->InfoSlots[D];
+		if (Slot->Allocated) Slot->Info.Filter = ClearStruct(text_filter);
 	}
+	// TODO(Evan): Walk the directory listing table!
+}
+
+PLORE_VIM_COMMAND(DirectoryTextFilterHide) {
+	TextFilterHelper(VimContext, Tab, Command, TextFilterState_Hide, false);
+}
+
+PLORE_VIM_COMMAND(DirectoryTextFilterShow) {
+	TextFilterHelper(VimContext, Tab, Command, TextFilterState_Show, false);
 }
 
 PLORE_VIM_COMMAND(ChangeDirectory) {

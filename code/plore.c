@@ -1186,40 +1186,62 @@ RemoveSeparators(char *S, u64 Size) {
 	return(S);
 }
 
+
+internal b64
+StringMatchesFilter(char *S, char *Pattern, text_filter *Filter) {
+	b64 Result = false;
+	switch (Filter->State) {
+		case TextFilterState_Hide: {
+			Result = SubstringNoCase(S, Pattern).IsContained;
+		} break;
+		
+		case TextFilterState_Show: {
+			Result = !SubstringNoCase(S, Pattern).IsContained;
+		} break;
+	}
+	
+	return(Result);
+}
+
 internal void
-FilterFileListing(memory_arena *Arena, plore_file_listing *Listing, plore_file_filter_state *FilterState) {
-	char TextFilterPattern[PLORE_MAX_PATH] = {0};
-	if (FilterState->GlobalListingFilter.TextCount) {
-		CStringCopy(FilterState->GlobalListingFilter.Text, TextFilterPattern, FilterState->GlobalListingFilter.TextCount);
-		RemoveSeparators(TextFilterPattern, ArrayCount(TextFilterPattern));
+FilterFileListing(memory_arena *Arena, plore_tab *Tab, plore_file_listing *Listing) {
+	text_filter *TabFilter = 0;
+	char TabTextFilterPattern[PLORE_MAX_PATH] = {0};
+	if (Tab->FilterState->GlobalListingFilter.TextCount) {
+		TabFilter = &Tab->FilterState->GlobalListingFilter;
+		CStringCopy(TabFilter->Text, TabTextFilterPattern, ArrayCount(TabTextFilterPattern));
+		RemoveSeparators(TabTextFilterPattern, ArrayCount(TabTextFilterPattern));
+	}
+	
+	text_filter *DirectoryFilter = 0;
+	char DirectoryTextFilterPattern[PLORE_MAX_PATH] = {0};
+	plore_file_listing_info *Info = GetOrCreateFileInfo(Tab->FileContext, &Listing->File.Path).Info;
+	
+	if (Info->Filter.TextCount) {
+		DirectoryFilter = &Info->Filter;
+		CStringCopy(DirectoryFilter->Text, DirectoryTextFilterPattern, ArrayCount(DirectoryTextFilterPattern));
+		RemoveSeparators(DirectoryTextFilterPattern, ArrayCount(DirectoryTextFilterPattern));
 	}
 	
 	plore_file *ListingsToKeep = PushArray(Arena, plore_file, Listing->Count);
 	u64 ListingsToKeepCount = 0;
-	b64 HasTextFilter = FilterState->GlobalListingFilter.TextCount;
+	b64 HasTextFilter = TabFilter || DirectoryFilter;
 	
 	for (u64 F = 0; F < Listing->Count; F++) {
 		plore_file *File = Listing->Entries + F;
 		
 		b64 Discard = 
-		    ExtensionIsFiltered(FilterState->HideMask.Extensions, File->Extension)            ||
-			FileNodeIsFiltered(FilterState->HideMask.FileNodes,   File->Type)                 ||
-		   (File->Hidden && FilterState->HideMask.HiddenFiles);
+		    ExtensionIsFiltered(Tab->FilterState->HideMask.Extensions, File->Extension)            ||
+			FileNodeIsFiltered(Tab->FilterState->HideMask.FileNodes,   File->Type)                 ||
+		   (File->Hidden && Tab->FilterState->HideMask.HiddenFiles);
+		
 		if (HasTextFilter) {
 			char FileNamePattern[PLORE_MAX_PATH] = {0};
 			CStringCopy(File->Path.FilePart, FileNamePattern, ArrayCount(FileNamePattern));
 			RemoveSeparators(FileNamePattern, ArrayCount(FileNamePattern));
 			
-			switch (FilterState->GlobalListingFilter.State) {
-				case TextFilterState_Hide: {
-					Discard = Discard || SubstringNoCase(FileNamePattern, TextFilterPattern).IsContained;
-				} break;
-					 
-				case TextFilterState_Show: {
-					Discard = Discard || !SubstringNoCase(FileNamePattern, TextFilterPattern).IsContained;
-				} break;
-				 
-			}
+			if (TabFilter)       Discard = Discard || StringMatchesFilter(FileNamePattern, TabTextFilterPattern, TabFilter);
+			if (DirectoryFilter) Discard = Discard || StringMatchesFilter(FileNamePattern, DirectoryTextFilterPattern, DirectoryFilter);
 			 
 		 }
 			
@@ -1245,7 +1267,7 @@ SynchronizeCurrentDirectory(memory_arena *FrameArena, plore_tab *Tab) {
 	
 	CreateFileListing(&CurrentState->Current, ListingFromDirectoryPath(&Tab->CurrentDirectory));
 	FileContext->InTopLevelDirectory = Platform->IsPathTopLevel(CurrentState->Current.File.Path.Absolute, PLORE_MAX_PATH);
-	FilterFileListing(FrameArena, &CurrentState->Current, FilterState);
+	FilterFileListing(FrameArena, Tab, &CurrentState->Current);
 	
 	if (CurrentState->Current.Count) PloreSort(CurrentState->Current.Entries, CurrentState->Current.Count, plore_file)
 	
@@ -1257,7 +1279,7 @@ SynchronizeCurrentDirectory(memory_arena *FrameArena, plore_tab *Tab) {
 		
 		
 		CreateFileListing(&CurrentState->Cursor, ListingFromFile(CursorEntry));
-		FilterFileListing(FrameArena, &CurrentState->Cursor, FilterState);
+		FilterFileListing(FrameArena, Tab, &CurrentState->Cursor);
 		if (CurrentState->Cursor.Count) PloreSort(CurrentState->Cursor.Entries, CurrentState->Cursor.Count, plore_file)
 	}
 	
@@ -1273,7 +1295,7 @@ SynchronizeCurrentDirectory(memory_arena *FrameArena, plore_tab *Tab) {
 		CreateFileListing(&CurrentState->Parent, ListingFromDirectoryPath(&CurrentCopy.File.Path));
 		
 		plore_file_listing_info_get_or_create_result ParentResult = GetOrCreateFileInfo(FileContext, &CurrentState->Parent.File.Path);
-		FilterFileListing(FrameArena, &CurrentState->Parent, FilterState);
+		FilterFileListing(FrameArena, Tab, &CurrentState->Parent);
 		if (CurrentState->Parent.Count) PloreSort(CurrentState->Parent.Entries, CurrentState->Parent.Count, plore_file)
 		
 		// Make sure the parent's cursor is set to the current directory.
