@@ -67,6 +67,7 @@ typedef enum file_sort_mask {
 	FileSort_Size,
 	FileSort_Name,
 	FileSort_Modified,
+	FileSort_Extension,
 	FileSort_Count,
 	_FileSort_ForceU64 = 0xffffffffull,
 } file_sort_mask;
@@ -1135,19 +1136,39 @@ PloreFileSortHelper(plore_file *A, plore_file *B, file_sort_mask SortMask, b64 A
 	
 	switch (SortMask) {
 		case FileSort_Name: {
-			Result = StringCompare(A->Path.Absolute, B->Path.Absolute);
+			Result = StringCompare(A->Path.FilePart, B->Path.FilePart);
+			if (Ascending) Result = !Result;
+		} break;
+		
+		// NOTE(Evan): In this mode, files always go before extensions, while respecting ascending/descending order by extension.
+		// Directories will always be sorted descending by name.
+		case FileSort_Extension: {
+			if (A->Type == PloreFileNode_Directory && B->Type == PloreFileNode_File) {
+				Result = true;
+			} else if (A->Type == PloreFileNode_File && B->Type == PloreFileNode_Directory) {
+				Result = false;
+			} else {
+				if (A->Type == PloreFileNode_File && B->Type == PloreFileNode_File) {
+					Result = StringCompareReverse(A->Path.FilePart, B->Path.FilePart);
+					if (Ascending) Result = !Result;
+				} else {
+					Result = StringCompare(A->Path.FilePart, B->Path.FilePart);
+				}
+				
+			}
 		} break;
 		
 		case FileSort_Modified: {
 			Result = A->LastModification.T > B->LastModification.T;
+			if (Ascending) Result = !Result;
 		} break;
 		
 		case FileSort_Size: {
 			Result = A->Bytes > B->Bytes;
+			if (Ascending) Result = !Result;
 		} break;
 	}
 	
-	if (Ascending) Result = !Result;
 	return(Result);
 }
 
@@ -1189,17 +1210,8 @@ RemoveSeparators(char *S, u64 Size) {
 
 internal b64
 StringMatchesFilter(char *S, char *Pattern, text_filter *Filter) {
-	b64 Result = false;
-	switch (Filter->State) {
-		case TextFilterState_Hide: {
-			Result = SubstringNoCase(S, Pattern).IsContained;
-		} break;
-		
-		case TextFilterState_Show: {
-			Result = !SubstringNoCase(S, Pattern).IsContained;
-		} break;
-	}
-	
+	b64 Result = SubstringNoCase(S, Pattern).IsContained;
+	if (Filter->State == TextFilterState_Show) Result = !Result;
 	return(Result);
 }
 
