@@ -791,10 +791,19 @@ PLORE_VIM_COMMAND(DeleteFile) {
 		if (Confirmation(MaybeConfirmation)) {
 			plore_path *Selection = GetImpliedSelection(State);
 			if (Selection) {
-				b64 Result = Platform->DeleteFile(Selection->Absolute, (platform_delete_file_desc) { 
-													  .Recursive = false,
-													  .PermanentDelete = false,
-												  });
+				Platform->DeleteFile(Selection->Absolute, (platform_delete_file_desc) { 
+											  .Recursive = false,
+											  .PermanentDelete = false,
+										  });
+			} else if (FileContext->SelectedCount) {
+				for (u64 S = 0; S < FileContext->SelectedCount; S++) {
+					plore_path *Selection = FileContext->Selected + S;
+					Platform->DeleteFile(Selection->Absolute, (platform_delete_file_desc) { 
+														  .Recursive = false,
+														  .PermanentDelete = false,
+													  });
+				}
+				FileContext->SelectedCount = 0;
 			}
 		}
 	} else {
