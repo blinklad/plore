@@ -292,7 +292,7 @@ PLORE_VIM_COMMAND(None) {
 
 PLORE_VIM_COMMAND(OpenFile) {
 	plore_file *Selected = GetCursorFile(State);
-	if (Selected->Type != PloreFileNode_File) return; // TODO(Evan): Multiple tabs?!
+	if (Selected->Type != PloreFileNode_File) return;
 	
 	if (Command.Shell) {
 		b64 MaybeQuoteArgs = true;
