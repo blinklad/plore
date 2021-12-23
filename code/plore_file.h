@@ -28,10 +28,11 @@ typedef struct plore_handler {
 #define PLORE_HOME     "C:/Users/Evan"
 #define PLORE_TRASH    ""
 
+#define PLORE_PHOTO_VIEWER "rundll32.exe \"C:\\Program Files\\Windows Photo Viewer\\PhotoViewer.dll\", ImageView_Fullscreen" 
 
-#define PLORE_PHOTO_HANDLER            { .Name = "Windows Photo Viewer", .Shell = "rundll32.exe \"C:\\Program Files\\Windows Photo Viewer\\PhotoViewer.dll\", ImageView_Fullscreen" }
-#define PLORE_BASIC_PHOTO_EDITOR       { .Name = "GIMP",                 .Shell = "\"C:\\Program Files\\GIMP 2\\bin\\gimp-2.10.exe\"" }
-#define PLORE_ADVANCED_PHOTO_EDITOR    { .Name = "Paint",                .Shell = "\"C:\\Windows\\System32\\mspaint.exe\"" }
+#define PLORE_PHOTO_HANDLER            { .Name = "Windows Photo Viewer", .Shell = PLORE_PHOTO_VIEWER }
+#define PLORE_BASIC_PHOTO_EDITOR       { .Name = "GIMP",                 .Shell = "C:\\Program Files\\GIMP 2\\bin\\gimp-2.10.exe" }
+#define PLORE_ADVANCED_PHOTO_EDITOR    { .Name = "Paint",                .Shell = "C:\\Windows\\System32\\mspaint.exe" }
 #define PLORE_TEXT_HANDLER             { .Name = "4Coder",               .Shell = PLORE_EDITOR  }
 
 
