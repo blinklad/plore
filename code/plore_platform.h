@@ -127,7 +127,13 @@ typedef PLATFORM_MOVE_FILE(platform_move_file);
 typedef PLATFORM_RENAME_FILE(platform_rename_file);
 
 
-#define PLATFORM_RUN_SHELL(name) b64 name(char *Command, char *Args)
+typedef struct platform_run_shell_desc {
+	char *Command;
+	char *Args;
+	b64 QuoteArgs;
+} platform_run_shell_desc;
+
+#define PLATFORM_RUN_SHELL(name) b64 name(platform_run_shell_desc Desc)
 typedef PLATFORM_RUN_SHELL(platform_run_shell);
 
 // NOTE(Evan): Platform API
