@@ -489,14 +489,16 @@ PLATFORM_RUN_SHELL(WindowsRunShell) {
 		InitializeCriticalSection(&ProcessHandleTableGuard);
 	}
 	
-	if (!Desc.Args) Desc.Args = "";
-	
+	// @Cleanup
 	char Buffer[PLORE_MAX_PATH] = {0};
 	if (Desc.QuoteArgs) {
 		StringPrintSized(Buffer, PLORE_MAX_PATH, "cmd.exe /s /k \"\"%s\" \"%s\"\"", Desc.Command, Desc.Args);
-	} else {
+	} else if (Desc.Args) {
 		StringPrintSized(Buffer, PLORE_MAX_PATH, "cmd.exe /s /k \"%s %s\"", Desc.Command, Desc.Args);
+	} else {
+		StringPrintSized(Buffer, PLORE_MAX_PATH, "cmd.exe /s /k \"%s\"", Desc.Command);
 	}
+	
 	WindowsDebugPrintLine("%s", Buffer);
 	
 	EnterCriticalSection(&ProcessHandleTableGuard);
