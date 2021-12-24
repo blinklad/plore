@@ -20,12 +20,12 @@ Consider this repository to be a snapshot in time of whatever fire I am currentl
 **I do not attempt to solve problems I do not have**. 
 
 Specifically, there is no handling for:
-- Unicode
-- Localization
+- Unicode, except where the platform layer requires multi-byte/wide strings.
+- Localization.
 - Terminal integration: I've found colouring and escape sequences alone do not work smoothly between terminal emulators, let alone operating systems.
-- xresources integration.
-- File previews for every file extension and encoding, e.g., .tiff, .pdf, .gif, etc.
-- Variable-length paths: I've never had issues with this before.
+- `.xresources` integration.
+- File previews (therefore, decoders) for arbitrary file extensions and encodings, e.g., .tiff, .pdf, .gif, etc.
+- Variable-length paths: I've never had issues with this on Windows before, nor do I have a need to traverse deeply-nested e.g., `.git` directories, or Python `.env`s.
 - File permission editing: I very rarely do this, at least not often enough to warrant including it in a file manager.
 
 ### Warning 
@@ -41,7 +41,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 ### TODOS
 * Linux porting.
   For file extensions and shell handlers, this will probably involve a small metaprogram to generate the correct commands.
-* Windows layer work - better key handling, for starters.
+* Windows layer work - better key/mouse handling, for starters.
 * Asynchronous file management, for e.g., `mv`s.
 * File change notifications, for name changes, time of last edit, photo preview, etc.
 * Commands:
@@ -59,15 +59,16 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
    - ~~Interactive make directory~~
    - ~~Interactive make file~~
    - ~~ISearch, with jump to single result on return.~~
+   - ISearch with movement between matches, starting from cursor
    - ~~Open file, from list of candidate extension handlers~~
    - ~~Create tab~~
    - ~~Toggle hidden file display~~
    - ~~Sorting by various file metadata~~
    - ~~Filter any files matching substring~~
-   - Interactive open file, using user-specified shell.
+   - ~~Interactive open file, using user-specified shell.~~
    - ISearch select numbered candidates
    - ISearch select all candidates
-   - File opening handler suggestion.
+   - ~~File opening handler suggestion.~~
    - Open tab in specified directory.
    - ~~Close tab.~~
 
