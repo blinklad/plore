@@ -37,6 +37,7 @@ PLORE_X(DirectoryTextFilterClear,"directory_text_filter_clear",  "Clear all dire
 PLORE_X(ChangeDirectory,         "change_directory",             "Interactive change directory/drive",                                              "Change directory to?")             \
 PLORE_X(RenameFile,              "rename_file",                  "Interactive rename file",                                                         "Rename file to?")                  \
 PLORE_X(OpenFile,                "open_file",                    "Displays all file extension handlers for file under cursor",                      0)                                  \
+PLORE_X(OpenFileWith,            "open_file_with",               "Interactive open file, using a specified shell command",                          "Open file using program: ")                                  \
 PLORE_X(NewTab,                  "new_file",                     "Create new or switch to already existing tab with provided number",               0)                                  \
 PLORE_X(CloseTab,                "close_file",                   "Close tab with provided number",                                                  0)                                  \
 PLORE_X(OpenShell,               "open_shell",                   "Open shell in current directory",                                                 0)                                  \
@@ -425,6 +426,17 @@ global vim_binding VimBindings[] = {
 		}
 	},
 	{
+		.Type = VimCommandType_OpenFileWith,
+		.Keys = {
+			{
+				.Input = PloreKey_O,
+			},
+			{
+				.Input = PloreKey_O,
+			},
+		}
+	},
+	{
 		.Type = VimCommandType_NewTab,
 		.Keys = {
 			{
@@ -606,12 +618,5 @@ AcceptsPattern(vim_binding *Binding) {
 	return(Result);
 }
 
-typedef struct plore_tab plore_tab;
-
-#define PLORE_VIM_COMMAND_FUNCTION(Name) \
-void Name(plore_state *State, plore_tab *Tab, plore_vim_context *VimContext, plore_file_context *FileContext, vim_command Command)
-
-typedef PLORE_VIM_COMMAND_FUNCTION(vim_command_function);
-#define PLORE_VIM_COMMAND(CommandName) PLORE_VIM_COMMAND_FUNCTION(Do##CommandName)
 
 #endif //PLORE_VIM_H
