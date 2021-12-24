@@ -801,7 +801,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 						     "[%s] %s %s", 
 						     (CursorFile->Type == PloreFileNode_Directory) ? "directory" : "file", 
 							 CursorFile->Path.FilePart,
-							 PloreTimeFormat(&State->FrameArena, CursorFile->LastModification, "%a %b %d %x")
+							 PloreTimeFormat(&State->FrameArena, CursorFile->LastModification, "%a %b %d/%m/%y")
 							 );
 		} else {
 			StringPrintSized(CursorInfo, 
@@ -905,7 +905,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								if (!PassesFilter) TextColourFlags = TextColourFlags_Fade;
 							}
 							
-							char *Timestamp = PloreTimeFormat(&State->FrameArena, RowEntry->LastModification, "%b %x");
+							char *Timestamp = PloreTimeFormat(&State->FrameArena, RowEntry->LastModification, "%b %d/%m/%y");
 							
 							char *SecondaryText = Timestamp;
 							if (RowEntry->Type == PloreFileNode_File) {
