@@ -916,6 +916,10 @@ PLORE_VIM_COMMAND(ToggleSortExtension) {
 	PloreSortHelper(Tab, FileSort_Extension);
 }
 
+PLORE_VIM_COMMAND(ShowCommandList) {
+	ListerBegin(VimContext, Command, VimCommandType_Count);
+}
+
 PLORE_VIM_COMMAND(VerticalSplit) {
 	DrawText("VSplit");
 }
