@@ -759,6 +759,7 @@ PLORE_VIM_COMMAND(CloseTab) {
 			}
 		}
 		
+		// NOTE(Evan): Find and switch to the closest tab, preferring numerically smaller tab indices.
 		Assert(TabIndex < ArrayCount(State->Tabs));
 		
 		i64 tBefore = -1;
