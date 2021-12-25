@@ -733,18 +733,29 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 					u64 CandidateSize = 256;
 					char *CandidateString = PushBytes(&State->FrameArena, CandidateSize);
 					
-					StringPrintSized(CandidateString, CandidateSize, "%-8s %-28s %-32s",
-									 BindingString,
-									 VimCommandStrings[Candidate->Type],
-									 (Candidate->Shell ? Candidate->Shell : ""));
+					if (Candidate->Shell) {
+						StringPrintSized(CandidateString, CandidateSize, "%s, arg: %s",
+										 VimCommandStrings[Candidate->Type],
+										 Candidate->Shell
+										 );
+					} else {
+						StringPrintSized(CandidateString, CandidateSize, "%s", VimCommandStrings[Candidate->Type]);
+					}
 					
 					u64 ID = Candidate->Shell ? (u64) Candidate->Shell : (u64) CandidateString + Candidate->Type;
 					
 					if (Button(State->VimguiContext, (vimgui_button_desc) {
 									   .ID = ID,
 									   .Title = {
-										   .Text = CandidateString,
+										   .Text = BindingString,
 										   .Pad = V2(16, 16),
+										   .Alignment = VimguiLabelAlignment_Left,
+									   },
+									   .Secondary = {
+										   .Text = CandidateString,
+										   .Pad = V2(32, 16),
+										   .Alignment = VimguiLabelAlignment_Left,
+										   .Colour = TextColour_PromptCursor,
 									   },
 									   .Rect = {
 										   .P = V2(PadX, PlatformAPI->WindowDimensions.Y - FooterHeight - CandidateCount*(FooterHeight + PadY) + PadY - 20),
