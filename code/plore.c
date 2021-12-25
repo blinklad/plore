@@ -370,10 +370,15 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		plore_key PK = GetKey(C);
 		
 		// NOTE(Evan): Modifiers are mutually exclusive!
+		// NOTE(Evan): Shift isn't tracked for non-alphanumeric keys.
 		plore_key Modifier = PloreKey_None;
-		if (BufferedInput.sKeys[PK]) {
-			Modifier = PloreKey_Shift;
-		} else if (BufferedInput.cKeys[PK]) {
+		if (IsAlpha(C) || IsNumeric(C)) {
+			if (BufferedInput.sKeys[PK]) {
+				Modifier = PloreKey_Shift;
+			} 
+		}
+		
+		if (BufferedInput.cKeys[PK]) {
 			Modifier = PloreKey_Ctrl;
 		}
 			
