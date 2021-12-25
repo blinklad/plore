@@ -335,15 +335,12 @@ PLORE_VIM_COMMAND(OpenFile) {
 	plore_file *Selected = GetCursorFile(State);
 	if (Selected->Type != PloreFileNode_File) return;
 	
+	b64 MaybeQuoteArgs = true;
+	
 	if (Command.Shell) {
-		b64 MaybeQuoteArgs = true;
-		
 		// NOTE(Evan): Windows photo viewer does not allow the argument to be quoted.
 #if defined(PLORE_WINDOWS)
-		if (CStringsAreEqual(Command.Shell, PLORE_PHOTO_VIEWER)) {
-			DrawText("Photo viewer");
-			MaybeQuoteArgs = false;
-		}
+		if (CStringsAreEqual(Command.Shell, PLORE_PHOTO_VIEWER)) MaybeQuoteArgs = false;
 #endif
 		
 		if (Selected) {
@@ -374,10 +371,16 @@ PLORE_VIM_COMMAND(OpenFile) {
 				Assert(VimContext->ListerCursor < GetHandlerCount(Selected->Extension));
 				
 				plore_handler *Handler = PloreFileExtensionHandlers[Selected->Extension] + VimContext->ListerCursor;
+				
+				// NOTE(Evan): Windows photo viewer does not allow the argument to be quoted.
+#if defined(PLORE_WINDOWS)
+				if (CStringsAreEqual(Handler->Shell, PLORE_PHOTO_VIEWER)) MaybeQuoteArgs = false;
+#endif
+				
 				Platform->RunShell((platform_run_shell_desc) {
 									   .Command = Handler->Shell, 
 									   .Args = Selected->Path.Absolute,
-									   .QuoteArgs = true,
+									   .QuoteArgs = MaybeQuoteArgs,
 								   });
 			} break;
 		}
