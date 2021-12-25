@@ -98,7 +98,7 @@ VimguiEnd(plore_vimgui_context *Context) {
 		u64 TextCount = 0;
 		if (Widget->Secondary.Text) {
 			u64 PotentialTextCount = StringLength(Widget->Secondary.Text);
-			u64 MaxTextCount = Widget->Rect.Span.W / Context->RenderList->Font->Fonts[0].Data[0].xadvance - PotentialTextCount;
+			u64 MaxTextCount = Widget->Rect.Span.W / Context->RenderList->Font->Fonts[0].Data[0].xadvance - TextCount;
 			
 			if (PotentialTextCount <= MaxTextCount) {
 				TextCount += PotentialTextCount;
