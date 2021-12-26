@@ -49,11 +49,32 @@ InsertBegin(plore_vim_context *VimContext, vim_command Command) {
 }
 
 internal void
-ListerBegin(plore_vim_context *VimContext, vim_command Command, u64 ListCount) {
+ListerBegin(plore_vim_context *VimContext, vim_command Command, char **Titles, char **Secondaries, u64 Count) {
+	Assert(!VimContext->ListerState.Count);
+	Assert(Titles || Secondaries);
+	
 	VimContext->Mode = VimMode_Lister;
 	SetActiveCommand(VimContext, Command);
-	VimContext->ListerCount = ListCount;
-	VimContext->ListerCursor = 0;
+	
+	if (Titles) {
+		u64 BytesCopied = 0;
+		for (u64 L = 0; L < Count; L++) {
+			 CStringCopy(Titles[L], 
+		                 VimContext->ListerState.Titles[L], 
+		                 ArrayCount(VimContext->ListerState.Titles[L]));
+		}
+	}
+	if (Secondaries) {
+		for (u64 L = 0; L < Count; L++) {
+			CStringCopy(Secondaries[L], 
+						VimContext->ListerState.Secondaries[L], 
+						ArrayCount(VimContext->ListerState.Secondaries[L]));
+		}
+	}
+	
+	VimContext->ListerState.Count = Count;
+	VimContext->ListerState.Cursor = 0;
+	
 }
 
 internal b64
@@ -71,8 +92,8 @@ ResetVimState(plore_vim_context *Context) {
 	ClearCommands(Context);
 	Context->Mode = VimMode_Normal;
 	Context->ActiveCommand = ClearStruct(vim_command);
-	Context->ListerCursor = 0;
-	Context->ListerCount = 0;
+	Context->ListerState.Cursor = 0;
+	Context->ListerState.Count = 0;
 }
 
 plore_inline vim_key *
@@ -264,11 +285,11 @@ MakeCommand(plore_vim_context *Context) {
 								} break;
 								case PloreKey_J:
 								case PloreKey_K: {
-									i64 Direction = LatestKey->Input == PloreKey_J ? +1 : -1;
-									if (Direction < 0 && Context->ListerCursor == 0) {
-										Context->ListerCursor = Context->ListerCount + Direction;
+									i64 Direction = LatestKey->Input == PloreKey_J ? -1 : +1;
+									if (Direction < 0 && Context->ListerState.Cursor == 0) {
+										Context->ListerState.Cursor = Context->ListerState.Count + Direction;
 									} else {
-										Context->ListerCursor = (Context->ListerCursor + Direction) % Context->ListerCount;
+										Context->ListerState.Cursor = (Context->ListerState.Cursor + Direction) % Context->ListerState.Count;
 									}
 								} break;
 							}
@@ -357,7 +378,23 @@ PLORE_VIM_COMMAND(OpenFile) {
 			case VimCommandState_Start: {
 				u64 MaybeCount = GetHandlerCount(Selected->Extension);
 				if (MaybeCount) {
-					ListerBegin(VimContext, Command, MaybeCount);
+					
+					// NOTE(Evan): We copy the handler strings out because there's not an easy way to specify n-tuples withinin the PLORE_X macro
+					// that defines struct literals. ]
+					// Yet another reason for a small metaprogram!
+					char *TitleBuffer[VimListing_ListSize] = {0};
+					for (u64 L = 0; L < MaybeCount; L++) {
+						TitleBuffer[L] = PushBytes(&State->FrameArena, VimListing_Size);
+						CStringCopy(PloreFileExtensionHandlers[Selected->Extension][L].Name, TitleBuffer[L], VimListing_Size);
+					}
+					
+					char *SecondaryBuffer[VimListing_ListSize] = {0};
+					for (u64 L = 0; L < MaybeCount; L++) {
+						SecondaryBuffer[L] = PushBytes(&State->FrameArena, VimListing_Size);
+						CStringCopy(PloreFileExtensionHandlers[Selected->Extension][L].Shell, SecondaryBuffer[L], VimListing_Size);
+					}
+					
+					ListerBegin(VimContext, Command, TitleBuffer, SecondaryBuffer, MaybeCount);
 				} else {
 					Command = (vim_command) {
 						.Type = VimCommandType_OpenFileWith,
@@ -368,9 +405,9 @@ PLORE_VIM_COMMAND(OpenFile) {
 			} break;
 			
 			case VimCommandState_Finish: {
-				Assert(VimContext->ListerCursor < GetHandlerCount(Selected->Extension));
+				Assert(VimContext->ListerState.Cursor < GetHandlerCount(Selected->Extension));
 				
-				plore_handler *Handler = PloreFileExtensionHandlers[Selected->Extension] + VimContext->ListerCursor;
+				plore_handler *Handler = PloreFileExtensionHandlers[Selected->Extension] + VimContext->ListerState.Cursor;
 				
 				// NOTE(Evan): Windows photo viewer does not allow the argument to be quoted.
 #if defined(PLORE_WINDOWS)
@@ -921,7 +958,30 @@ PLORE_VIM_COMMAND(ToggleSortExtension) {
 }
 
 PLORE_VIM_COMMAND(ShowCommandList) {
-	ListerBegin(VimContext, Command, VimCommandType_Count);
+	switch (Command.State) {
+		case VimCommandState_Start: {
+			// @Cutnpaste from OpenFile; 
+			// Not worth making a utility function for 2-dimensional strcpy() swizzling, this should be done at compile-time!
+			char *TitleBuffer[VimListing_ListSize] = {0};
+			for (u64 L = 0; L < VimCommandType_Count; L++) {
+				TitleBuffer[L] = PushBytes(&State->FrameArena, VimListing_Size);
+				CStringCopy(VimCommandNames[L], TitleBuffer[L], VimListing_Size);
+			}
+			
+			char *SecondaryBuffer[VimListing_ListSize] = {0};
+			for (u64 L = 0; L < VimCommandType_Count; L++) {
+				SecondaryBuffer[L] = PushBytes(&State->FrameArena, VimListing_Size);
+				CStringCopy(VimCommandStrings[L], SecondaryBuffer[L], VimListing_Size);
+			}
+			
+			ListerBegin(VimContext, Command, TitleBuffer, SecondaryBuffer, VimCommandType_Count);
+		} break;
+		
+		case VimCommandState_Finish: {
+			DrawText("Finished");
+		} break;
+	}
+	
 }
 
 PLORE_VIM_COMMAND(VerticalSplit) {
