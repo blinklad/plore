@@ -673,8 +673,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			u64 ListerCount = 0;
 			vim_lister_state *Lister = &VimContext->ListerState;
 			
-			u64 RowMax = ((PlatformAPI->WindowDimensions.Y/2)-PadY) / (FooterHeight+PadY);
-			u64 ListStart = ((((Lister->Cursor)/10))*10) % Lister->Count;
+			u64 RowMax = ((PlatformAPI->WindowDimensions.Y/3)-PadY) / (FooterHeight+PadY);
+			u64 ListStart = ((((Lister->Cursor)/RowMax))*RowMax) % Lister->Count;
 			
 			// NOTE(Evan): We creates widgets bottom-to-top, so the offset corrects for that.
 			for (u64 L = ListStart; L < Lister->Count; L++) {
