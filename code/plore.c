@@ -667,39 +667,54 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							   .BackgroundColourFlags = WidgetColourFlags_Focus,
 						   })) {
 			}
-		} else if (VimContext->Mode == VimMode_Lister && VimContext->ActiveCommand.Type == VimCommandType_OpenFile) {
-			plore_file_listing *Listing = &Tab->DirectoryState->Cursor;
-			plore_handler *Handlers = PloreFileExtensionHandlers[Listing->File.Extension];
-			u64 HandlerCount = 0;
+		} else if (VimContext->Mode == VimMode_Lister) {
+			Assert(VimContext->ActiveCommand.Type);
+			
+			u64 ListerCount = 0;
+			vim_lister_state *Lister = &VimContext->ListerState;
+			
+			u64 RowMax = ((PlatformAPI->WindowDimensions.Y/2)-PadY) / (FooterHeight+PadY);
+			u64 ListStart = ((((Lister->Cursor)/10))*10) % Lister->Count;
 			
 			// NOTE(Evan): We creates widgets bottom-to-top, so the offset corrects for that.
-			for (u64 Handler = 0; Handler < PLORE_FILE_EXTENSION_HANDLER_MAX; Handler++) {
-				u64 Offset = (PLORE_FILE_EXTENSION_HANDLER_MAX-Handler-1);
-				plore_handler *TheHandler = Handlers + Offset;
-				if (TheHandler->Shell) {
-					b64 IsOnCursor = Offset == VimContext->ListerCursor;
+			for (u64 L = ListStart; L < Lister->Count; L++) {
+				if (ListerCount >= RowMax) break;
+				u64 Offset = (Lister->Count-L-1);
+				char *Title = Lister->Titles[Offset];
+				char *Secondary = Lister->Secondaries[Offset];
+				if (!Secondary) Secondary = "";
+				
+				if (Title) {
+					b64 IsOnCursor = L == VimContext->ListerState.Cursor;
 					
-					HandlerCount++;
-					u64 HandlerSize = 512;
-					char *HandlerString = PushBytes(&State->FrameArena, HandlerSize);
-					StringPrintSized(HandlerString, HandlerSize, "%-30s %-128s",
-									 TheHandler->Name,
-									 TheHandler->Shell
-									 );
+					ListerCount++;
 					
-					u64 ID = (u64) TheHandler->Shell;
+					// NOTE(Evan): We left-justify here because there's VIMGUI has no alignment option to allow for it!
+					u64 ListerBufferSize = 512;
+					char *ListerBuffer = PushBytes(&State->FrameArena, ListerBufferSize);
+					StringPrintSized(ListerBuffer, ListerBufferSize, "%-30s", Title);
+					
+					u64 ID = (u64) Title;
 					
 					if (Button(State->VimguiContext, (vimgui_button_desc) {
 								   .ID = ID,
 								   .Title = {
-									   .Text = HandlerString,
+									   .Text = ListerBuffer,
 									   .Pad = V2(16, 8),
+									   .Alignment = VimguiLabelAlignment_Left,
+								   },
+								   .Secondary = {
+									   .Text = Secondary,
+									   .Pad = V2(16, 8),
+									   .Alignment = VimguiLabelAlignment_Left,
+									   .Colour = TextColour_PromptCursor,
 								   },
 								   .Rect = {
-									   .P = V2(PadX, PlatformAPI->WindowDimensions.Y - FooterHeight - HandlerCount*FooterHeight - 20),
+									   .P = V2(PadX, PlatformAPI->WindowDimensions.Y - FooterHeight - ListerCount*FooterHeight - 20),
 									   .Span = V2(PlatformAPI->WindowDimensions.X-2*PadX, FooterHeight + PadY)
 								   },
-								   .BackgroundColour = IsOnCursor ? WidgetColour_Tertiary : WidgetColour_Primary,
+								   .BackgroundColour = IsOnCursor ? WidgetColour_Secondary : WidgetColour_Primary,
+								   .BackgroundColourFlags = WidgetColourFlags_Focus,
 							   })) {
 					}
 					
@@ -761,6 +776,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 										   .P = V2(PadX, PlatformAPI->WindowDimensions.Y - FooterHeight - CandidateCount*(FooterHeight + PadY) + PadY - 20),
 										   .Span = V2(PlatformAPI->WindowDimensions.X-2*PadX, FooterHeight + PadY)
 									   },
+									   .BackgroundColour =  WidgetColour_Primary,
 									   .BackgroundColourFlags = WidgetColourFlags_Focus,
 								   })) {
 						ClearCommands(State->VimContext);
