@@ -315,7 +315,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		
 		InitTab(State, &State->Tabs[0]);
 		
-		State->Font = FontInit(&State->Arena, "C:\\plore\\data\\fonts\\Inconsolata-Light.ttf");
+		State->Font = FontInit(&State->Arena, "data/fonts/Inconsolata-Light.ttf");
 		
 #if defined(PLORE_INTERNAL)
 		DebugInit(State);
