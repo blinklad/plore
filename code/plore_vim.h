@@ -62,6 +62,13 @@ typedef enum vim_command_type {
 } vim_command_type;
 
 
+#define PLORE_X(_Ignored1, String, _Ignored2, _Ignored3) String,
+char *VimCommandNames[] = {
+	VIM_COMMANDS
+};
+#undef PLORE_X
+
+// @Cleanup, this should be VimCommandDescriptions
 #define PLORE_X(_Ignored1, _Ignored2, String, _Ignored3) String,
 char *VimCommandStrings[] = {
 	VIM_COMMANDS
