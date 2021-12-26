@@ -12,9 +12,9 @@
 #define PLORE_WIDGET_COLOURS \
 PLORE_X(Default,      0.07,  0.07, 0.07,  1.0,   0.09, 0.09, 0.09, 1,  0.11, 0.11, 0.11,  1) \
 PLORE_X(Primary,      0.07,  0.07, 0.07,  1.0,   0.09, 0.09, 0.09, 1,  0.11, 0.11, 0.11,  1) \
-PLORE_X(Secondary,    0.2,  0.1,   0.1,  1.0,   0.2,  0.1,  0.1,  1,  1,    1,    1,     1) \
-PLORE_X(Tertiary,     0.5,  0.4,   0.4,  1.0,   0,  0,  0,  1,        1,    1,    1,     1) \
-PLORE_X(Quaternary,   0.4,  0.5,   0.4,  1.0,   0,  0,  0,  1,        1,    1,    1,     1) \
+PLORE_X(Secondary,    0.2,  0.1,   0.1,  1.0,   0.2,  0.1,  0.1,  1,   0.25, 0.15, 0.15,  1) \
+PLORE_X(Tertiary,     0.5,  0.4,   0.4,  1.0,   0,  0,  0,  1,         1,    1,    1,     1) \
+PLORE_X(Quaternary,   0.4,  0.5,   0.4,  1.0,   0,  0,  0,  1,         1,    1,    1,     1) \
 PLORE_X(RowPrimary,   0.16, 0.16,  0.16, 1.0,   0.25, 0.25, 0.25, 1.0,   0.3, 0.3,  0.3,  1)  \
 PLORE_X(RowSecondary, 0.2,  0.1,   0.1,  1.0,   0.3, 0.1, 0.1, 1,  0.4,  0.1,  0.1,   1) \
 PLORE_X(RowTertiary,  0.1,  0.2,   0.1,  1.0,   0.1, 0.3, 0.1, 1,  0.1,  0.3,  0.1,   1) \
@@ -63,7 +63,7 @@ typedef enum widget_colour_flags {
 #define PLORE_TEXT_COLOURS                                                       \
 PLORE_X(Default,      1,   1,    1,      0.3,              0,   0,   0,   1.0f)  \
 PLORE_X(Primary,      0.4, 0.5,  0.6,    0.3f,             0.4, 0.5, 0.6, 1.0f)  \
-PLORE_X(Secondary,    0.9, 0.85, 0.80,   0.3,                0.5, 0.5, 0.5, 1.0f)  \
+PLORE_X(Secondary,    0.9, 0.85, 0.80,   0.3,              0.5, 0.5, 0.5, 1.0f)  \
 PLORE_X(Tertiary,     0.4, 0.4,  0.70,   0.4,              0.5, 0.5, 0.5, 1.0f)  \
 PLORE_X(Prompt,       0.2, 0.85, 0.10,   1.0,              0.5, 0.5, 0.5, 1.0f)  \
 PLORE_X(PromptCursor, 0.8, 0.3,  0.3,    1,                0.5, 0.5, 0.5, 1.0f)  \
