@@ -1,6 +1,6 @@
 # plore
 ## Handmade, simple file explorer
-![plore 0.1.5](docs/plore-v-0-1-5.png)
+![plore 0.1.6](docs/plore-v-0-1-6.png)
 
 Graphical file manager written in C99, with first-class vim bindings. 
 
@@ -71,6 +71,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
    - ~~File opening handler suggestion.~~
    - Open tab in specified directory.
    - ~~Close tab.~~
+   - ~~Command lister.~~
 
 ### Features:
 - Fully integrated vim bindings and movement; every action is keyboard-initiated, although some controls can be selected via mouse.
@@ -85,7 +86,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 - ~~Global tab filtering~~
 - ~~Per-directory filtering~~
 - Sorting by: ~~Extension~~, ~~last write date~~, ~~size~~
-- Lister for: Selected files, yanked files, bookmarked directories, commands
+- Lister for: Selected files, yanked files, bookmarked directories, ~~commands~~
 - Paginated movement, i.e. ctrl-u, ctrl-d, and centering.
 - Smooth scrolling - maybe.
 - Robust photo preview - BMP doesn't handle top-to-bottom, stb_image doesn't handle DEFLATE. _Probably_ `libpng` and/or `libjpg`.
