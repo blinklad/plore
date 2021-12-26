@@ -125,13 +125,21 @@ typedef struct vim_key {
 	vim_pattern Pattern;
 } vim_key;
 
+enum { VimListing_ListSize = 128, VimListing_Size = 256 };
+
+typedef struct vim_lister_state {
+	char Titles[VimListing_ListSize][VimListing_Size];
+	char Secondaries[VimListing_ListSize][VimListing_Size];
+	u64 Count;
+	u64 Cursor;
+} vim_lister_state;
+
 #define CommandBufferSize 32
 typedef struct plore_vim_context {
 	vim_key CommandKeys[CommandBufferSize];
 	u64 CommandKeyCount;
 	
-	u64 ListerCursor;
-	u64 ListerCount;
+	vim_lister_state ListerState;
 	vim_mode Mode;
 	vim_command ActiveCommand;
 } plore_vim_context;
