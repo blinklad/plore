@@ -3371,3 +3371,29 @@ hmm_quaternion HMM_PREFIX(QuaternionFromAxisAngle)(hmm_vec3 Axis, float AngleOfR
 }
 
 #endif /* HANDMADE_MATH_IMPLEMENTATION */
+
+
+// NOTE(Evan): Additions
+static hmm_vec4
+ColourU32ToV4(uint32_t C) {
+	hmm_vec4 Result = {0};
+	Result.R = (C & 0xff)         / 255.0f;
+	Result.G = ((C >> 8)  & 0xff) / 255.0f;
+	Result.B = ((C >> 16) & 0xff) / 255.0f;
+	Result.A = ((C >> 24) & 0xff) / 255.0f;
+	
+	return(Result);
+}
+
+// NOTE(Evan): Additions
+static u32
+ColourV4ToU32(hmm_vec4 C) {
+	u32 Result = 0;
+	
+	Result = ((u8) C.R)             | 
+	         ((u8)(C.G*255) << 8)   | 
+			 ((u8)(C.B*255) << 16)  | 
+			 ((u8)(C.A*255) << 24);
+	
+	return(Result);
+}
