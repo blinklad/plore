@@ -1,13 +1,11 @@
 // TODO(Evan): Metaprogram tables.
-internal v4
+internal u32 
 GetTextColour(text_colour TextColour, text_colour_flags Flags) {
 	Assert(TextColour < TextColour_Count);
-	v4 Result = {0};
-	v4 *Table = PloreTextColours;
+	u32 Result = {0};
+	u32 *Table = PloreTextColours;
 	if (Flags == TextColourFlags_Dark) {
 		Table = PloreDarkTextColours;
-	} else if (Flags == TextColourFlags_Fade) {
-		Table = PloreFadeTextColours;
 	}
 	
 	Result = Table[TextColour];
@@ -15,11 +13,11 @@ GetTextColour(text_colour TextColour, text_colour_flags Flags) {
 }
 
 // TODO(Evan): Metaprogram tables.
-internal v4
+internal u32
 GetWidgetColour(widget_colour WidgetColour, widget_colour_flags Flags) {
 	Assert(WidgetColour < WidgetColour_Count);
-	v4 Result = {0};
-	v4 *Table = PloreWidgetColours;
+	u32 Result = 0;
+	u32 *Table = PloreWidgetColours;
 	if (Flags == WidgetColourFlags_Hot) {
 		Table = PloreHotWidgetColours;
 	} else if (Flags == WidgetColourFlags_Focus) {
@@ -81,7 +79,7 @@ VimguiEnd(plore_vimgui_context *Context) {
 			if (!Widget->BackgroundColourFlags) Widget->BackgroundColourFlags = WidgetColourFlags_Hot;
 		}
 		
-		v4 BackgroundColour = GetWidgetColour(Widget->BackgroundColour, Widget->BackgroundColourFlags);
+		u32 BackgroundColour = GetWidgetColour(Widget->BackgroundColour, Widget->BackgroundColourFlags);
 		
 		PushRenderQuad(Context->RenderList, (vimgui_render_quad_desc) { 
 						   .Rect = Widget->Rect, 
@@ -506,7 +504,7 @@ PushRenderText(plore_render_list *RenderList, vimgui_render_text_desc Desc) {
 			.P = TextP,
 			.Span = Desc.Rect.Span,
 		},
-		.Colour = GetTextColour(Desc.Text.Colour, Desc.Text.ColourFlags),
+		.Colour = ColourU32ToV4(GetTextColour(Desc.Text.Colour, Desc.Text.ColourFlags)),
 		.Height = Desc.Height,
 	};
 	
@@ -521,7 +519,7 @@ PushRenderQuad(plore_render_list *RenderList, vimgui_render_quad_desc Desc) {
 	
 	RenderList->Quads[RenderList->QuadCount++] = (render_quad) {
 		.Rect = Desc.Rect,
-		.Colour = Desc.Colour,
+		.Colour = ColourU32ToV4(Desc.Colour),
 		.Texture = Desc.Texture,
 	};
 }

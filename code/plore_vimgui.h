@@ -3,24 +3,18 @@
 #ifndef PLORE_VIMGUI_H
 #define PLORE_VIMGUI_H
 
-
-//
-// TODO(Evan): Move to colour #defines, maybe uint32 hex literals?
-// NOTE(Evan): Widget Colours.
-// Normal, Hot, Focus
-//                    R   G   B   A             R   G   B   A,        R,  G,  B,  A
 #define PLORE_WIDGET_COLOURS \
-PLORE_X(Default,      0.07,  0.07, 0.07,  1.0,   0.09, 0.09, 0.09, 1,  0.11, 0.11, 0.11,  1) \
-PLORE_X(Primary,      0.07,  0.07, 0.07,  1.0,   0.09, 0.09, 0.09, 1,  0.11, 0.11, 0.11,  1) \
-PLORE_X(Secondary,    0.2,  0.1,   0.1,  1.0,   0.2,  0.1,  0.1,  1,   0.25, 0.15, 0.15,  1) \
-PLORE_X(Tertiary,     0.5,  0.4,   0.4,  1.0,   0,  0,  0,  1,         1,    1,    1,     1) \
-PLORE_X(Quaternary,   0.4,  0.5,   0.4,  1.0,   0,  0,  0,  1,         1,    1,    1,     1) \
-PLORE_X(RowPrimary,   0.16, 0.16,  0.16, 1.0,   0.25, 0.25, 0.25, 1.0,   0.3, 0.3,  0.3,  1)  \
-PLORE_X(RowSecondary, 0.2,  0.1,   0.1,  1.0,   0.3, 0.1, 0.1, 1,  0.4,  0.1,  0.1,   1) \
-PLORE_X(RowTertiary,  0.1,  0.2,   0.1,  1.0,   0.1, 0.3, 0.1, 1,  0.1,  0.3,  0.1,   1) \
-PLORE_X(Window,       0,    0,     0,    1.0,   0.05, 0.05, 0.05, 1,  0.14, 0.14, 0.14,  1) 
+PLORE_X(Default,     0xff111111, 0xff161616, 0xff1c1c1c) \
+PLORE_X(Primary,     0xff111111, 0xff161616, 0xff1c1c1c) \
+PLORE_X(Secondary,   0xff191933, 0xff191933, 0xff26263f) \
+PLORE_X(Tertiary,    0xff66667f, 0xff000000, 0xffffffff) \
+PLORE_X(Quaternary,  0xff667f66, 0xff000000, 0xffffffff) \
+PLORE_X(RowPrimary,  0xff282828, 0xff3f3f3f, 0xff4c4c4c) \
+PLORE_X(RowSecondary,0xff191933, 0xff19194c, 0xff191966) \
+PLORE_X(RowTertiary, 0xff193319, 0xff194c19, 0xff194c19) \
+PLORE_X(Window,      0xff000000, 0xff0c0c0c, 0xff232323)
 
-#define PLORE_X(Name, _R, _G, _B, _A, _hR, _hG, _hB, _hA, _fR, _fG, _fB, _fA) WidgetColour_##Name,
+#define PLORE_X(Name, _Ignored1, _Ignored2, _Ignored3) WidgetColour_##Name,
 typedef enum widget_colour {
 	PLORE_WIDGET_COLOURS
 	WidgetColour_Count,
@@ -28,20 +22,20 @@ typedef enum widget_colour {
 } widget_colour;
 #undef PLORE_X
 
-#define PLORE_X(Name, R, G, B, A, _hR, _hG, _hB, _hA, _fR, _fG, _fB, _fA) { R, G, B, A },
-global v4 PloreWidgetColours[] = {
+#define PLORE_X(_Ignored1, RGBA, _Ignored2, _Ignored3) RGBA,
+global u32 PloreWidgetColours[] = {
 	PLORE_WIDGET_COLOURS
 };
 #undef PLORE_X
 
-#define PLORE_X(Name, _R, _G, _B, _A, hR, hG, hB, hA, _fR, _fG, _fB, _fA) { hR, hG, hB, hA },
-global v4 PloreHotWidgetColours[] = {
+#define PLORE_X(_Ignored1, _Ignored2, RGBA, _Ignored3) RGBA,
+global u32 PloreHotWidgetColours[] = {
 	PLORE_WIDGET_COLOURS
 };
 #undef PLORE_X
 
-#define PLORE_X(Name, _R, _G, _B, _A, _hR, _hG, _hB, _hA, fR, fG, fB, fA) { fR, fG, fB, fA },
-global v4 PloreFocusWidgetColours[] = {
+#define PLORE_X(_Ignored1, _Ignored2, _Ignored3, RGBA) RGBA,
+global u32 PloreFocusWidgetColours[] = {
 	PLORE_WIDGET_COLOURS
 };
 #undef PLORE_X
@@ -54,25 +48,20 @@ typedef enum widget_colour_flags {
 	_WidgetColourFlags_ForceU64 = 0xFFFFFFFF,
 } widget_colour_flags;
 
-//
-//
-// TODO(Evan): Move to colour #defines, maybe uint32 hex literals?
-// NOTE(Evan): Text Colours.
-//
-//      Name    Light R    G     B       Fade Alpha   Dark R    G    B    A
-#define PLORE_TEXT_COLOURS                                                       \
-PLORE_X(Default,      1,   1,    1,      0.3,              0,   0,   0,   1.0f)  \
-PLORE_X(Primary,      0.4, 0.5,  0.6,    0.3f,             0.4, 0.5, 0.6, 1.0f)  \
-PLORE_X(Secondary,    0.9, 0.85, 0.80,   0.3,              0.5, 0.5, 0.5, 1.0f)  \
-PLORE_X(Tertiary,     0.4, 0.4,  0.70,   0.4,              0.5, 0.5, 0.5, 1.0f)  \
-PLORE_X(Prompt,       0.2, 0.85, 0.10,   1.0,              0.5, 0.5, 0.5, 1.0f)  \
-PLORE_X(PromptCursor, 0.8, 0.3,  0.3,    1,                0.5, 0.5, 0.5, 1.0f)  \
-PLORE_X(CursorInfo,   0.8, 0.4,  0.4,    1,                0.5, 0.5, 0.5, 1.0f)  \
-PLORE_X(TabActive,    0.8, 0.4,  0.4,    1,                0.5, 0.5, 0.5, 1.0f)  \
-PLORE_X(Tab,          0.8, 0.4,  0.4,    0.4,              0.5, 0.5, 0.5, 1.0f)  \
-PLORE_X(Lister,       1.0, 1.0,  1.0,    0.5,              0.5, 0.5, 0.5, 1.0f)
 
-#define PLORE_X(Name, _R, _G, _B, _A, _dR, _dG, _dB, _dA) TextColour_##Name,
+#define PLORE_TEXT_COLOURS \
+PLORE_X(Default,      0xffffffff, 0xff000000) \
+PLORE_X(Primary,      0xffc09061, 0xff997f00) \
+PLORE_X(Secondary,    0xffc0d0ff, 0xff7f7f00) \
+PLORE_X(Tertiary,     0xff806255, 0xff7f7f00) \
+PLORE_X(Prompt,       0xff19d800, 0xff7f7f00) \
+PLORE_X(PromptCursor, 0xff4c4cff, 0xff7f7f00) \
+PLORE_X(CursorInfo,   0xff6666ff, 0xff7f7f00) \
+PLORE_X(TabActive,    0xff6666ff, 0xff7f7f00) \
+PLORE_X(Tab,          0xff6666ff, 0xff7f7f00) \
+PLORE_X(Lister,       0xffffffff, 0xff7f7f00) 
+
+#define PLORE_X(Name, _Ignored1, _Ignored2) TextColour_##Name,
 typedef enum text_colour {
 	PLORE_TEXT_COLOURS
 	TextColour_Count,
@@ -87,20 +76,14 @@ typedef enum text_colour_flags {
 	_TextColourFlags_ForceU64 = 0xFFFFFFFF,
 } text_colour_flags;
 
-#define PLORE_X(Name, R, G, B, _A, _dR, _dG, _dB, _dA) { R, G, B, 1 },
-global v4 PloreTextColours[] = {
+#define PLORE_X(Name, RGBA, _Ignored) RGBA,
+global u32 PloreTextColours[] = {
 	PLORE_TEXT_COLOURS
 };
 #undef PLORE_X
 
-#define PLORE_X(Name, R, G, B, A, _dR, _dG, _dB, _dA) { R, G, B, A },
-global v4 PloreFadeTextColours[] = {
-	PLORE_TEXT_COLOURS
-};
-#undef PLORE_X
-
-#define PLORE_X(Name, _R, _G, _B, _A, dR, dG, dB, dA) { dR, dG, dB, dA },
-global v4 PloreDarkTextColours[] = {
+#define PLORE_X(Name, _Ignored, RGBA) RGBA,
+global u32 PloreDarkTextColours[] = {
 	PLORE_TEXT_COLOURS
 };
 #undef PLORE_X
@@ -214,7 +197,7 @@ PushRenderText(plore_render_list *RenderList, vimgui_render_text_desc Desc);
 
 typedef struct vimgui_render_quad_desc {
 	rectangle Rect;
-	v4 Colour;
+	u32 Colour;
 	platform_texture_handle Texture;
 } vimgui_render_quad_desc;
 
