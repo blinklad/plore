@@ -75,6 +75,7 @@ ToggleFlag(b64 Flags, b64 Flag) {
 #define StaticAssert(X, M)
 #endif
 
+#define ForArray(Count, Array) for (u64 Count = 0; Count < ArrayCount(Array); Count++)
 
 #define InvalidCodePath Assert(0)
 // NOTE(Evan): Plore intrinsics
