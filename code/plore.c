@@ -931,10 +931,10 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							
 							if (RowEntry->Type == PloreFileNode_Directory) {
 								TextColour = TextColour_Primary;								
-								if (!PassesFilter) TextColourFlags = TextColourFlags_Fade;
+								//if (!PassesFilter) TextColourFlags = TextColourFlags_Fade;
 							} else {
 								TextColour = TextColour_Secondary;								
-								if (!PassesFilter) TextColourFlags = TextColourFlags_Fade;
+								//if (!PassesFilter) TextColourFlags = TextColourFlags_Fade;
 							}
 							
 							char *Timestamp = PloreTimeFormat(&State->FrameArena, RowEntry->LastModification, "%b %d/%m/%y");
