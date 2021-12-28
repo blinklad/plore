@@ -38,6 +38,13 @@ There are many degenerate cases that could lead to the loss or corruption of fil
 Further, there are some cases that it will probably *never* handle to keep it as simple as possible. 
 For example, it is unlikely that I will ever support Unicode paths, as I personally do not have any need for it. Given that I've explicitly recommended others -- who may speak languages other than English -- to not use this tool right now, no harm otherwise done.
 
+### Features:
+- Fully integrated vim bindings and movement; every action is keyboard-initiated, although some controls can be selected via mouse.
+- Basic selection and marking, _a la_ ranger
+- Basic file preview for .jpg, .png, .bmp
+- Multiple tabs, each with their own state (selection, filter, etc)
+- Searching, sorting, filtering
+
 ### TODOS
 * Linux porting.
   For file extensions and shell handlers, this will probably involve a small metaprogram to generate the correct commands.
@@ -58,27 +65,17 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
    - ~~Paste~~
    - ~~Interactive make directory~~
    - ~~Interactive make file~~
-   - ~~ISearch, with jump to single result on return.~~
-   - ISearch with movement between matches, starting from cursor
+   - ISearch: ~~Jump to result on return~~, navigate between results (n/p)
    - ~~Open file, from list of candidate extension handlers~~
-   - ~~Create tab~~
+   - Tabs: ~~create tab~~, ~~close tab~~, create tab in specified directory
    - ~~Toggle hidden file display~~
    - ~~Sorting by various file metadata~~
    - ~~Filter any files matching substring~~
    - ~~Interactive open file, using user-specified shell.~~
-   - ISearch select numbered candidates
-   - ISearch select all candidates
+   - Lister navigation: Select numbered item (ctrl+number), ISearch
    - ~~File opening handler suggestion.~~
-   - Open tab in specified directory.
    - ~~Close tab.~~
    - ~~Command lister.~~
-
-### Features:
-- Fully integrated vim bindings and movement; every action is keyboard-initiated, although some controls can be selected via mouse.
-- Basic selection and marking, _a la_ ranger
-- Basic file preview for .jpg, .png, .bmp
-- Multiple tabs, each with their own state (selection, filter, etc)
-- Searching, sorting, filtering
 
 
 ### File Management TODOs:
