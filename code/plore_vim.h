@@ -37,9 +37,9 @@ PLORE_X(DirectoryTextFilterClear,"directory_text_filter_clear",  "Clear all dire
 PLORE_X(ChangeDirectory,         "change_directory",             "Interactive change directory/drive",                                              "Change directory to?")             \
 PLORE_X(RenameFile,              "rename_file",                  "Interactive rename file",                                                         "Rename file to?")                  \
 PLORE_X(OpenFile,                "open_file",                    "Displays all file extension handlers for file under cursor",                      0)                                  \
-PLORE_X(OpenFileWith,            "open_file_with",               "Interactive open file, using a specified shell command",                          "Open file using program: ")                                  \
+PLORE_X(OpenFileWith,            "open_file_with",               "Interactive open file, using a specified shell command",                          "Open file using program: ")        \
 PLORE_X(NewTab,                  "new_file",                     "Create new or switch to already existing tab with provided number",               0)                                  \
-PLORE_X(CloseTab,                "close_tab",                    "Close tab with provided number",                                                  0)                                  \
+PLORE_X(CloseTab,                "close_tab",                    "Close currently open",                                                            0)                                  \
 PLORE_X(OpenShell,               "open_shell",                   "Open shell in current directory",                                                 0)                                  \
 PLORE_X(CreateFile,              "create_file",                  "Interactive create file, in current directory",                                   "Create file with name?")           \
 PLORE_X(CreateDirectory,         "create_directory",             "Interactive create directory, in current directory",                              "Create directory with name?")      \
