@@ -55,18 +55,19 @@ ListerBegin(plore_vim_context *VimContext, vim_command Command, char **Titles, c
 	
 	VimContext->Mode = VimMode_Lister;
 	SetActiveCommand(VimContext, Command);
+	ClearCommands(VimContext);
 	
 	if (Titles) {
 		u64 BytesCopied = 0;
 		for (u64 L = 0; L < Count; L++) {
-			 CStringCopy(Titles[L], 
+			 StringCopy(Titles[L], 
 		                 VimContext->ListerState.Titles[L], 
 		                 ArrayCount(VimContext->ListerState.Titles[L]));
 		}
 	}
 	if (Secondaries) {
 		for (u64 L = 0; L < Count; L++) {
-			CStringCopy(Secondaries[L], 
+			StringCopy(Secondaries[L], 
 						VimContext->ListerState.Secondaries[L], 
 						ArrayCount(VimContext->ListerState.Secondaries[L]));
 		}
@@ -361,7 +362,7 @@ PLORE_VIM_COMMAND(OpenFile) {
 	if (Command.Shell) {
 		// NOTE(Evan): Windows photo viewer does not allow the argument to be quoted.
 #if defined(PLORE_WINDOWS)
-		if (CStringsAreEqual(Command.Shell, PLORE_PHOTO_VIEWER)) MaybeQuoteArgs = false;
+		if (StringsAreEqual(Command.Shell, PLORE_PHOTO_VIEWER)) MaybeQuoteArgs = false;
 #endif
 		
 		if (Selected) {
@@ -385,13 +386,13 @@ PLORE_VIM_COMMAND(OpenFile) {
 					char *TitleBuffer[VimListing_ListSize] = {0};
 					for (u64 L = 0; L < MaybeCount; L++) {
 						TitleBuffer[L] = PushBytes(&State->FrameArena, VimListing_Size);
-						CStringCopy(PloreFileExtensionHandlers[Selected->Extension][L].Name, TitleBuffer[L], VimListing_Size);
+						StringCopy(PloreFileExtensionHandlers[Selected->Extension][L].Name, TitleBuffer[L], VimListing_Size);
 					}
 					
 					char *SecondaryBuffer[VimListing_ListSize] = {0};
 					for (u64 L = 0; L < MaybeCount; L++) {
 						SecondaryBuffer[L] = PushBytes(&State->FrameArena, VimListing_Size);
-						CStringCopy(PloreFileExtensionHandlers[Selected->Extension][L].Shell, SecondaryBuffer[L], VimListing_Size);
+						StringCopy(PloreFileExtensionHandlers[Selected->Extension][L].Shell, SecondaryBuffer[L], VimListing_Size);
 					}
 					
 					ListerBegin(VimContext, Command, TitleBuffer, SecondaryBuffer, MaybeCount);
@@ -411,7 +412,7 @@ PLORE_VIM_COMMAND(OpenFile) {
 				
 				// NOTE(Evan): Windows photo viewer does not allow the argument to be quoted.
 #if defined(PLORE_WINDOWS)
-				if (CStringsAreEqual(Handler->Shell, PLORE_PHOTO_VIEWER)) MaybeQuoteArgs = false;
+				if (StringsAreEqual(Handler->Shell, PLORE_PHOTO_VIEWER)) MaybeQuoteArgs = false;
 #endif
 				
 				Platform->RunShell((platform_run_shell_desc) {
@@ -558,12 +559,12 @@ PLORE_VIM_COMMAND(Paste)  {
 			plore_path *Movee = FileContext->Yanked + M;
 			
 			char NewPath[PLORE_MAX_PATH] = {0};
-			u64 BytesWritten = CStringCopy(Current->File.Path.Absolute, NewPath, PLORE_MAX_PATH);
+			u64 BytesWritten = StringCopy(Current->File.Path.Absolute, NewPath, PLORE_MAX_PATH);
 			Assert(BytesWritten < PLORE_MAX_PATH - 1);
 			if (!WeAreTopLevel) {
 				NewPath[BytesWritten++] = '\\';
 			}
-			CStringCopy(Movee->FilePart, NewPath + BytesWritten, PLORE_MAX_PATH);
+			StringCopy(Movee->FilePart, NewPath + BytesWritten, PLORE_MAX_PATH);
 			
 			b64 DidMoveOk = Platform->MoveFile(Movee->Absolute, NewPath);
 			if (DidMoveOk) {
@@ -754,7 +755,7 @@ PLORE_VIM_COMMAND(RenameFile) {
 		case VimCommandState_Finish: {
 			if (Command.Shell && *Command.Shell) {
 				char Buffer[PLORE_MAX_PATH] = {0};
-				CStringCopy(Selected->Absolute, Buffer, ArrayCount(Buffer));
+				StringCopy(Selected->Absolute, Buffer, ArrayCount(Buffer));
 				Platform->PopPathNode(Buffer, ArrayCount(Buffer), true);
 				char *NewAbsolute = StringConcatenate(Buffer, ArrayCount(Buffer), Command.Shell);
 				if (Platform->RenameFile(Selected->Absolute, NewAbsolute)) {
@@ -839,9 +840,9 @@ PLORE_VIM_COMMAND(OpenShell) {
 PLORE_VIM_COMMAND(CreateFile) {
 	if (Command.Shell) {
 		char *FilePath = PushBytes(&State->FrameArena, PLORE_MAX_PATH);
-		u64 BytesWritten = CStringCopy(Tab->DirectoryState->Current.File.Path.Absolute, FilePath, PLORE_MAX_PATH);
+		u64 BytesWritten = StringCopy(Tab->DirectoryState->Current.File.Path.Absolute, FilePath, PLORE_MAX_PATH);
 		FilePath[BytesWritten++] = '\\';
-		CStringCopy(Command.Shell, FilePath+BytesWritten, PLORE_MAX_PATH);
+		StringCopy(Command.Shell, FilePath+BytesWritten, PLORE_MAX_PATH);
 		
 		// TODO(Evan): Validate file name.
 		Platform->CreateFile(FilePath, false);
@@ -991,7 +992,6 @@ PLORE_VIM_COMMAND(VerticalSplit) {
 PLORE_VIM_COMMAND(HorizontalSplit) {
 	DrawText("HSplit");
 }
-
 
 #define PLORE_X(Name, Ignored1, _Ignored2, _Ignored3) Do##Name,
 vim_command_function *VimCommands[] = {
