@@ -9,7 +9,7 @@ typedef struct plore_vim_context plore_vim_context;
 //
 // NOTE(Evan):
 //
-//      VimCommand           Command Name                    Command Display Name/Documentation                   Insert Prompt (optional)
+//      VimCommand               Command Name                    Command Description                                                                Insert Prompt (optional)
 #define VIM_COMMANDS \
 PLORE_X(None,                    "none",                         "None",                                                                            0)                                  \
 PLORE_X(MoveLeft,                "move_left",                    "Move cursor left, up directory tree",                                             0)                                  \
@@ -25,30 +25,30 @@ PLORE_X(Paste,                   "paste",                        "Paste yanked f
 PLORE_X(Select,                  "select",                       "Select file under cursor",                                                        0)                                  \
 PLORE_X(SelectUp,                "select_up",                    "Select and move cursor upwards in current directory",                             0)                                  \
 PLORE_X(SelectDown,              "select_down",                  "Select and move cursor downwards in current directory",                           0)                                  \
-PLORE_X(SelectAll,               "select_all",                   "Select all files in current directory",                                           0)                                  \
+PLORE_X(SelectAll,               "select_all",                   "Toggle selection for all files in current directory",                             0)                                  \
 PLORE_X(ClearSelect,             "clear_select",                 "Clear select in all directories",                                                 0)                                  \
-PLORE_X(ISearch,                 "isearch",                      "Interactive search in current directory, highlighting matching files",            "ISearch:")                         \
-PLORE_X(TabTextFilterHide,       "tab_text_filter_hide",         "Interactively set text filter, hiding all matching files in current tab",         "Hide files in tab matching text:") \
-PLORE_X(TabTextFilterShow,       "tab_text_filter_show",         "Interactively set text filter, showing all matching files in current tab",        "Show files in tab matching text:") \
+PLORE_X(ISearch,                 "isearch",                      "Search in current directory, highlighting matching files",                        "ISearch:")                         \
+PLORE_X(TabTextFilterHide,       "tab_text_filter_hide",         "Set text filter, hiding all matching files in current tab",                       "Hide files in tab matching text:") \
+PLORE_X(TabTextFilterShow,       "tab_text_filter_show",         "Set text filter, showing all matching files in current tab",                      "Show files in tab matching text:") \
 PLORE_X(TabTextFilterClear,      "tab_text_filter_clear",        "Clear all text filters for current tab. ",                                        0)                                  \
-PLORE_X(DirectoryTextFilterHide, "directory_text_filter_hide",   "Interactively set text filter, hiding all matching files in current directory",   "Hide files in tab matching text:") \
-PLORE_X(DirectoryTextFilterShow, "directory_text_filter_show",   "Interactively set text filter, showing all matching files in current directory",  "Show files in tab matching text:") \
+PLORE_X(DirectoryTextFilterHide, "directory_text_filter_hide",   "Set text filter, hiding all matching files in current directory",                 "Hide files in tab matching text:") \
+PLORE_X(DirectoryTextFilterShow, "directory_text_filter_show",   "Set text filter, showing all matching files in current directory",                "Show files in tab matching text:") \
 PLORE_X(DirectoryTextFilterClear,"directory_text_filter_clear",  "Clear all directory text filters. ",                                              0)                                  \
-PLORE_X(ChangeDirectory,         "change_directory",             "Interactive change directory/drive",                                              "Change directory to?")             \
-PLORE_X(RenameFile,              "rename_file",                  "Interactive rename file",                                                         "Rename file to?")                  \
+PLORE_X(ChangeDirectory,         "change_directory",             "Change directory/drive",                                                          "Change directory to?")             \
+PLORE_X(RenameFile,              "rename_file",                  "Rename file under cursor",                                                        "Rename file to?")                  \
 PLORE_X(OpenFile,                "open_file",                    "Displays all file extension handlers for file under cursor",                      0)                                  \
-PLORE_X(OpenFileWith,            "open_file_with",               "Interactive open file, using a specified shell command",                          "Open file using program: ")        \
+PLORE_X(OpenFileWith,            "open_file_with",               "Open file under cursor using specified shell command",                            "Open file using program: ")        \
 PLORE_X(NewTab,                  "new_file",                     "Create new or switch to already existing tab with provided number",               0)                                  \
-PLORE_X(CloseTab,                "close_tab",                    "Close currently open",                                                            0)                                  \
+PLORE_X(CloseTab,                "close_tab",                    "Close currently open tab",                                                        0)                                  \
 PLORE_X(OpenShell,               "open_shell",                   "Open shell in current directory",                                                 0)                                  \
-PLORE_X(CreateFile,              "create_file",                  "Interactive create file, in current directory",                                   "Create file with name?")           \
-PLORE_X(CreateDirectory,         "create_directory",             "Interactive create directory, in current directory",                              "Create directory with name?")      \
+PLORE_X(CreateFile,              "create_file",                  "Create file, in current directory",                                               "Create file with name?")           \
+PLORE_X(CreateDirectory,         "create_directory",             "Create directory, in current directory",                                          "Create directory with name?")      \
 PLORE_X(ShowHiddenFiles,         "toggle_show_hidden_files",     "Toggle visibility of hidden files",                                               0)                                  \
 PLORE_X(ToggleSortName,          "toggle_sort_by_name",          "Toggle sorting by name        (default descending)",                              0)                                  \
 PLORE_X(ToggleSortSize,          "toggle_sort_by_size",          "Toggle sort by size           (default descending)",                              0)                                  \
 PLORE_X(ToggleSortModified,      "toggle_sort_by_modified_date", "Toggle sort by modified date  (default descending)",                              0)                                  \
 PLORE_X(ToggleSortExtension,     "toggle_sort_by_extension",     "Toggle sort by extension      (default descending)",                              0)                                  \
-PLORE_X(DeleteFile,              "delete_file",                  "Interactively delete file/s, with confirmation",                                  "Delete file/s? ('yes' to confirm)")\
+PLORE_X(DeleteFile,              "delete_file",                  "Delete file/s, with confirmation",                                                "Delete file/s? ('yes' to confirm)")\
 PLORE_X(ShowCommandList,         "show_command_list",            "Show list of all commands",                                                       0)                                  \
 PLORE_X(VerticalSplit,           "vertical_split",               "Vertical split a new tab, or already existing tab, with provided number",         0)                                  \
 PLORE_X(HorizontalSplit,         "horizontal_split",             "Horizontal split a new tab, or already existing tab, with provided number",       0)
@@ -68,15 +68,14 @@ char *VimCommandNames[] = {
 };
 #undef PLORE_X
 
-// @Cleanup, this should be VimCommandDescriptions
 #define PLORE_X(_Ignored1, _Ignored2, String, _Ignored3) String,
-char *VimCommandStrings[] = {
+char *VimCommandDescriptions[] = {
 	VIM_COMMANDS
 };
 #undef PLORE_X
 
 #define PLORE_X(_Ignored1, _Ignored2, _Ignored3, String) String,
-char *VimInsertPrompts[] = {
+char *VimCommandInsertPrompts[] = {
 	VIM_COMMANDS
 };
 #undef PLORE_X
