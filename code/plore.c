@@ -473,8 +473,14 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 						} break;
 						
 						case VimCommandState_Finish: {
+							vim_command_type StartType = Command.Type;
 							VimCommands[VimContext->ActiveCommand.Type](State, Tab, VimContext, Tab->FileContext, VimContext->ActiveCommand);
-							ResetVimState(VimContext);
+							
+							if (VimContext->ActiveCommand.Type != StartType) {
+								ResetListerState(VimContext);
+							} else {
+								ResetVimState(VimContext);
+							}
 						} break;
 						
 						InvalidDefaultCase;
@@ -629,10 +635,17 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		
 		
 		// NOTE(Evan): Interactive Mode, appears at bottom of screen.
-#if 1
-		if (VimContext->Mode == VimMode_Insert) {
-			char *InsertPrompt = VimInsertPrompts[VimContext->ActiveCommand.Type];
+		// @Cleanup, this is overloaded between "global" insert and lister insert to prevent copypasta; maybe that would be preferable.
+		if (VimContext->Mode == VimMode_Insert || VimContext->ListerState.Mode == VimListerMode_ISearch) {
+			char *InsertPrompt = 0;
+			if (VimContext->Mode == VimMode_Insert) {
+				InsertPrompt = VimCommandInsertPrompts[VimContext->ActiveCommand.Type];
+			} else if (VimContext->ListerState.Mode == VimListerMode_ISearch) {
+				InsertPrompt = "ISearch: "; 
+			}
+			
 			if (!InsertPrompt) InsertPrompt = "YOU SHOULD NOT SEE THIS.";
+			
 			char Buffer[128] = {0};
 			u64 BufferSize = 0;
 			
@@ -669,26 +682,45 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							   .BackgroundColourFlags = WidgetColourFlags_Focus,
 						   })) {
 			}
-		} else if (VimContext->Mode == VimMode_Lister) {
+		} 
+		if (VimContext->Mode == VimMode_Lister) {
+			u64 MaybeInsertHeight = 0;
+			if (VimContext->ListerState.Mode == VimListerMode_ISearch) {
+				MaybeInsertHeight = FooterHeight+PadY;
+			}
+			
 			Assert(VimContext->ActiveCommand.Type);
 			
 			u64 ListerCount = 0;
 			vim_lister_state *Lister = &VimContext->ListerState;
 			
-			u64 RowMax = ((PlatformAPI->WindowDimensions.Y/3)-PadY) / (FooterHeight+PadY);
+			u64 RowMax = ((PlatformAPI->WindowDimensions.Y/2)-PadY) / (FooterHeight+PadY);
 			u64 ListStart = ((((Lister->Cursor)/RowMax))*RowMax) % Lister->Count;
+			DrawText("ListStart %d", ListStart);
 			
-			// NOTE(Evan): We creates widgets bottom-to-top, so the offset corrects for that.
+			u64 SmallPageAdjustment = 0;
+			if (Lister->Count < RowMax) {
+				SmallPageAdjustment = (RowMax-Lister->Count)*FooterHeight;
+			} else if (Lister->Count-ListStart < RowMax) {						
+				SmallPageAdjustment = (RowMax-(Lister->Count-ListStart))*FooterHeight;
+			}
+			
+			char *ListerFilter = 0;
+			if (VimContext->CommandKeyCount) {
+				u64 FilterSize = 256;
+				ListerFilter = PushBytes(&State->FrameArena, FilterSize);
+				VimKeysToString(ListerFilter, FilterSize, VimContext->CommandKeys);
+				DrawText("Filter: %s", ListerFilter);
+			}
+			
 			for (u64 L = ListStart; L < Lister->Count; L++) {
 				if (ListerCount >= RowMax) break;
-				u64 Offset = (Lister->Count-L-1);
-				char *Title = Lister->Titles[Offset];
-				char *Secondary = Lister->Secondaries[Offset];
+				char *Title = Lister->Titles[L];
+				char *Secondary = Lister->Secondaries[L];
 				if (!Secondary) Secondary = "";
 				
 				if (Title) {
-					b64 IsOnCursor = L == VimContext->ListerState.Cursor;
-					
+					u64 ID = (u64) Title;
 					ListerCount++;
 					
 					// NOTE(Evan): We left-justify here because there's VIMGUI has no alignment option to allow for it!
@@ -696,7 +728,11 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 					char *ListerBuffer = PushBytes(&State->FrameArena, ListerBufferSize);
 					StringPrintSized(ListerBuffer, ListerBufferSize, "%-30s", Title);
 					
-					u64 ID = (u64) Title;
+					text_colour TextColour = TextColour_Default;
+					if (ListerFilter) {
+						DrawText("Filter");
+						if (SubstringNoCase(Title, ListerFilter).IsContained) TextColour = TextColour_PromptCursor;
+					}
 					
 					if (Button(State->VimguiContext, (vimgui_button_desc) {
 								   .ID = ID,
@@ -704,6 +740,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 									   .Text = ListerBuffer,
 									   .Pad = V2(16, 8),
 									   .Alignment = VimguiLabelAlignment_Left,
+									   .Colour = TextColour,
 								   },
 								   .Secondary = {
 									   .Text = Secondary,
@@ -712,10 +749,10 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 									   .Colour = TextColour_PromptCursor,
 								   },
 								   .Rect = {
-									   .P = V2(PadX, PlatformAPI->WindowDimensions.Y - FooterHeight - ListerCount*FooterHeight - 20),
-									   .Span = V2(PlatformAPI->WindowDimensions.X-2*PadX, FooterHeight + PadY)
+									   .P = V2(PadX, PlatformAPI->WindowDimensions.Y + SmallPageAdjustment - MaybeInsertHeight - FooterHeight - (RowMax-ListerCount+1)*FooterHeight - 20),
+									   .Span = V2(PlatformAPI->WindowDimensions.X-2*PadX, FooterHeight)
 								   },
-								   .BackgroundColour = IsOnCursor ? WidgetColour_Secondary : WidgetColour_Primary,
+								   .BackgroundColour = (L == VimContext->ListerState.Cursor) ? WidgetColour_Secondary : WidgetColour_Primary,
 								   .BackgroundColourFlags = WidgetColourFlags_Focus,
 							   })) {
 					}
@@ -728,8 +765,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			
 			StoleFocus = true;
 		}
-#endif
-		
 		// NOTE(Evan): Draw cursor info or candidate list!
 		
 		// NOTE(Evan): If we didn't eat the command and there are candidates, list them!
@@ -933,10 +968,10 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							
 							if (RowEntry->Type == PloreFileNode_Directory) {
 								TextColour = TextColour_Primary;								
-								//if (!PassesFilter) TextColourFlags = TextColourFlags_Fade;
+								if (!PassesFilter) TextColour = TextColour_PrimaryFade;
 							} else {
 								TextColour = TextColour_Secondary;								
-								//if (!PassesFilter) TextColourFlags = TextColourFlags_Fade;
+								if (!PassesFilter) TextColour = TextColour_SecondaryFade;
 							}
 							
 							char *Timestamp = PloreTimeFormat(&State->FrameArena, RowEntry->LastModification, "%b %d/%m/%y");
