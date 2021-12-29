@@ -124,13 +124,19 @@ typedef struct vim_key {
 	vim_pattern Pattern;
 } vim_key;
 
-enum { VimListing_ListSize = 128, VimListing_Size = 256 };
+typedef enum vim_lister_mode {
+	VimListerMode_Normal,
+	VimListerMode_ISearch,
+	_VimListerMode_ForceU64 = 0xfffffffful,
+} vim_lister_mode;
 
+enum { VimListing_ListSize = 128, VimListing_Size = 256 };
 typedef struct vim_lister_state {
 	char Titles[VimListing_ListSize][VimListing_Size];
 	char Secondaries[VimListing_ListSize][VimListing_Size];
 	u64 Count;
 	u64 Cursor;
+	vim_lister_mode Mode;
 } vim_lister_state;
 
 #define CommandBufferSize 32
