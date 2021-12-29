@@ -787,11 +787,11 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 					
 					if (Candidate->Shell) {
 						StringPrintSized(CandidateString, CandidateSize, "%s, arg: %s",
-										 VimCommandStrings[Candidate->Type],
+										 VimCommandDescriptions[Candidate->Type],
 										 Candidate->Shell
 										 );
 					} else {
-						StringPrintSized(CandidateString, CandidateSize, "%s", VimCommandStrings[Candidate->Type]);
+						StringPrintSized(CandidateString, CandidateSize, "%s", VimCommandDescriptions[Candidate->Type]);
 					}
 					
 					u64 ID = Candidate->Shell ? (u64) Candidate->Shell : (u64) CandidateString + Candidate->Type;
@@ -956,8 +956,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							} else if (IsSelected(Tab->FileContext, &RowEntry->Path)) {
 								BackgroundColour = WidgetColour_RowTertiary;
 							} 
-							// TODO(Evan): Hidden files could have a slightly different colour while we're viewing them.
 							
+							// TODO(Evan): Hidden files could have a slightly different colour while we're viewing them.
 							
 							b64 PassesFilter = true;
 							if (Tab->FilterState->ISearchFilter.TextCount) {
@@ -1055,7 +1055,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							case PloreFileExtension_JPG: {
 								for (u64 I = 0; I < ArrayCount(ImagePreviewHandles); I++) {
 									image_preview_handle *Handle = ImagePreviewHandles + I;
-									if (CStringsAreEqual(Handle->Path.Absolute, Listing->File.Path.Absolute)) {
+									if (StringsAreEqual(Handle->Path.Absolute, Listing->File.Path.Absolute)) {
 										MyHandle = Handle;
 										break;
 									}
@@ -1123,7 +1123,7 @@ plore_inline b64
 IsYanked(plore_file_context *Context, plore_path *Yankee) {
 	for (u64 Y = 0; Y < Context->YankedCount; Y++) {
 		plore_path *It = Context->Yanked + Y;
-		if (CStringsAreEqual(It->Absolute, Yankee->Absolute)) return(true);
+		if (StringsAreEqual(It->Absolute, Yankee->Absolute)) return(true);
 	}
 	
 	return(false);
@@ -1133,7 +1133,7 @@ plore_inline b64
 IsSelected(plore_file_context *Context, plore_path *Selectee) {
 	for (u64 S = 0; S < Context->SelectedCount; S++) {
 		plore_path *It = Context->Selected + S;
-		if (CStringsAreEqual(It->Absolute, Selectee->Absolute)) {
+		if (StringsAreEqual(It->Absolute, Selectee->Absolute)) {
 			return(true);
 		}
 	}
@@ -1146,7 +1146,7 @@ ToggleHelper(plore_file_context *Context, plore_path *Togglee, plore_path *List,
 	// NOTE(Evan): Toggle and exit if its in the list.
 	for (u64 S = 0; S < *ListCount; S++) {
 		plore_path *It = List + S;
-		if (CStringsAreEqual(It->Absolute, Togglee->Absolute)) {
+		if (StringsAreEqual(It->Absolute, Togglee->Absolute)) {
 			List[S] = List[--(*ListCount)];
 			return;
 		}
@@ -1178,8 +1178,8 @@ CreateFileListing(plore_file_listing *Listing, plore_file_listing_desc Desc) {
 	
 	Listing->File.Type = Desc.Type;
 	Listing->File.LastModification = Desc.LastModification;
-	CStringCopy(Desc.Path.Absolute, Listing->File.Path.Absolute, PLORE_MAX_PATH);
-	CStringCopy(Desc.Path.FilePart, Listing->File.Path.FilePart, PLORE_MAX_PATH);
+	StringCopy(Desc.Path.Absolute, Listing->File.Path.Absolute, PLORE_MAX_PATH);
+	StringCopy(Desc.Path.FilePart, Listing->File.Path.FilePart, PLORE_MAX_PATH);
 	if (Desc.Type == PloreFileNode_Directory) {
 		directory_entry_result CurrentDirectory = Platform->GetDirectoryEntries(Listing->File.Path.Absolute, 
 																				Listing->Entries, 
@@ -1265,7 +1265,7 @@ RemoveSeparators(char *S, u64 Size) {
 			u64 SourceLength = StringLength(Tail+1);
 			u64 DestLength = StringLength(Tail);
 			
-			if (SourceLength) CStringCopy(Tail+1, Tail, DestLength);
+			if (SourceLength) StringCopy(Tail+1, Tail, DestLength);
 			else *Tail = '\0';
 		} else {
 			Current++;
@@ -1290,7 +1290,7 @@ FilterFileListing(memory_arena *Arena, plore_tab *Tab, plore_file_listing *Listi
 	char TabTextFilterPattern[PLORE_MAX_PATH] = {0};
 	if (Tab->FilterState->GlobalListingFilter.TextCount) {
 		TabFilter = &Tab->FilterState->GlobalListingFilter;
-		CStringCopy(TabFilter->Text, TabTextFilterPattern, ArrayCount(TabTextFilterPattern));
+		StringCopy(TabFilter->Text, TabTextFilterPattern, ArrayCount(TabTextFilterPattern));
 		RemoveSeparators(TabTextFilterPattern, ArrayCount(TabTextFilterPattern));
 	}
 	
@@ -1300,7 +1300,7 @@ FilterFileListing(memory_arena *Arena, plore_tab *Tab, plore_file_listing *Listi
 	
 	if (Info->Filter.TextCount) {
 		DirectoryFilter = &Info->Filter;
-		CStringCopy(DirectoryFilter->Text, DirectoryTextFilterPattern, ArrayCount(DirectoryTextFilterPattern));
+		StringCopy(DirectoryFilter->Text, DirectoryTextFilterPattern, ArrayCount(DirectoryTextFilterPattern));
 		RemoveSeparators(DirectoryTextFilterPattern, ArrayCount(DirectoryTextFilterPattern));
 	}
 	
@@ -1318,7 +1318,7 @@ FilterFileListing(memory_arena *Arena, plore_tab *Tab, plore_file_listing *Listi
 		
 		if (HasTextFilter) {
 			char FileNamePattern[PLORE_MAX_PATH] = {0};
-			CStringCopy(File->Path.FilePart, FileNamePattern, ArrayCount(FileNamePattern));
+			StringCopy(File->Path.FilePart, FileNamePattern, ArrayCount(FileNamePattern));
 			RemoveSeparators(FileNamePattern, ArrayCount(FileNamePattern));
 			
 			if (TabFilter)       Discard = Discard || StringMatchesFilter(FileNamePattern, TabTextFilterPattern, TabFilter);
@@ -1368,10 +1368,10 @@ SynchronizeCurrentDirectory(memory_arena *FrameArena, plore_tab *Tab) {
 		// CLEANUP(Evan): Doesn't need to copy twice!
 		plore_file_listing CurrentCopy = CurrentState->Current;
 		char *FilePart = Platform->PopPathNode(CurrentCopy.File.Path.Absolute, ArrayCount(CurrentCopy.File.Path.Absolute), false).FilePart;
-		CStringCopy(FilePart, CurrentCopy.File.Path.FilePart, ArrayCount(CurrentCopy.File.Path.FilePart));
+		StringCopy(FilePart, CurrentCopy.File.Path.FilePart, ArrayCount(CurrentCopy.File.Path.FilePart));
 		
 		if (Platform->IsPathTopLevel(CurrentCopy.File.Path.Absolute, PLORE_MAX_PATH)) {
-			CStringCopy(CurrentCopy.File.Path.Absolute, CurrentCopy.File.Path.FilePart, PLORE_MAX_PATH);
+			StringCopy(CurrentCopy.File.Path.Absolute, CurrentCopy.File.Path.FilePart, PLORE_MAX_PATH);
 		}
 		CreateFileListing(&CurrentState->Parent, ListingFromDirectoryPath(&CurrentCopy.File.Path));
 		
@@ -1386,7 +1386,7 @@ SynchronizeCurrentDirectory(memory_arena *FrameArena, plore_tab *Tab) {
 				plore_file *File = CurrentState->Parent.Entries + Row;
 				if (File->Type != PloreFileNode_Directory) continue;
 				
-				if (CStringsAreEqual(File->Path.Absolute, CurrentState->Current.File.Path.Absolute)) {
+				if (StringsAreEqual(File->Path.Absolute, CurrentState->Current.File.Path.Absolute)) {
 					ParentResult.Info->Cursor = Row;
 					break;
 				}
@@ -1413,7 +1413,7 @@ PloreKeysToString(memory_arena *Arena, vim_key *Keys, u64 KeyCount) {
 	char *Buffer = Result; 
 	
 	for (u64 K = 0; K < KeyCount; K++) {
-		Count += CStringCopy(PloreKeyStrings[Keys[K].Input], Buffer, Size - Count);
+		Count += StringCopy(PloreKeyStrings[Keys[K].Input], Buffer, Size - Count);
 		Buffer += Count;
 	}
 	
