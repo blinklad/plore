@@ -196,7 +196,7 @@ StringConcatenate(char *Left, u64 LeftBufferSize, char *Right) {
 }
 
 internal b64
-CStringsAreEqualIgnoreCase(char *A, char *B) {
+StringsAreEqualIgnoreCase(char *A, char *B) {
 	while (*A && *B) {
 		if (*A++ != *B++) {
 			if (IsAlpha(*A) && IsAlpha(*B)) {
@@ -211,7 +211,7 @@ CStringsAreEqualIgnoreCase(char *A, char *B) {
 }
 
 internal b64
-CStringsAreEqual(char *A, char *B) {
+StringsAreEqual(char *A, char *B) {
 	while (*A && *B) {
 		if (*A++ != *B++) return(false);
 	}
@@ -219,5 +219,56 @@ CStringsAreEqual(char *A, char *B) {
 	if ((!*A && *B) || (*A && !*B)) return(false);
 	return(true);
 }
+
+plore_inline u64
+StringCopy(char *Source, char *Destination, u64 BufferSize) {
+	u64 BytesWritten = 0;
+	Assert(Source && Destination && BufferSize);
+	
+	// NOTE(Evan): We return bytes written, *not* including the null terminator,
+	// and currently allow empty strings.
+	if (!*Source) {
+		*Destination = '\0';
+		return BytesWritten;
+	}
+	
+	while (BytesWritten < BufferSize) {
+		Destination[BytesWritten++] = *Source++;
+		if (!*Source) {
+			break;
+		}
+	}
+	
+	// NOTE(Evan): Truncate the string.
+	if (BytesWritten >= BufferSize) {
+		Destination[BufferSize-1] = '\0';
+	} else {
+		Destination[BytesWritten] = '\0';
+	}
+	
+	return(BytesWritten);
+}
+// credit: stb
+#define ROTATE_LEFT(val, n)   (((val) << (n)) | ((val) >> (sizeof(u64)*8 - (n))))
+#define ROTATE_RIGHT(val, n)  (((val) >> (n)) | ((val) << (sizeof(u64)*8 - (n))))
+
+// TODO(Evan): Better hash function.
+plore_inline u64 
+HashString(char *String) {
+	u64 Seed = 0x31415926;
+	u64 Hash = Seed;
+	while (*String) Hash = ROTATE_LEFT(Hash, 9) + (u8) *String++;
+	
+	// Thomas Wang 64-to-32 bit mix function, hopefully also works in 32 bits
+	Hash ^= Seed;
+	Hash = (~Hash) + (Hash << 18);
+	Hash ^= Hash ^ ROTATE_RIGHT(Hash, 31);
+	Hash = Hash * 21;
+	Hash ^= Hash ^ ROTATE_RIGHT(Hash, 11);
+	Hash += (Hash << 6);
+	Hash ^= ROTATE_RIGHT(Hash, 22);
+	return Hash+Seed;
+}
+
 
 #endif //PLORE_STRING_H
