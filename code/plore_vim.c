@@ -75,27 +75,34 @@ ListerBegin(plore_vim_context *VimContext, vim_command Command, char **Titles, c
 	
 	VimContext->ListerState.Count = Count;
 	VimContext->ListerState.Cursor = 0;
-	
+	VimContext->ListerState.Mode = 0;
 }
 
 internal b64
 Confirmation(char *S) {
 	b64 Result = false;
-	Result = CStringsAreEqualIgnoreCase(S, "y")   ||
-		     CStringsAreEqualIgnoreCase(S, "yy")  ||
-		     CStringsAreEqualIgnoreCase(S, "yes");
+	Result = StringsAreEqualIgnoreCase(S, "y")   ||
+		     StringsAreEqualIgnoreCase(S, "yy")  ||
+		     StringsAreEqualIgnoreCase(S, "yes");
 	
 	return(Result);
 }
 			 
 internal void
+ResetListerState(plore_vim_context *Context) {
+	Context->ListerState.Mode = VimListerMode_Normal;
+	Context->ListerState.Cursor = 0;
+	Context->ListerState.Count = 0;
+}
+
+internal void
 ResetVimState(plore_vim_context *Context) {
 	ClearCommands(Context);
 	Context->Mode = VimMode_Normal;
 	Context->ActiveCommand = ClearStruct(vim_command);
-	Context->ListerState.Cursor = 0;
-	Context->ListerState.Count = 0;
+	ResetListerState(Context);
 }
+
 
 plore_inline vim_key *
 PeekLatestKey(plore_vim_context *Context) {
@@ -267,7 +274,9 @@ MakeCommand(plore_vim_context *Context) {
 					else                             Context->CommandKeys[--Context->CommandKeyCount] = ClearStruct(vim_key);
 					
 					Result.Command.State = VimCommandState_Incomplete;
-				} else if (LatestKey->Input == PloreKey_Return) {
+					
+					// NOTE(Evan): Don't steal return from lister.
+				} else if (LatestKey->Input == PloreKey_Return && Context->ListerState.Mode != VimListerMode_ISearch) {
 					Result.Command.Type = Context->ActiveCommand.Type;
 					Result.Command.State = VimCommandState_Finish;
 					Context->ActiveCommand = Result.Command; // @Cleanup
@@ -277,26 +286,68 @@ MakeCommand(plore_vim_context *Context) {
 					// NOTE(Evan): Mode-specific keymapping is here, as Return, Q and a full buffer terminate always.
 					switch (Context->Mode) {
 						case VimMode_Lister: {
-							switch (LatestKey->Input) {
-								case PloreKey_Q: {
-									ResetVimState(Context);
-									Result.Command.State = VimCommandState_Finish;
-									Result.Command.Type = VimCommandType_None;
-									return(Result);
+							switch (Context->ListerState.Mode) {
+								case VimListerMode_Normal: {
+									switch (LatestKey->Input) {
+										case PloreKey_Q: {
+											ResetVimState(Context);
+											Result.Command.State = VimCommandState_Finish;
+											Result.Command.Type = VimCommandType_None;
+											return(Result);
+										} break;
+										case PloreKey_J:
+										case PloreKey_K: {
+											i64 Direction = LatestKey->Input == PloreKey_J ? +1 : -1;
+											if (Direction < 0 && Context->ListerState.Cursor == 0) {
+												Context->ListerState.Cursor = Context->ListerState.Count + Direction;
+											} else {
+												Context->ListerState.Cursor = (Context->ListerState.Cursor + Direction) % Context->ListerState.Count;
+											}
+										} break;
+										// NOTE(Evan): Lister empties the command buffer; we may want to preserve this between Lister ISearches.
+										case PloreKey_Slash: {
+											Context->ListerState.Mode = VimListerMode_ISearch;
+											ClearCommands(Context);
+										} break;
+									}
+									
+									if (Context->CommandKeyCount) Context->CommandKeys[--Context->CommandKeyCount] = ClearStruct(vim_key); 
 								} break;
-								case PloreKey_J:
-								case PloreKey_K: {
-									i64 Direction = LatestKey->Input == PloreKey_J ? -1 : +1;
-									if (Direction < 0 && Context->ListerState.Cursor == 0) {
-										Context->ListerState.Cursor = Context->ListerState.Count + Direction;
-									} else {
-										Context->ListerState.Cursor = (Context->ListerState.Cursor + Direction) % Context->ListerState.Count;
+								
+								case VimListerMode_ISearch: {
+									DrawText("ISearch");
+									switch (LatestKey->Input) {
+										case PloreKey_Backspace: {
+											DoBackSpace(Context);
+										} break;
+										
+										case PloreKey_Return: {
+											Context->ListerState.Mode = VimListerMode_Normal;
+											ClearCommands(Context);
+										} break;
+										
+										default: {
+											char Filter[256] = {0};
+											VimKeysToString(Filter, ArrayCount(Filter), Context->CommandKeys).Buffer;
+											
+											for (u64 L = 0; L < Context->ListerState.Count; L++) {
+												u64 Current = (Context->ListerState.Cursor + L) % Context->ListerState.Count;
+												char *Title = Context->ListerState.Titles[Current];
+												if (SubstringNoCase(Title, Filter).IsContained) {
+													Context->ListerState.Cursor = Current;
+													break;
+												}
+											}
+										} break;
 									}
 								} break;
-							}
+								
+								InvalidDefaultCase;
+							} break;
 							
-							Context->CommandKeys[--Context->CommandKeyCount] = ClearStruct(vim_key); 
 						} break;
+						
+						
 						case VimMode_Insert: {
 							if (RequireBackspace(LatestKey)) DoBackSpace(Context);
 						} break;
@@ -918,9 +969,7 @@ PLORE_VIM_COMMAND(SelectAll) {
 	plore_file_listing *CurrentDirectory = &Tab->DirectoryState->Current;
 	for (u64 F = 0; F < CurrentDirectory->Count; F++) {
 		plore_file *File = CurrentDirectory->Entries + F;
-		if (!IsSelected(FileContext, &File->Path)) {
-			ToggleSelected(FileContext, &File->Path);
-		}
+		ToggleSelected(FileContext, &File->Path);
 	}
 }
 
@@ -958,28 +1007,39 @@ PLORE_VIM_COMMAND(ToggleSortExtension) {
 	PloreSortHelper(Tab, FileSort_Extension);
 }
 
+// NOTE(Evan): ShowCommandList looks up in the dispatch table directly.
+extern vim_command_function *VimCommands[VimCommandType_Count];
+
 PLORE_VIM_COMMAND(ShowCommandList) {
 	switch (Command.State) {
 		case VimCommandState_Start: {
 			// @Cutnpaste from OpenFile; 
-			// Not worth making a utility function for 2-dimensional strcpy() swizzling, this should be done at compile-time!
+			// Not worth making a utility function for 2-dimensional strcpy() swizzling, which should frankly be done at compile-time.
+			
+			// NOTE(Evan): Don't copy VimCommandType_None!
 			char *TitleBuffer[VimListing_ListSize] = {0};
-			for (u64 L = 0; L < VimCommandType_Count; L++) {
+			for (u64 L = 0; L < VimCommandType_Count-1; L++) {
 				TitleBuffer[L] = PushBytes(&State->FrameArena, VimListing_Size);
-				CStringCopy(VimCommandNames[L], TitleBuffer[L], VimListing_Size);
+				StringCopy(VimCommandNames[L+1], TitleBuffer[L], VimListing_Size);
 			}
 			
 			char *SecondaryBuffer[VimListing_ListSize] = {0};
-			for (u64 L = 0; L < VimCommandType_Count; L++) {
+			for (u64 L = 0; L < VimCommandType_Count-1; L++) {
 				SecondaryBuffer[L] = PushBytes(&State->FrameArena, VimListing_Size);
-				CStringCopy(VimCommandStrings[L], SecondaryBuffer[L], VimListing_Size);
+				StringCopy(VimCommandDescriptions[L+1], SecondaryBuffer[L], VimListing_Size);
 			}
 			
-			ListerBegin(VimContext, Command, TitleBuffer, SecondaryBuffer, VimCommandType_Count);
+			ListerBegin(VimContext, Command, TitleBuffer, SecondaryBuffer, VimCommandType_Count-1);
 		} break;
 		
 		case VimCommandState_Finish: {
-			DrawText("Finished");
+			// NOTE(Evan): Cursor is offset to account for VimCommandType_None.
+			Command = (vim_command) {
+				.State = VimCommandState_Start,
+				.Type = VimContext->ListerState.Cursor+1,
+			};
+			
+            VimCommands[VimContext->ListerState.Cursor+1](State, Tab, VimContext, FileContext, Command);
 		} break;
 	}
 	
