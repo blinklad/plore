@@ -56,12 +56,12 @@ GetInfo(plore_file_context *Context, char *AbsolutePath) {
 	Assert(Slot);
 	
 	if (Slot->Allocated) {
-		if (!CStringsAreEqual(Slot->Info.Path.Absolute, AbsolutePath)) {
+		if (!StringsAreEqual(Slot->Info.Path.Absolute, AbsolutePath)) {
 			for (u64 SlotCount = 0; SlotCount < Context->FileCount; SlotCount++) {
 				Index = (Index + 1) % ArrayCount(Context->InfoSlots);
 				Slot = Context->InfoSlots[Index];
 				if (Slot->Allocated) {
-					if (CStringsAreEqual(Slot->Info.Path.Absolute, AbsolutePath)) {
+					if (StringsAreEqual(Slot->Info.Path.Absolute, AbsolutePath)) {
 						Result = &Slot->Info;
 						break;
 					}
@@ -85,14 +85,14 @@ RemoveFileInfo(plore_file_context *Context, plore_file_listing_info *Info) {
 	plore_file_listing_info_slot *Slot = Context->InfoSlots[Index];
 	
 	u64 SlotsChecked = 0;
-	if (Slot->Allocated && !CStringsAreEqual(Slot->Info.Path.Absolute, Info->Path.Absolute)) {
+	if (Slot->Allocated && !StringsAreEqual(Slot->Info.Path.Absolute, Info->Path.Absolute)) {
 		Assert(Context->FileCount < ArrayCount(Context->InfoSlots));
 		for (;;) {
 			Index = (Index + 1) % ArrayCount(Context->InfoSlots);
 			Slot = Context->InfoSlots[Index];
 			SlotsChecked++;
 			if (Slot->Allocated) {
-				if (CStringsAreEqual(Slot->Info.Path.Absolute, Info->Path.Absolute)) { // Move along.
+				if (StringsAreEqual(Slot->Info.Path.Absolute, Info->Path.Absolute)) { // Move along.
 					break;
 				}
 			}
@@ -138,7 +138,7 @@ CreateFileInfo(plore_file_context *Context, plore_path *Path) {
 	Result.Slot = Context->InfoSlots[Index];
 	
 	Assert(Result.Slot);
-	if (Result.Slot->Allocated && !CStringsAreEqual(Result.Slot->Info.Path.Absolute, Path->Absolute)) {
+	if (Result.Slot->Allocated && !StringsAreEqual(Result.Slot->Info.Path.Absolute, Path->Absolute)) {
 		Assert(Context->FileCount < ArrayCount(Context->InfoSlots));
 		for (;;) {
 			Index = (Index + 1) % ArrayCount(Context->InfoSlots);
@@ -146,7 +146,7 @@ CreateFileInfo(plore_file_context *Context, plore_path *Path) {
 			if (!Result.Slot->Allocated) { // Marked for deletion.
 				Result.Slot->Allocated = true;
 				break;
-			} else if (CStringsAreEqual(Result.Slot->Info.Path.Absolute, Path->Absolute)) { // Move along.
+			} else if (StringsAreEqual(Result.Slot->Info.Path.Absolute, Path->Absolute)) { // Move along.
 				Result.DidAlreadyExist = true;
 				break;
 			}
@@ -160,8 +160,8 @@ CreateFileInfo(plore_file_context *Context, plore_path *Path) {
 		Result.Slot->Info.Filter.State = TextFilterState_Show;
 		Result.Slot->Info.Filter.TextCount = 0;
 		
-		CStringCopy(Path->Absolute, Result.Slot->Info.Path.Absolute, PLORE_MAX_PATH);
-		CStringCopy(Path->FilePart, Result.Slot->Info.Path.FilePart, PLORE_MAX_PATH);
+		StringCopy(Path->Absolute, Result.Slot->Info.Path.Absolute, PLORE_MAX_PATH);
+		StringCopy(Path->FilePart, Result.Slot->Info.Path.FilePart, PLORE_MAX_PATH);
 		Context->FileCount++;
 	}
 	

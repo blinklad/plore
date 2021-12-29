@@ -34,7 +34,7 @@ DrawText(char *Format, ...) {
 	
 	for (u64 T = 0; T < DebugTextCount; T++) {
 		debug_text *Text = DebugText + T;
-		if (CStringsAreEqual(Text->Buffer, Buffer)) return;
+		if (StringsAreEqual(Text->Buffer, Buffer)) return;
 	}
 	
 	

@@ -133,7 +133,7 @@ GetFileExtension(char *FilePart) {
 	if (*S) {
 		Result.ExtensionPart = S;
 		for (plore_file_extension E = 0; E < PloreFileExtension_Count; E++) {
-			if (CStringsAreEqualIgnoreCase(PloreFileExtensionShortStrings[E], S)) {
+			if (StringsAreEqualIgnoreCase(PloreFileExtensionShortStrings[E], S)) {
 				Result.Extension = E; 
 				Result.FoundOkay = true;
 			}

@@ -271,7 +271,7 @@ PLATFORM_GET_CURRENT_DIRECTORY_PATH(WindowsGetCurrentDirectoryPath) {
 	
 	GetCurrentDirectory(ArrayCount(Result.Absolute), Result.Absolute);
 	char *FilePart = PathFindFileName(Result.Absolute);
-	CStringCopy(FilePart, Result.FilePart, ArrayCount(Result.FilePart));
+	StringCopy(FilePart, Result.FilePart, ArrayCount(Result.FilePart));
 	
 	return(Result);
 }
@@ -318,7 +318,7 @@ PLATFORM_GET_DIRECTORY_ENTRIES(WindowsGetDirectoryEntries) {
 	};
 	
 	char SearchableDirectoryName[PLORE_MAX_PATH] = {0};
-	u64 BytesWritten = CStringCopy(DirectoryName, SearchableDirectoryName, ArrayCount(SearchableDirectoryName));
+	u64 BytesWritten = StringCopy(DirectoryName, SearchableDirectoryName, ArrayCount(SearchableDirectoryName));
 	u64 SearchBytesWritten = 0;
 	char SearchChars[] = {'\\', '*'};
 	b64 SearchCanFit = BytesWritten < PLORE_MAX_PATH + sizeof(SearchChars);
@@ -373,14 +373,14 @@ PLATFORM_GET_DIRECTORY_ENTRIES(WindowsGetDirectoryEntries) {
 			File->Hidden = FindData.dwFileAttributes & FILE_ATTRIBUTE_HIDDEN;
 			
 			
-			u64 BytesWritten = CStringCopy(DirectoryName, File->Path.Absolute, ArrayCount(File->Path.Absolute));
+			u64 BytesWritten = StringCopy(DirectoryName, File->Path.Absolute, ArrayCount(File->Path.Absolute));
 			Assert(BytesWritten < ArrayCount(File->Path.Absolute) - 2); // NOTE(Evan): For trailing '\';
 			
 			if (!IsDirectoryRoot) File->Path.Absolute[BytesWritten++] = '\\';
 			
 			// @Cleanup, use PathFindFileName();
-			CStringCopy(FindData.cFileName, File->Path.Absolute + BytesWritten, ArrayCount(File->Path.Absolute) - BytesWritten);
-			CStringCopy(FindData.cFileName, File->Path.FilePart, ArrayCount(File->Path.Absolute));
+			StringCopy(FindData.cFileName, File->Path.Absolute + BytesWritten, ArrayCount(File->Path.Absolute) - BytesWritten);
+			StringCopy(FindData.cFileName, File->Path.FilePart, ArrayCount(File->Path.Absolute));
 			
 			
 			Result.Count++;
@@ -428,7 +428,7 @@ PLATFORM_DELETE_FILE(WindowsDeleteFile) {
 	b64 Result = false;
 	
 	char PathDoubleNulled[PLORE_MAX_PATH+1] = {0};
-	u64 BytesWritten = CStringCopy(Path, PathDoubleNulled, ArrayCount(PathDoubleNulled));
+	u64 BytesWritten = StringCopy(Path, PathDoubleNulled, ArrayCount(PathDoubleNulled));
 	Assert(BytesWritten <= PLORE_MAX_PATH);
 	PathDoubleNulled[BytesWritten+1] = '\0';
 	
@@ -1091,7 +1091,7 @@ WindowsPushPath(char *Buffer, u64 BufferSize, char *Piece, u64 PieceSize, b64 Tr
 	}
 	
 	u64 EndOfBuffer = StringLength(Buffer);
-	u64 BytesWritten = CStringCopy(Piece, Buffer + EndOfBuffer, BufferSize);
+	u64 BytesWritten = StringCopy(Piece, Buffer + EndOfBuffer, BufferSize);
 	
 	return(true);
 }
@@ -1121,9 +1121,9 @@ int WinMain (
 	char LockPath[PLORE_MAX_PATH] = {0};     //  = "build/lock.tmp";
 	
 	
-	CStringCopy(ExePath, PloreDLLPath, ArrayCount(PloreDLLPath));
-	CStringCopy(ExePath, TempDLLPath, ArrayCount(TempDLLPath));
-	CStringCopy(ExePath, LockPath, ArrayCount(LockPath));
+	StringCopy(ExePath, PloreDLLPath, ArrayCount(PloreDLLPath));
+	StringCopy(ExePath, TempDLLPath, ArrayCount(TempDLLPath));
+	StringCopy(ExePath, LockPath, ArrayCount(LockPath));
 	
 	WindowsPopPathNode(PloreDLLPath, ArrayCount(PloreDLLPath), true);
 	WindowsPopPathNode(TempDLLPath, ArrayCount(TempDLLPath), false);
