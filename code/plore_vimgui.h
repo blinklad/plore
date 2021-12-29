@@ -52,7 +52,9 @@ typedef enum widget_colour_flags {
 #define PLORE_TEXT_COLOURS \
 PLORE_X(Default,      0xffffffff, 0xff000000) \
 PLORE_X(Primary,      0xffc09061, 0xff997f00) \
+PLORE_X(PrimaryFade,  0x6fc09061, 0xff997f00) \
 PLORE_X(Secondary,    0xffc0d0ff, 0xff7f7f00) \
+PLORE_X(SecondaryFade,0x6fc0d0ff, 0xff7f7f00) \
 PLORE_X(Tertiary,     0xff806255, 0xff7f7f00) \
 PLORE_X(Prompt,       0xff19d800, 0xff7f7f00) \
 PLORE_X(PromptCursor, 0xff4c4cff, 0xff7f7f00) \
@@ -72,7 +74,6 @@ typedef enum text_colour {
 typedef enum text_colour_flags {
 	TextColourFlags_Default,
 	TextColourFlags_Dark,
-	TextColourFlags_Fade,
 	_TextColourFlags_ForceU64 = 0xFFFFFFFF,
 } text_colour_flags;
 
