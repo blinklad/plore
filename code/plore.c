@@ -13,6 +13,7 @@ global platform_debug_print_line *PrintLine;
 global platform_debug_print *Print;
 
 #if defined(PLORE_INTERNAL)
+#if defined(PLORE_WINDOWS)
 #ifdef Assert
 #undef Assert
 #define Assert(X) if (!(X)) {                                                                                      \
@@ -25,6 +26,7 @@ global platform_debug_print *Print;
 					  __FILE__);                                                                                   \
 					  if (Platform->DebugAssertHandler(__AssertBuffer)) Debugger;                                  \
 }
+#endif
 #endif
 #endif
 
