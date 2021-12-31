@@ -68,7 +68,7 @@ ToggleFlag(b64 Flags, b64 Flag) {
 }
 
 #if defined(PLORE_INTERNAL)
-#define Assert(X) if (!(X)) { __debugbreak();}
+#define Assert(X) if (!(X)) { __debugbreak(); }
 #define StaticAssert(X, M) static_assert(X, M)
 #else
 #define Assert(X) 
@@ -76,6 +76,7 @@ ToggleFlag(b64 Flags, b64 Flag) {
 #endif
 
 #define ForArray(Count, Array) for (u64 Count = 0; Count < ArrayCount(Array); Count++)
+#define CheckedPush(Array, Count, Item) (Count < ArrayCount(Array)) ? Array[Count++] = Item, 1 : 0
 
 #define InvalidCodePath Assert(0)
 // NOTE(Evan): Plore intrinsics
