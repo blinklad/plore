@@ -894,10 +894,9 @@ WindowsCreateAndShowOpenGLWindow(HINSTANCE Instance) {
 internal void
 WindowsPushTextInput(keyboard_and_mouse *ThisFrame, MSG Message) {
 	char C = Message.wParam;
-	if (ThisFrame->TextInputCount < ArrayCount(ThisFrame->TextInput)) {
-		ThisFrame->TextInput[ThisFrame->TextInputCount++] = C;
-	}
+	WindowsDebugPrintLine("Character is %c", C);
 	
+	CheckedPush(ThisFrame->TextInput, ThisFrame->TextInputCount, C); 
 	StaticAssert(PloreKey_A == 1, "Assuming PloreKey_A-Z|0-9 follow contiguously.");
 	plore_key Key = 0;
 	if (C >= 'A' && C <= 'Z') {
@@ -905,15 +904,21 @@ WindowsPushTextInput(keyboard_and_mouse *ThisFrame, MSG Message) {
 	} else if (C >= '0' && C <= '9') {
 		Key = PloreKey_Z    + Message.wParam - '0' + 1;
 	} else {
-		#define PLORE_X(Name, _Ignored, Character) \
-		case Character: { \
-		Key = PloreKey_##Name;   \
+		#define PLORE_X(Name, _Ignored, Character)     \
+		case Character: {                              \
+			Key = PloreKey_##Name;                     \
 		} break;
 				
-				switch (C) {
-					PLORE_KEYBOARD_AND_MOUSE
-		#undef PLORE_X
+		switch (C) {
+			PLORE_KEYBOARD_AND_MOUSE
+				
+			case VK_ESCAPE: {
+				Key = PloreKey_Escape;
+				ThisFrame->TextInputCount--; // @HACK(Evan): Escape has no representation, but Windows "translates" it still. UGH.
+			} break;
 		}
+		
+		#undef PLORE_X
 	}
 	Assert(Key < PloreKey_Count);
 	
@@ -927,6 +932,9 @@ WindowsPushTextInput(keyboard_and_mouse *ThisFrame, MSG Message) {
 		ThisFrame->pKeys[Key] = IsPressed;
 		ThisFrame->sKeys[Key] = ThisFrame->pKeys[Key] && GetAsyncKeyState(VK_SHIFT); // @Cleanup
 		ThisFrame->cKeys[Key] = ThisFrame->dKeys[PloreKey_Ctrl];
+		if (ThisFrame->sKeys[Key]) {
+			WindowsDebugPrintLine("Shift is down for %c", C);
+		}
 	}
 }
 
@@ -944,11 +952,7 @@ WindowsProcessMessages(windows_context *Context, keyboard_and_mouse *ThisFrame) 
 	        {
 	            bool32 IsDown = Message.message == WM_KEYDOWN;
 				
-	            if (Message.wParam == VK_ESCAPE) {
-					GlobalRunning = false;
-	                WindowsDebugPrintLine("Exiting");
-	                PostQuitMessage(0);
-				} else if (IsDown && (u32) Message.wParam == VK_F1) {
+				if (IsDown && (u32) Message.wParam == VK_F1) {
 					WindowsToggleFullscreen();
 				} else {
 					// NOTE(Evan): We intercept numeric VK codes here because Windows is a PITA.
