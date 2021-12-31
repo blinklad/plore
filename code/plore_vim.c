@@ -48,32 +48,41 @@ InsertBegin(plore_vim_context *VimContext, vim_command Command) {
 	SetActiveCommand(VimContext, Command);
 }
 
+typedef struct vim_lister_begin_desc {
+	vim_command Command;
+	char **Titles;
+	char **Secondaries;
+	u64 Count;
+	b64 HideFiles;
+} vim_lister_begin_desc;
+
 internal void
-ListerBegin(plore_vim_context *VimContext, vim_command Command, char **Titles, char **Secondaries, u64 Count) {
+ListerBegin(plore_vim_context *VimContext, vim_lister_begin_desc Desc) {
 	Assert(!VimContext->ListerState.Count);
-	Assert(Titles || Secondaries);
+	Assert(Desc.Titles || Desc.Secondaries);
 	
 	VimContext->Mode = VimMode_Lister;
-	SetActiveCommand(VimContext, Command);
+	SetActiveCommand(VimContext, Desc.Command);
 	ClearCommands(VimContext);
 	
-	if (Titles) {
+	if (Desc.Titles) {
 		u64 BytesCopied = 0;
-		for (u64 L = 0; L < Count; L++) {
-			 StringCopy(Titles[L], 
+		for (u64 L = 0; L < Desc.Count; L++) {
+			 StringCopy(Desc.Titles[L], 
 		                 VimContext->ListerState.Titles[L], 
 		                 ArrayCount(VimContext->ListerState.Titles[L]));
 		}
 	}
-	if (Secondaries) {
-		for (u64 L = 0; L < Count; L++) {
-			StringCopy(Secondaries[L], 
+	if (Desc.Secondaries) {
+		for (u64 L = 0; L < Desc.Count; L++) {
+			StringCopy(Desc.Secondaries[L], 
 						VimContext->ListerState.Secondaries[L], 
 						ArrayCount(VimContext->ListerState.Secondaries[L]));
 		}
 	}
 	
-	VimContext->ListerState.Count = Count;
+	VimContext->ListerState.Count = Desc.Count;
+	VimContext->ListerState.HideFiles = Desc.HideFiles;
 	VimContext->ListerState.Cursor = 0;
 	VimContext->ListerState.Mode = 0;
 }
@@ -91,6 +100,7 @@ Confirmation(char *S) {
 internal void
 ResetListerState(plore_vim_context *Context) {
 	Context->ListerState.Mode = VimListerMode_Normal;
+	Context->ListerState.HideFiles = 0;
 	Context->ListerState.Cursor = 0;
 	Context->ListerState.Count = 0;
 }
@@ -283,13 +293,15 @@ MakeCommand(plore_vim_context *Context) {
 					
 					Context->CommandKeys[--Context->CommandKeyCount] = ClearStruct(vim_key); 
 				} else {
-					// NOTE(Evan): Mode-specific keymapping is here, as Return, Q and a full buffer terminate always.
+					Result.Command.State = VimCommandState_Incomplete;
+					
+					// NOTE(Evan): Mode-specific keymapping is here, as Return, Escape and a full buffer terminate always.
 					switch (Context->Mode) {
 						case VimMode_Lister: {
 							switch (Context->ListerState.Mode) {
 								case VimListerMode_Normal: {
 									switch (LatestKey->Input) {
-										case PloreKey_Q: {
+										case PloreKey_Escape: {
 											ResetVimState(Context);
 											Result.Command.State = VimCommandState_Finish;
 											Result.Command.Type = VimCommandType_None;
@@ -315,10 +327,13 @@ MakeCommand(plore_vim_context *Context) {
 								} break;
 								
 								case VimListerMode_ISearch: {
-									DrawText("ISearch");
 									switch (LatestKey->Input) {
 										case PloreKey_Backspace: {
 											DoBackSpace(Context);
+										} break;
+										
+										case PloreKey_Escape: {
+											Context->ListerState.Mode = VimListerMode_Normal;
 										} break;
 										
 										case PloreKey_Return: {
@@ -349,12 +364,19 @@ MakeCommand(plore_vim_context *Context) {
 						
 						
 						case VimMode_Insert: {
-							if (RequireBackspace(LatestKey)) DoBackSpace(Context);
+							switch (LatestKey->Input) {
+								case PloreKey_Backspace: {
+									DoBackSpace(Context);
+								} break;
+								
+								case PloreKey_Escape: {
+									Result.Command.State = VimCommandState_Cancel;
+								} break;
+							}
 						} break;
 						
 					}
 					Result.Command.Type = Context->ActiveCommand.Type;
-					Result.Command.State = VimCommandState_Incomplete;
 					Context->ActiveCommand = Result.Command; // @Cleanup
 				}
 			}
@@ -375,6 +397,7 @@ typedef struct plore_tab plore_tab;
 void Name(plore_state *State, plore_tab *Tab, plore_vim_context *VimContext, plore_file_context *FileContext, vim_command Command)
 
 #define PLORE_DO_VIM_COMMAND(Name) Do##Name(State, Tab, VimContext, FileContext, Command)
+#define PLORE_DO_VIM_COMMAND_ENUM(Enum) VimCommands[Enum](State, Tab, VimContext, FileContext, Command)
 
 typedef PLORE_VIM_COMMAND_FUNCTION(vim_command_function);
 #define PLORE_VIM_COMMAND(CommandName) PLORE_VIM_COMMAND_FUNCTION(Do##CommandName)
@@ -446,7 +469,12 @@ PLORE_VIM_COMMAND(OpenFile) {
 						StringCopy(PloreFileExtensionHandlers[Selected->Extension][L].Shell, SecondaryBuffer[L], VimListing_Size);
 					}
 					
-					ListerBegin(VimContext, Command, TitleBuffer, SecondaryBuffer, MaybeCount);
+					ListerBegin(VimContext, (vim_lister_begin_desc) {
+									.Command = Command, 
+									.Titles = TitleBuffer, 
+									.Secondaries = SecondaryBuffer, 
+									.Count = MaybeCount,
+								});
 				} else {
 					Command = (vim_command) {
 						.Type = VimCommandType_OpenFileWith,
@@ -663,6 +691,7 @@ PLORE_VIM_COMMAND(SelectUp)  {
 }
 
 PLORE_VIM_COMMAND(SelectDown)  {
+	DrawText("!!!!");
 	DoSelectHelper(State, Command, +1);
 }
 PLORE_VIM_COMMAND(JumpTop)  {
@@ -678,36 +707,42 @@ PLORE_VIM_COMMAND(JumpBottom)  {
 }
 
 PLORE_VIM_COMMAND(ISearch)  {
-	if (Command.Shell) {
-		if (Tab->DirectoryState->Current.Count) {
-			for (u64 F = 0; F < Tab->DirectoryState->Current.Count; F++) {
-				plore_file *File = Tab->DirectoryState->Current.Entries + F;
-				
-				// TODO(Evan): Filter highlighting.
-				if (SubstringNoCase(File->Path.FilePart, Tab->FilterState->ISearchFilter.Text).IsContained) {
+	switch (Command.State) {
+		case VimCommandState_Start: {
+			ClearCommands(VimContext);
+			InsertBegin(VimContext, Command);
+		} break;
+		
+		case VimCommandState_Incomplete: {
+			// @Cleanup, this is really only used for highlighting.
+			Tab->FilterState->ISearchFilter.TextCount = VimKeysToString(Tab->FilterState->ISearchFilter.Text, 
+																        ArrayCount(Tab->FilterState->ISearchFilter.Text), 
+																        VimContext->CommandKeys).BytesWritten;
+			
+			if (Tab->DirectoryState->Current.Count) {
+				for (u64 F = 0; F < Tab->DirectoryState->Current.Count; F++) {
 					plore_file_listing_info *CurrentCursor = GetInfo(FileContext, Tab->DirectoryState->Current.File.Path.Absolute);
-					CurrentCursor->Cursor = F;
-					Tab->FilterState->ISearchFilter = ClearStruct(text_filter);
-					break;
+					u64 Current = (CurrentCursor->Cursor + F) % Tab->DirectoryState->Current.Count;
+					plore_file *File = Tab->DirectoryState->Current.Entries + Current;
+					
+					if (SubstringNoCase(File->Path.FilePart, Tab->FilterState->ISearchFilter.Text).IsContained) {
+						plore_file_listing_info *CurrentCursor = GetInfo(FileContext, Tab->DirectoryState->Current.File.Path.Absolute);
+						CurrentCursor->Cursor = Current;
+						break;
+					}
 				}
 			}
 			
+		} break;
+	
+		case VimCommandState_Cancel: {
 			Tab->FilterState->ISearchFilter.TextCount = 0;
-		}
-	} else {
-		switch (Command.State) {
-			case VimCommandState_Start: {
-				ClearCommands(VimContext);
-				InsertBegin(VimContext, Command);
-			} break;
-			
-			case VimCommandState_Incomplete: {
-				Tab->FilterState->ISearchFilter.TextCount = VimKeysToString(Tab->FilterState->ISearchFilter.Text, 
-																	        ArrayCount(Tab->FilterState->ISearchFilter.Text), 
-																	        VimContext->CommandKeys).BytesWritten;
-			} break;
-		}
+		} break;
 		
+		case VimCommandState_Finish: {
+			PLORE_DO_VIM_COMMAND(MoveRight);
+			Tab->FilterState->ISearchFilter.TextCount = 0;
+		} break;
 	}
 }
 
@@ -1029,7 +1064,13 @@ PLORE_VIM_COMMAND(ShowCommandList) {
 				StringCopy(VimCommandDescriptions[L+1], SecondaryBuffer[L], VimListing_Size);
 			}
 			
-			ListerBegin(VimContext, Command, TitleBuffer, SecondaryBuffer, VimCommandType_Count-1);
+			ListerBegin(VimContext, (vim_lister_begin_desc) {
+							.Command = Command, 
+							.Titles = TitleBuffer, 
+							.Secondaries = SecondaryBuffer, 
+							.Count = VimCommandType_Count-1,
+							.HideFiles = true,
+						});
 		} break;
 		
 		case VimCommandState_Finish: {
@@ -1039,10 +1080,15 @@ PLORE_VIM_COMMAND(ShowCommandList) {
 				.Type = VimContext->ListerState.Cursor+1,
 			};
 			
-            VimCommands[VimContext->ListerState.Cursor+1](State, Tab, VimContext, FileContext, Command);
+            PLORE_DO_VIM_COMMAND_ENUM(VimContext->ListerState.Cursor+1);
 		} break;
 	}
 	
+}
+
+PLORE_VIM_COMMAND(ExitPlore) {
+	DrawText("ExitPlore");
+	State->ShouldQuit = true;
 }
 
 PLORE_VIM_COMMAND(VerticalSplit) {

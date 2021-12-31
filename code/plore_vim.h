@@ -101,6 +101,7 @@ typedef enum vim_command_state {
 	VimCommandState_None,
 	VimCommandState_Start,
 	VimCommandState_Incomplete,
+	VimCommandState_Cancel,
 	VimCommandState_Finish,
 	VimCommandState_Count,
 	_VimCommandState_ForceU64 = 0xFFFFFFFF,
@@ -138,6 +139,7 @@ typedef struct vim_lister_state {
 	u64 Count;
 	u64 Cursor;
 	vim_lister_mode Mode;
+	b64 HideFiles;
 } vim_lister_state;
 
 #define CommandBufferSize 32
