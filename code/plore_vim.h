@@ -50,6 +50,7 @@ PLORE_X(ToggleSortModified,      "toggle_sort_by_modified_date", "Toggle sort by
 PLORE_X(ToggleSortExtension,     "toggle_sort_by_extension",     "Toggle sort by extension      (default descending)",                              0)                                  \
 PLORE_X(DeleteFile,              "delete_file",                  "Delete file/s, with confirmation",                                                "Delete file/s? ('yes' to confirm)")\
 PLORE_X(ShowCommandList,         "show_command_list",            "Show list of all commands",                                                       0)                                  \
+PLORE_X(ExitPlore,               "exit_plore",                   "Exit Plore",                                                                      0)                                  \
 PLORE_X(VerticalSplit,           "vertical_split",               "Vertical split a new tab, or already existing tab, with provided number",         0)                                  \
 PLORE_X(HorizontalSplit,         "horizontal_split",             "Horizontal split a new tab, or already existing tab, with provided number",       0)
 
@@ -619,6 +620,17 @@ global vim_binding VimBindings[] = {
 				.Input = PloreKey_V,
 			},
 		},
+	},
+	{
+		.Type = VimCommandType_ExitPlore,
+		.Keys = {
+			{
+				.Input = PloreKey_Q,
+			},
+			{
+				.Input = PloreKey_Q,
+			},
+		}
 	},
 	{
 		.Type = VimCommandType_HorizontalSplit,

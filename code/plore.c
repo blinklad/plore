@@ -120,6 +120,7 @@ typedef struct plore_tab {
 
 typedef struct plore_state {
 	b64 Initialized;
+	b64 ShouldQuit;
 	f64 DT;
 	
 	plore_tab Tabs[8];
@@ -338,8 +339,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	} else {
 		ClearArena(&State->FrameArena);
 	}
-	
-	
 	
 #if defined(PLORE_INTERNAL)
 	if (PloreInput->DLLWasReloaded) {
@@ -1116,7 +1115,10 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	VimguiEnd(State->VimguiContext);
 	
 	// NOTE(Evan): Right now, we copy this out. We may not want to in the future(tm), even if it is okay now.
-	return(*State->VimguiContext->RenderList);
+	return((plore_frame_result) { 
+					   .RenderList = *State->VimguiContext->RenderList,
+					   .ShouldQuit = State->ShouldQuit,
+				   });
 }
 
 plore_inline b64
