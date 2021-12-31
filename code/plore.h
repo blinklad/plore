@@ -108,22 +108,20 @@ PLORE_X(Backtick,                            "`",             '`')   \
 PLORE_X(Plus,                                "+",             '+')   \
 PLORE_X(Minus,                               "-",             '-')   \
 PLORE_X(Pound,                               "#",             '#')   \
-PLORE_X(PrintableCharacterCount,             "<debug>",       128)   \
 PLORE_X(Ctrl,                                "<ctrl>",        129)   \
 PLORE_X(Shift,                               "<shift>",       130)   \
-PLORE_X(MouseLeft,                           "<mouse-left>",  131)   \
-PLORE_X(MouseRight,                          "<mouse-right>", 132)   \
+PLORE_X(Escape,                              "<esc>",         131)   \
+PLORE_X(MouseLeft,                           "<mouse-left>",  132)   \
+PLORE_X(MouseRight,                          "<mouse-right>", 133)   \
 PLORE_X(Backspace,                           "<backspace>",   0x8)   \
 PLORE_X(Tab,                                 "<tab>",         0x9)   
 
 // MAINTENANCE(Evan): None of the symbolic strings should be larger then 32 bytes, including the null terminator.
 #define PLORE_KEY_STRING_SIZE 32
-#if 1
 #define PLORE_X(_Ignored1, String, _Ignored2) \
 StaticAssert(sizeof(String) < PLORE_KEY_STRING_SIZE, String " plore key string greater than allowed size");
 PLORE_KEYBOARD_AND_MOUSE
 #undef PLORE_X
-#endif
 
 #define PLORE_X(Name, _Ignored1, _Ignored2) \
 PloreKey_##Name,
