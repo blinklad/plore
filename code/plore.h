@@ -236,7 +236,13 @@ typedef struct plore_render_list {
 	plore_font *Font;
 } plore_render_list;
 
-#define PLORE_DO_ONE_FRAME(name) PLORE_EXPORT plore_render_list name(plore_memory *PloreMemory, plore_input *PloreInput, platform_api *PlatformAPI)
+// TODO(Evan): Asynchronous commands could be input/ouput here.
+typedef struct plore_frame_result {
+	plore_render_list RenderList;
+	b64 ShouldQuit;
+} plore_frame_result;
+
+#define PLORE_DO_ONE_FRAME(name) PLORE_EXPORT plore_frame_result name(plore_memory *PloreMemory, plore_input *PloreInput, platform_api *PlatformAPI)
 typedef PLORE_DO_ONE_FRAME(plore_do_one_frame);
 
 

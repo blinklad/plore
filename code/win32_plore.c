@@ -1251,22 +1251,24 @@ int WinMain (
         if (PloreCode.DoOneFrame) {
 			windows_timer FileCopyBeginTimer = WindowsGetTime();
 			
-			plore_render_list RenderList = PloreCode.DoOneFrame(&PloreMemory, &GlobalPloreInput, &WindowsPlatformAPI);
+			plore_frame_result FrameResult = PloreCode.DoOneFrame(&PloreMemory, &GlobalPloreInput, &WindowsPlatformAPI);
 			
 			windows_timer FileCopyEndTimer = WindowsGetTime();
 			f64 FileCopyTimeInSeconds = ((f64) ((f64)FileCopyEndTimer.TicksNow - (f64)FileCopyBeginTimer.TicksNow) / (f64)FileCopyBeginTimer.Frequency);
 			
 			ImmediateBegin(WindowsContext.Width, WindowsContext.Height);
-			for (u64 I = 0; I < RenderList.QuadCount; I++) {
-				DrawSquare(RenderList.Quads[I]);
+			for (u64 I = 0; I < FrameResult.RenderList.QuadCount; I++) {
+				DrawSquare(FrameResult.RenderList.Quads[I]);
 			}
 			
-			for (u64 I = 0; I < RenderList.TextCount; I++) {
-				WriteText(RenderList.Font, RenderList.Text[I]);
+			for (u64 I = 0; I < FrameResult.RenderList.TextCount; I++) {
+				WriteText(FrameResult.RenderList.Font, FrameResult.RenderList.Text[I]);
 			}
 			
 			
 			SwapBuffers(WindowsContext.DeviceContext);
+			
+			if (FrameResult.ShouldQuit) GlobalRunning = false;
 		}
 		
 		GlobalPloreInput.LastFrame = GlobalPloreInput.ThisFrame;
@@ -1278,6 +1280,7 @@ int WinMain (
 		
 		fflush(stdout);
 		fflush(stderr);
+		
     }
 	
 	WindowsDebugPrintLine("EXITED MAIN LOOP.");
