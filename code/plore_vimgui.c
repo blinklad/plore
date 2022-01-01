@@ -30,9 +30,10 @@ GetWidgetColour(widget_colour WidgetColour, widget_colour_flags Flags) {
 
 
 internal void
-VimguiInit(plore_vimgui_context *Context, plore_render_list *RenderList) {
+VimguiInit(memory_arena *Arena, plore_vimgui_context *Context, plore_render_list *RenderList) {
 	Assert(RenderList->Font);
 	Context->RenderList = RenderList;
+	Context->FrameArena = SubArena(Arena, Megabytes(1), 16);
 }
 
 internal void
@@ -52,6 +53,8 @@ VimguiBegin(plore_vimgui_context *Context, keyboard_and_mouse Input, v2 WindowDi
 		Window->RowCountThisFrame = 0;
 		Window->Layer = 0;
 	}
+	
+	ClearArena(&Context->FrameArena);
 }
 
 internal void
