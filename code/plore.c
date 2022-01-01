@@ -705,7 +705,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			u64 RowMax = PlatformAPI->WindowDimensions.Y / FooterHeight - 2;
 			u64 ListStart = ((((Lister->Cursor)/RowMax))*RowMax) % Lister->Count;
 			
-			DrawText("RowMax %d", RowMax);
 			// NOTE(Evan): Adjust height if we're currently showing the ISearch prompt.
 			u64 MaybeInsertHeight = 0;
 			if (VimContext->ListerState.Mode == VimListerMode_ISearch) {
@@ -1058,8 +1057,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							
 							image_preview_handle *MyHandle = 0;
 							
-							// TODO(Evan): Make this work for other image types
 							// TODO(Evan): Make file loading asynchronous!
+							// TODO(Evan): Make preview work for other image types.
 							switch (Listing->File.Extension) {
 								case PloreFileExtension_BMP:
 								case PloreFileExtension_PNG:
