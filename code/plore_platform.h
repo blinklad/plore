@@ -19,7 +19,7 @@ typedef struct platform_read_file_result {
     u64 BytesRead;
     b64 ReadSuccessfully;
 } platform_read_file_result;
-#define PLATFORM_DEBUG_READ_ENTIRE_FILE(name) platform_read_file_result name(platform_readable_file File, void *Buffer, uint64 BufferSize)
+#define PLATFORM_DEBUG_READ_ENTIRE_FILE(name) platform_read_file_result name(platform_readable_file File, void *Buffer, u64 BufferSize)
 typedef PLATFORM_DEBUG_READ_ENTIRE_FILE(platform_debug_read_entire_file);
 
 #define PLATFORM_CREATE_FILE(name) b64 name(char *Path, b64 OverwriteExisting)
