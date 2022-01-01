@@ -97,6 +97,7 @@ PLATFORM_DEBUG_PRINT_LINE(WindowsDebugPrintLine) {
 
 PLATFORM_DEBUG_OPEN_FILE(WindowsDebugOpenFile) {
     HANDLE TheFile = CreateFileA(Path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	DWORD Error = GetLastError();
     DWORD FileSize = GetFileSize(TheFile, NULL);
 
     platform_readable_file Result = {
@@ -119,15 +120,16 @@ PLATFORM_DEBUG_READ_ENTIRE_FILE(WindowsDebugReadEntireFile) {
     
     HANDLE FileHandle = File.Opaque;
     DWORD BytesRead;
-    Assert(File.FileSize <= BufferSize);
+	
     Assert(BufferSize < UINT32_MAX);
-    
-    DWORD BufferSize32 = (DWORD) BufferSize;
-
-    Result.ReadSuccessfully = ReadFile(FileHandle, Buffer, BufferSize32, &BytesRead, NULL);
-    Assert(BytesRead == File.FileSize);
-    Result.BytesRead = BytesRead;
-    Result.Buffer = Buffer;
+    if (File.FileSize <= BufferSize) {
+	    DWORD BufferSize32 = (DWORD) BufferSize;
+	
+	    Result.ReadSuccessfully = ReadFile(FileHandle, Buffer, BufferSize32, &BytesRead, NULL);
+	    Assert(BytesRead == File.FileSize);
+	    Result.BytesRead = BytesRead;
+	    Result.Buffer = Buffer;
+	}
     
     return(Result);
 }
