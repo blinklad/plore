@@ -111,6 +111,7 @@ typedef enum widget_type {
 	WidgetType_Window,
 	WidgetType_Button,
 	WidgetType_Image,
+	WidgetType_TextBox,
 	WidgetType_Count,
 	_WidgetType_ForceU64 = 0xFFFFFFFF,
 } widget_type;
@@ -143,7 +144,10 @@ typedef struct vimgui_widget {
 	vimgui_label_desc Title;
 	vimgui_label_desc Secondary;
 	vimgui_label_alignment Alignment;
-	platform_texture_handle Texture;
+	
+	platform_texture_handle Texture; // NOTE(Evan): Images only.
+	
+	char *Text; // NOTE(Evan): TextBoxes only.
 } vimgui_widget;
 
 typedef struct plore_vimgui_context {
@@ -171,6 +175,7 @@ typedef struct plore_vimgui_context {
 	i64 GenerationCount;
 	
 	plore_render_list *RenderList;
+	memory_arena FrameArena;
 	
 	v2 WindowDimensions;
 } plore_vimgui_context;
