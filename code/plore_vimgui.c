@@ -89,7 +89,10 @@ VimguiEnd(plore_vimgui_context *Context) {
 						   .Colour = BackgroundColour, 
 						   .Texture = Widget->Texture,
 					   });
-		
+		u64 FontHeight = Context->RenderList->Font->Fonts[0].Height;
+		u64 FontWidth = Context->RenderList->Font->Fonts[0].Data[0].xadvance;
+		u64 MaxTextCols = Widget->Rect.Span.W / FontWidth;
+		u64 MaxTextRows = Widget->Rect.Span.H / FontHeight;
 		
 		//
 		// @Cleanup
@@ -99,7 +102,7 @@ VimguiEnd(plore_vimgui_context *Context) {
 		u64 TextCount = 0;
 		if (Widget->Secondary.Text) {
 			u64 PotentialTextCount = StringLength(Widget->Secondary.Text);
-			u64 MaxTextCount = Widget->Rect.Span.W / Context->RenderList->Font->Fonts[0].Data[0].xadvance - TextCount;
+			u64 MaxTextCount = MaxTextCols - TextCount;
 			
 			if (PotentialTextCount <= MaxTextCount) {
 				TextCount += PotentialTextCount;
@@ -152,6 +155,47 @@ VimguiEnd(plore_vimgui_context *Context) {
 							   .TextCount = TextCount,
 						   });
 			
+		}
+		
+		if (Widget->Type == WidgetType_TextBox) {
+			char *Lines = Widget->Text;
+			if (Lines) {
+				for (u64 L = 0; L < MaxTextRows; L++) {
+					u64 LineCount = 0;
+					char *LineStart = Lines;
+					while (*Lines) {
+						char C = *Lines++;
+						if (!C || C == '\n') break;
+						
+						if (LineCount < MaxTextCols) LineCount += 1;
+						
+					}
+					
+					char *ThisLine = PushBytes(&Context->FrameArena, LineCount+1);
+					StringCopy(LineStart, ThisLine, LineCount+1);
+					
+					PushRenderText(Context->RenderList, 
+								   (vimgui_render_text_desc) {
+									   .Rect = {
+										   .P = {
+											   Widget->Rect.P.X,
+											   Widget->Rect.P.Y + L*FontHeight,
+										   },
+										   .Span = Widget->Rect.Span,
+									   },
+									   .Text = {
+										   .Text = ThisLine,
+										   .Colour = Widget->Title.Colour,
+										   //.Pad = Widget->Title.Pad,
+										   //.ColourFlags = Widget->Title.ColourFlags,
+									   },
+									   .Height = 32.0f,
+								   });
+					
+					if (!Lines) break;
+				}
+				
+			}
 		}
 		
 	}
@@ -254,6 +298,48 @@ Image(plore_vimgui_context *Context, vimgui_image_desc Desc) {
 				   .WindowID = Window->ID,
 				   .Rect = Desc.Rect,
 				   .Texture = Desc.Texture,
+			   });
+	return(Result);
+}
+
+typedef struct vimgui_text_box_desc {
+	u64 ID;
+	char *Text;
+	rectangle Rect;
+	b64 Centered;
+} vimgui_text_box_desc;
+
+internal b64
+TextBox(plore_vimgui_context *Context, vimgui_text_box_desc Desc) {
+	b64 Result = true;
+	
+	Assert(Desc.ID);
+	u64 MyID = Desc.ID;
+	
+	vimgui_window *Window = GetLayoutWindow(Context);
+	
+	if (IsWithinRectangleInclusive(Context->ThisFrame.Input.MouseP, Desc.Rect)) {
+		SetHotWindow(Context, Window);
+		Context->HotWidgetID = MyID;
+		if (Context->ThisFrame.Input.pKeys[PloreKey_MouseLeft]) {
+			SetActiveWindow(Context, Window);
+			Result = true;
+		}
+	}
+	
+	Desc.Rect.P = AddVec2(Desc.Rect.P, Window->Rect.P);
+	if (Desc.Centered) {
+		Desc.Rect.P.X += (Window->Rect.Span.X - Desc.Rect.Span.X) / 2.0f;
+		Desc.Rect.P.Y += (Window->Rect.Span.Y - Desc.Rect.Span.X) / 2.0f;
+	}
+	
+	PushWidget(Context, Window, (vimgui_widget) {
+				   .Layer = Window->Layer + 1,
+				   .Type = WidgetType_TextBox,
+				   .ID = MyID,
+				   .WindowID = Window->ID,
+				   .Rect = Desc.Rect,
+				   .Text = Desc.Text,
 			   });
 	return(Result);
 }
