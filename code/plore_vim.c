@@ -739,9 +739,14 @@ PLORE_VIM_COMMAND(ISearch)  {
 			Tab->FilterState->ISearchFilter.TextCount = 0;
 		} break;
 		
+		// NOTE(Evan): Only do movement/opening if there is an isearch filter and the cursor is a match for the it.
 		case VimCommandState_Finish: {
-			PLORE_DO_VIM_COMMAND(MoveRight);
-			Tab->FilterState->ISearchFilter.TextCount = 0;
+			if (Tab->FilterState->ISearchFilter.TextCount) {
+				if (Substring(Tab->FilterState->ISearchFilter.Text, GetCursorFile(State)->Path.FilePart).IsContained) {
+					PLORE_DO_VIM_COMMAND(MoveRight);
+				}
+				Tab->FilterState->ISearchFilter.TextCount = 0;
+			}
 		} break;
 	}
 }
