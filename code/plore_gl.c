@@ -58,6 +58,9 @@ WriteText(plore_font *Font, render_text T) {
 				glTexCoord2f(Q.s1, Q.t0); glVertex2f(Q.x1, Q.y0);
 				glTexCoord2f(Q.s1, Q.t1); glVertex2f(Q.x1, Q.y1);
 				glTexCoord2f(Q.s0, Q.t1); glVertex2f(Q.x0, Q.y1);
+			} else if (*Text == '\t') {
+				CurrentWidth += Data[0].xadvance*3;
+				X += Data[0].xadvance*4;
 			}
 			++Text;
 			CurrentWidth += Data[0].xadvance;
