@@ -1089,20 +1089,47 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 										}
 										
 									}
+									
+									if (MyHandle) { 
+										if (Image(State->VimguiContext, (vimgui_image_desc) { 
+													  .ID = (u64) MyHandle,
+													  .Texture = MyHandle->Texture,
+													  .Rect = {
+														  .Span = V2(512, 512),
+													  }, 
+													  .Centered = true,
+												  })) {
+										}
+									}
+								} break;
+								
+								// TODO(Evan): Easier way to specify inclusion/exclusion of extensions.
+								case PloreFileExtension_C:
+								case PloreFileExtension_H:
+								case PloreFileExtension_TXT: {
+									u64 TextBoxSize = Megabytes(1);
+									char *Text = PushBytes(&State->FrameArena, TextBoxSize);
+									
+									platform_readable_file TheFile = Platform->DebugOpenFile(Listing->File.Path.Absolute);
+									Assert(TheFile.OpenedSuccessfully);
+									
+									platform_read_file_result ReadResult = Platform->DebugReadEntireFile(TheFile, Text, TextBoxSize);
+									Assert(ReadResult.ReadSuccessfully);
+									
+									if (TextBox(State->VimguiContext, (vimgui_text_box_desc) {
+														.ID = (u64)Text,
+														.Text = Text,
+														.Rect = {
+															.P = V2(PadX, FooterHeight),
+															.Span = V2(W-2*PadX, H-2*FooterHeight),
+														},
+													})) {
+										}
+									
+									Platform->DebugCloseFile(TheFile);
 								} break;
 							}
 							
-							if (MyHandle) { 
-								if (Image(State->VimguiContext, (vimgui_image_desc) { 
-												  .ID = (u64) MyHandle,
-												  .Texture = MyHandle->Texture,
-												  .Rect = {
-													  .Span = V2(512, 512),
-												  }, 
-												  .Centered = true,
-											  })) {
-								}
-							}
 						} break;
 						
 						InvalidDefaultCase;
