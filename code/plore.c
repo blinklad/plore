@@ -331,7 +331,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		State->RenderList->Font = State->Font;
 		
 		State->VimguiContext = PushStruct(&State->Arena, plore_vimgui_context);
-		VimguiInit(State->VimguiContext, State->RenderList);
+		VimguiInit(&State->Arena, State->VimguiContext, State->RenderList);
 		
 		
 		SynchronizeCurrentDirectory(&State->FrameArena, GetCurrentTab(State));
