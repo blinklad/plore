@@ -59,6 +59,8 @@ PLORE_X(BMP, "bmp", "bitmap",   { PLORE_PHOTO_HANDLER, PLORE_BASIC_PHOTO_EDITOR,
 PLORE_X(PNG, "png", "png",      { PLORE_PHOTO_HANDLER, PLORE_BASIC_PHOTO_EDITOR, PLORE_ADVANCED_PHOTO_EDITOR, } ) \
 PLORE_X(JPG, "jpg", "jpeg",     { PLORE_PHOTO_HANDLER, PLORE_BASIC_PHOTO_EDITOR, PLORE_ADVANCED_PHOTO_EDITOR, } ) \
 PLORE_X(TXT, "txt", "text",     { PLORE_TEXT_HANDLER                                                          } ) \
+PLORE_X(C, "c", "c",            { PLORE_TEXT_HANDLER                                                          } ) \
+PLORE_X(H, "h", "h",            { PLORE_TEXT_HANDLER                                                          } ) \
 PLORE_X(BAT, "bat", "batch",    { PLORE_TEXT_HANDLER                                                          } )  
 
 typedef enum plore_file_extension {
