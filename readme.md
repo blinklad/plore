@@ -1,6 +1,6 @@
 # plore
 ## Handmade, simple file explorer
-![plore 0.1.6](docs/plore-v-0-1-6.png)
+![plore 0.1.7](docs/plore-v-0-1-7.png)
 
 Graphical file manager written in C99, with first-class vim bindings. 
 
@@ -87,7 +87,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 - Paginated movement, i.e. ctrl-u, ctrl-d, and centering.
 - Smooth scrolling - maybe.
 - Robust photo preview - BMP doesn't handle top-to-bottom, stb_image doesn't handle DEFLATE. _Probably_ `libpng` and/or `libjpg`.
-- Robust text-like ASCII file preview
+- ~~Text-like ASCII file preview~~
 - Split tabs.
 - Clipboard handling.
 - Undo for: Rename, Paste, Delete (PLORE_TRASH/Recycle Bin only). 
