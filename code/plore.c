@@ -262,6 +262,8 @@ PlatformInit(platform_api *PlatformAPI) {
 
 internal plore_font * 
 FontInit(memory_arena *Arena, char *Path) {
+	f32 DefaultHeight = 32.0f; 
+	
 	plore_font *Result = PushStruct(Arena, plore_font);
 	Result->CurrentFont = 0;
 	
@@ -269,13 +271,15 @@ FontInit(memory_arena *Arena, char *Path) {
 		Result->Data[F] = BakedFontData + F;
 		Result->Bitmaps[F] = BakedFontBitmaps + F;
 		Result->Handles[F] = Platform->CreateTextureHandle((platform_texture_handle_desc) {
-																	.Pixels = Result->Bitmaps[F], 
+																	.Pixels = Result->Bitmaps[F]->Bitmap, 
 																	.Height = 512, 
 																	.Width = 512,
 																	.TargetPixelFormat = PixelFormat_ALPHA,
 																	.ProvidedPixelFormat = PixelFormat_ALPHA,
 																	.FilterMode = FilterMode_Linear
 																});
+		
+		if (Result->Data[F]->Height == DefaultHeight) Result->CurrentFont = F;
 	}
 	
 	return(Result);
