@@ -1,3 +1,9 @@
+internal f32
+GetCurrentFontHeight(plore_font *Font) {
+	f32 Result = Font->Data[Font->CurrentFont]->Height;
+	return(Result);
+}
+
 // TODO(Evan): Metaprogram tables.
 internal u32 
 GetTextColour(text_colour TextColour, text_colour_flags Flags) {
@@ -91,7 +97,6 @@ VimguiEnd(plore_vimgui_context *Context) {
 					   });
 		f32 FontHeight = Context->RenderList->Font->Data[0]->Height;
 		f32 FontWidth = Context->RenderList->Font->Data[Context->RenderList->Font->CurrentFont]->Data[0].xadvance;
-		PrintLine("FontWidth %f", FontWidth);
 		u64 MaxTextCols = Widget->Rect.Span.W / FontWidth;
 		u64 MaxTextRows = Widget->Rect.Span.H / FontHeight;
 		
@@ -497,9 +502,9 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 			Parent = GetWindow(Context, Context->ThisFrame.ParentStack[MyParentIndex]);
 			MaybeWindow->Rect.P.X += Parent->Rect.P.X;
 			MaybeWindow->Rect.P.Y += Parent->Rect.P.Y;
-			MaybeWindow->Rect.P.Y += 32.0f; // NOTE(Evan): This offsets child widgets.
+			MaybeWindow->Rect.P.Y += 26.0f; // NOTE(Evan): This offsets child widgets, currently it must account for tabs - cleanup!
 		} 
-		MaybeWindow->RowMax = (Desc.Rect.Span.Y) / (36.0f) - 1; // @Hardcode
+		MaybeWindow->RowMax = (Desc.Rect.Span.Y) / (GetCurrentFontHeight(Context->RenderList->Font) + 4.0f) - 1; // @Hardcode
 		MaybeWindow->BackgroundColour = Desc.BackgroundColour;
 		Context->ThisFrame.WindowWeAreLayingOut = MyID;
 		
@@ -561,7 +566,9 @@ PushRenderText(plore_render_list *RenderList, vimgui_render_text_desc Desc) {
 	Assert(RenderList && RenderList->TextCount < ArrayCount(RenderList->Text));
 	render_text *T = RenderList->Text + RenderList->TextCount++;
 	
+	f32 FontHeight = RenderList->Font->Data[RenderList->Font->CurrentFont]->Height;
 	f32 FontWidth = RenderList->Font->Data[RenderList->Font->CurrentFont]->Data[0].xadvance;
+	
 	u64 MaxTextCount = Desc.Rect.Span.W / FontWidth - Desc.TextCount;
 	u64 ThisTextLength = StringLength(Desc.Text.Text);
 	if (ThisTextLength > MaxTextCount) {
@@ -570,7 +577,7 @@ PushRenderText(plore_render_list *RenderList, vimgui_render_text_desc Desc) {
 	
 	v2 TextP = {
 		.X = Desc.Text.Pad.X + Desc.Rect.P.X,
-		.Y = Desc.Text.Pad.Y + Desc.Rect.P.Y + 26.0f,                           
+		.Y = Desc.Text.Pad.Y + Desc.Rect.P.Y + (FontHeight*0.8125f),
 	};
 	
 	switch (Desc.Text.Alignment) {

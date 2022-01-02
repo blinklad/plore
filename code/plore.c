@@ -514,9 +514,12 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	//
 	u64 Cols = 3;
 	
-	f32 FileRowHeight = 36.0f;
+	f32 FontHeight = State->Font->Data[State->Font->CurrentFont]->Height;
+	f32 FontWidth = State->Font->Data[State->Font->CurrentFont]->Data[0].xadvance;
+	
+	f32 FileRowHeight = FontHeight + 4.0f;//36.0f;
 	f32 FooterPad = 0;
-	f32 FooterHeight = 60;
+	f32 FooterHeight = FontHeight*2 - 4.0f;//60;
 	f32 fCols = (f32) Cols;
 	f32 PadX = 10.0f;
 	f32 PadY = 10.0f;
@@ -573,8 +576,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 				   })) {
 		
 		// NOTE(Evan): Tabs.
-		f32 TabWidth = 240;
-		f32 TabHeight = 48;
+		f32 TabWidth = FontWidth*16;//240;
+		f32 TabHeight = FontHeight*1.6f;//48;
 		u64 TabCount = 0;
 		
 		plore_tab *Active = GetCurrentTab(State);
