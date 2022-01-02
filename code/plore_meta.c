@@ -27,7 +27,9 @@ main(int ArgCount, char **Args) {
 	}
 	
 	f32 Heights[] = {
-		24.0f, 25.0f, 26.0f, 27.0f, 28.0f, 29.0f, 30.0f, 32.0f, 33.0f, 35.0f, 37.0f, 39.0f, 41.0f, 42.0f, 44.0f,
+		24.0f, 25.0f, 26.0f, 27.0f, 28.0f, 
+		29.0f, 30.0f, 32.0f, 33.0f, 35.0f, 
+		37.0f, 39.0f, 41.0f, 42.0f, 44.0f,
 	};
 	u8 *Bitmaps[ArrayCount(Heights)] = {0};
 	stbtt_bakedchar BakedData[ArrayCount(Heights)][GLYPH_COUNT] = {0};
