@@ -7,7 +7,6 @@
 #include "plore_platform.h"
 #include "plore_gl.h"
 
-
 #if defined(PLORE_WINDOWS)
 #define PLORE_EXPORT __declspec(dllexport)
 #elif defined(PLORE_LINUX)
@@ -20,15 +19,7 @@ struct plore_state;
 typedef struct plore_state plore_state;
 
 // HACK(Evan): Currently, we bake a "display" and "debug" font!
-#include "stb_truetype.h"
-typedef struct plore_font {
-	struct {
-		stbtt_bakedchar Data[96]; // ASCII 32..126 is 95 glyphs
-		platform_texture_handle Handle;
-		f32 Height;
-	} Fonts[2];
-} plore_font;
-
+typedef struct plore_font plore_font;
 
 typedef enum interact_state {
 	InteractState_FileExplorer,
