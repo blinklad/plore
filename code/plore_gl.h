@@ -1,6 +1,7 @@
 #ifndef PLORE_GL_H
 #define PLORE_GL_H
 
+typedef struct plore_baked_font_data plore_baked_font_data;
 typedef struct render_circle {
 	f32 R;
 	v2 P;
@@ -19,7 +20,8 @@ typedef struct render_text {
 	rectangle Rect;
 	char Text[256];
 	v4 Colour;
-	f32 Height;
+	platform_texture_handle Texture;
+	plore_baked_font_data *Data;
 } render_text;
 
 internal void
