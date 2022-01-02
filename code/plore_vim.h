@@ -51,6 +51,8 @@ PLORE_X(ToggleSortExtension,     "toggle_sort_by_extension",     "Toggle sort by
 PLORE_X(DeleteFile,              "delete_file",                  "Delete file/s, with confirmation",                                                "Delete file/s? ('yes' to confirm)")\
 PLORE_X(ShowCommandList,         "show_command_list",            "Show list of all commands",                                                       0)                                  \
 PLORE_X(ExitPlore,               "exit_plore",                   "Exit Plore",                                                                      0)                                  \
+PLORE_X(FontScaleIncrease,       "font_scale_increase",          "Increase current font scale",                                                     0)                                  \
+PLORE_X(FontScaleDecrease,       "font_scale_decrease",          "Decrease current font scale",                                                     0)                                  \
 PLORE_X(VerticalSplit,           "vertical_split",               "Vertical split a new tab, or already existing tab, with provided number",         0)                                  \
 PLORE_X(HorizontalSplit,         "horizontal_split",             "Horizontal split a new tab, or already existing tab, with provided number",       0)
 
@@ -624,6 +626,17 @@ global vim_binding VimBindings[] = {
 		},
 	},
 	{
+		.Type = VimCommandType_HorizontalSplit,
+		.Keys = {
+			{
+				.Input = PloreKey_S,
+			},
+			{
+				.Input = PloreKey_H,
+			},
+		},
+	},
+	{
 		.Type = VimCommandType_ExitPlore,
 		.Keys = {
 			{
@@ -635,13 +648,20 @@ global vim_binding VimBindings[] = {
 		}
 	},
 	{
-		.Type = VimCommandType_HorizontalSplit,
+		.Type = VimCommandType_FontScaleIncrease,
 		.Keys = {
 			{
-				.Input = PloreKey_S,
+				.Input = PloreKey_P,
+				.Modifier = PloreKey_Shift,
 			},
+		},
+	},
+	{
+		.Type = VimCommandType_FontScaleDecrease,
+		.Keys = {
 			{
-				.Input = PloreKey_H,
+				.Input = PloreKey_N,
+				.Modifier = PloreKey_Shift,
 			},
 		},
 	},
