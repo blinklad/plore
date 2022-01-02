@@ -89,8 +89,9 @@ VimguiEnd(plore_vimgui_context *Context) {
 						   .Colour = BackgroundColour, 
 						   .Texture = Widget->Texture,
 					   });
-		u64 FontHeight = Context->RenderList->Font->Data[0]->Height;
-		u64 FontWidth = Context->RenderList->Font->Data[Context->RenderList->Font->CurrentFont]->Data[0].xadvance;
+		f32 FontHeight = Context->RenderList->Font->Data[0]->Height;
+		f32 FontWidth = Context->RenderList->Font->Data[Context->RenderList->Font->CurrentFont]->Data[0].xadvance;
+		PrintLine("FontWidth %f", FontWidth);
 		u64 MaxTextCols = Widget->Rect.Span.W / FontWidth;
 		u64 MaxTextRows = Widget->Rect.Span.H / FontHeight;
 		
@@ -560,7 +561,7 @@ PushRenderText(plore_render_list *RenderList, vimgui_render_text_desc Desc) {
 	Assert(RenderList && RenderList->TextCount < ArrayCount(RenderList->Text));
 	render_text *T = RenderList->Text + RenderList->TextCount++;
 	
-	u64 FontWidth = RenderList->Font->Data[RenderList->Font->CurrentFont]->Data[0].xadvance;
+	f32 FontWidth = RenderList->Font->Data[RenderList->Font->CurrentFont]->Data[0].xadvance;
 	u64 MaxTextCount = Desc.Rect.Span.W / FontWidth - Desc.TextCount;
 	u64 ThisTextLength = StringLength(Desc.Text.Text);
 	if (ThisTextLength > MaxTextCount) {
