@@ -175,6 +175,7 @@ typedef struct plore_vimgui_context {
 	i64 GenerationCount;
 	
 	plore_render_list *RenderList;
+	plore_font *Font;
 	memory_arena FrameArena;
 	
 	v2 WindowDimensions;
@@ -194,7 +195,7 @@ typedef struct vimgui_render_text_desc {
 	v4 _TextColour; 
 	u64 TextCount; // @Cleanup
 	vimgui_label_desc Text;
-	f32 Height;
+	u64 FontID;
 } vimgui_render_text_desc;
 
 // @Cleanup
