@@ -334,6 +334,11 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		PlatformInit(PlatformAPI);
 		STBIFrameArena = &State->FrameArena;
 		DebugInit(State);
+		
+		for (u64 F = 0; F < PloreBakedFont_Count; F++) {
+			State->Font->Data[F] = BakedFontData + F;
+			State->Font->Bitmaps[F] = BakedFontBitmaps + F;
+		}
 	}
 #endif
 	
