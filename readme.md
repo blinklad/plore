@@ -44,6 +44,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 - Basic file preview for .jpg, .png, .bmp
 - Multiple tabs, each with their own state (selection, filter, etc)
 - Searching, sorting, filtering
+- Basic global font scaling.
 
 ### TODOS
 * Linux porting.
@@ -76,6 +77,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
    - ~~File opening handler suggestion.~~
    - ~~Close tab.~~
    - ~~Command lister.~~
+   - ~~Font scaling.~~
 
 
 ### File Management TODOs:
@@ -108,7 +110,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
    - Floating windows
    - More widgets: labels, dropdowns, textfields.
    - Bake font into executable.
-   - Global font scale.
+   - ~~Global font scale.~~
    - Font colour mask.
 
 ### Robustness TODOs:
@@ -123,10 +125,11 @@ Requires Visual Studio 2019 installed to setup MSVC _only_. There is no `.sln` u
 Assuming you have Visual Studio 2019's `vcvarsall.bat` installed at `C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat`...
 
 0. (optional) Tweak the file extension handlers in `plore_file.h` to programs of your choice.
-1. Run `build.bat`.
+1. Run `build.bat meta`, which runs three compilation passes: a metaprogram pre-pass for generating fonts, the application's `.dll`, and the WinMain entry point.
 2. Launch the executable from the parent directory of `build`, i.e., `$ build\win32_plore.exe`.
 
 There is currently no discovery of the executable's runtime location, so make sure to run it from the parent of `build`.
+In release mode, this will not matter, as the application will be a single, statically-linked executable.
 
 ### "Documentation"/notes
 The codebase is scattered with comments where they are useful. 
@@ -138,4 +141,5 @@ I am happy to explain any part of the codebase, though, and conversation in gene
 
 Basic "user" documentation exists in the form of `plore_vim.h`, where all the commands and bindings are specified.
 
-Eventually, a small metaprogram will generate information currently maintained in the X macros, along with similar occurences with `plore_file` extension handlers and `plore_vimgui` skinning.
+There is currently a metaprogram pre-pass that generates the baked font data. 
+This metaprogram is likely to eventually generate information currently maintained in most of the X macros, along with similar occurences with `plore_file` extension handlers and `plore_vimgui` skinning.

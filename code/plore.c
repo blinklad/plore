@@ -4,6 +4,13 @@
 internal void DrawText(char *Format, ...);
 #endif
 
+
+#define STB_TRUETYPE_IMPLEMENTATION
+#include "stb_truetype.h"
+
+#define PLORE_BAKED_FONT_IMPLEMENTATION
+#include "generated/plore_baked_font.h"
+
 #include "plore_string.h"
 #include "plore_vimgui.h"
 #include "plore_vim.h"
@@ -29,10 +36,6 @@ global platform_debug_print *Print;
 #endif
 #endif
 #endif
-
-#define STB_TRUETYPE_IMPLEMENTATION
-#include "stb_truetype.h"
-
 platform_texture_handle TextureHandle_CantLoad;
 memory_arena *STBIFrameArena = 0;
 internal void *
@@ -257,32 +260,18 @@ PlatformInit(platform_api *PlatformAPI) {
 	Print = PlatformAPI->DebugPrint;
 }
 
-u8 FontBuffer[1<<21];
-u8 TempBitmap[512*512];
-
-// NOTE(Evan): This is hacked in here just so we can figure out what the program should do!
 internal plore_font * 
 FontInit(memory_arena *Arena, char *Path) {
+	f32 DefaultHeight = 32.0f; 
+	
 	plore_font *Result = PushStruct(Arena, plore_font);
-	*Result = (plore_font) {
-		.Fonts = {
-			[0] = {
-				.Height = 32.0f,
-			}, 
-			[1] = {
-				.Height = 64.0f,
-			},
-		},
-	};
+	Result->CurrentFont = 0;
 	
-	platform_readable_file FontFile = Platform->DebugOpenFile(Path);
-	platform_read_file_result TheFont = Platform->DebugReadEntireFile(FontFile, FontBuffer, ArrayCount(FontBuffer));
-	Assert(TheFont.ReadSuccessfully);
-	
-	for (u64 F = 0; F < 2; F++) {
-		stbtt_BakeFontBitmap(FontBuffer, 0, Result->Fonts[F].Height, TempBitmap, 512, 512, 32, 96, Result->Fonts[F].Data); // No guarantee this fits!
-		Result->Fonts[F].Handle = Platform->CreateTextureHandle((platform_texture_handle_desc) {
-																	.Pixels = TempBitmap, 
+	for (u64 F = 0; F < PloreBakedFont_Count; F++) {
+		Result->Data[F] = BakedFontData + F;
+		Result->Bitmaps[F] = BakedFontBitmaps + F;
+		Result->Handles[F] = Platform->CreateTextureHandle((platform_texture_handle_desc) {
+																	.Pixels = Result->Bitmaps[F]->Bitmap, 
 																	.Height = 512, 
 																	.Width = 512,
 																	.TargetPixelFormat = PixelFormat_ALPHA,
@@ -290,8 +279,8 @@ FontInit(memory_arena *Arena, char *Path) {
 																	.FilterMode = FilterMode_Linear
 																});
 		
+		if (Result->Data[F]->Height == DefaultHeight) Result->CurrentFont = F;
 	}
-	Platform->DebugCloseFile(FontFile);
 	
 	return(Result);
 }
@@ -1104,6 +1093,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								} break;
 								
 								// TODO(Evan): Easier way to specify inclusion/exclusion of extensions.
+								//default: {
 								case PloreFileExtension_C:
 								case PloreFileExtension_H:
 								case PloreFileExtension_TXT: {

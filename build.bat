@@ -10,6 +10,16 @@ SET CommonCompilerFlags= -DEBUG:full -nologo -fp:fast -Gm- -GR- -EHa- -Od -Oi -W
 SET LinkerFlags= -DEBUG:full -incremental:no -opt:ref user32.lib gdi32.lib winmm.lib opengl32.lib glu32.lib ksuser.lib shlwapi.lib Shell32.lib
 
 del *.pdb > NUL 2> NUL
+
+REM NOTE(Evan): Compile and run the metaprogram.
+IF "%1"=="meta" (
+	@echo on
+	cl %CommonCompilerFlags% ..\code\plore_meta.c -Fmplore_meta.map /link -incremental:no -opt:ref -PDB:plore_meta.pdb
+	plore_meta.exe
+	@echo off
+)
+
+REM NOTE(Evan): Compile plore dll, noting that we might be contesting the symbol file.
 echo "Waiting for PDB" > lock.tmp
 cl %CommonCompilerFlags% ..\code\plore.c -Fmplore.map -LD /link -incremental:no -opt:ref -PDB:plore_%random%.pdb
 del lock.tmp

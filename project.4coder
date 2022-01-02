@@ -24,6 +24,13 @@ command_list = {
           {"build.sh", .os = "linux"},
    },
  },
+ { .name = "build_meta",
+   .out = "*compile*", .footer_panel = false, .save_dirty_files = true, .cursor_at_end = false,
+   .cmd = {
+          {"build.bat meta", .os = "win"},
+          {"build.sh", .os = "linux"},
+   },
+ },
  { .name = "run",
    .out = "*run*", .footer_panel = false, .save_dirty_files = false, .cursor_at_end = true,
    .cmd = {
@@ -42,3 +49,4 @@ command_list = {
 fkey_command[5] = "build";
 fkey_command[6] = "run";
 fkey_command[7] = "debug";
+fkey_command[8] = "build_meta";

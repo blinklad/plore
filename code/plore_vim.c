@@ -1091,6 +1091,18 @@ PLORE_VIM_COMMAND(ShowCommandList) {
 	
 }
 
+PLORE_VIM_COMMAND(FontScaleIncrease) {
+	if (State->Font->CurrentFont < PloreBakedFont_Count-1) {
+		State->Font->CurrentFont += 1;
+	}
+}
+
+PLORE_VIM_COMMAND(FontScaleDecrease) {
+	if (State->Font->CurrentFont > 0) {
+		State->Font->CurrentFont -= 1;
+	}
+}
+
 PLORE_VIM_COMMAND(ExitPlore) {
 	DrawText("ExitPlore");
 	State->ShouldQuit = true;

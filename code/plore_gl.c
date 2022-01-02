@@ -7,21 +7,15 @@ global u64 GLWindowHeight;
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "stb_truetype.h"
 
+#include "generated/plore_baked_font.h"
+
 internal void 
 WriteText(plore_font *Font, render_text T) {
 	stbtt_bakedchar *Data = 0;
 	platform_texture_handle Handle = {0};
 	
-	// HACK(Evan): Font handling!
-	u64 Index = 0;
-	if (T.Height == 32.0f) {
-		Index = 0;
-	} else {
-		Index = 1;
-	}
-	
-	Data = Font->Fonts[Index].Data;
-	Handle = Font->Fonts[Index].Handle;
+	Data = Font->Data[Font->CurrentFont]->Data;
+	Handle = Font->Handles[Font->CurrentFont];
 	f32 X = T.Rect.P.X;
 	f32 Y = T.Rect.P.Y;// - Font->Height;
 	char *Text = T.Text;
@@ -54,29 +48,11 @@ WriteText(plore_font *Font, render_text T) {
 			if (*Text >= 32 && *Text < 128) {
 				stbtt_aligned_quad Q;
 				stbtt_GetBakedQuad(Data, Handle.Width, Handle.Height, *Text-32, &X, &Y, &Q, 1);//1=opengl & d3d10+,0=d3d9
+				
 				glTexCoord2f(Q.s0, Q.t0); glVertex2f(Q.x0, Q.y0);
 				glTexCoord2f(Q.s1, Q.t0); glVertex2f(Q.x1, Q.y0);
 				glTexCoord2f(Q.s1, Q.t1); glVertex2f(Q.x1, Q.y1);
 				glTexCoord2f(Q.s0, Q.t1); glVertex2f(Q.x0, Q.y1);
-				
-				
-				WindowsDebugPrintLine("Char = %c, X = %f, .Y = %f, Q = { .s0 = %f, .s1 = %f, .t0 = %f, .t1 = %f, .x0 = %f, .x1 = %f, .y0 = %f, .y1 = %f }",
-						  *Text,
-						  X,
-						  Y,
-						  Q.s0,
-						  Q.s1,
-						  Q.t0,
-						  Q.t1, 
-						  Q.x0,
-						  Q.x1,
-						  Q.y0,
-						  Q.y1);
-						  
-				
-				
-				
-				
 				
 			} else if (*Text == '\t') {
 				CurrentWidth += Data[0].xadvance*3;

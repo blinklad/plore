@@ -57,7 +57,7 @@ typedef enum pixel_format {
 } pixel_format;
 
 typedef struct platform_texture_handle_desc {
-	void *Pixels;
+	u8 *Pixels;
 	u64 Width;
 	u64 Height;
 	pixel_format ProvidedPixelFormat;

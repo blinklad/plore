@@ -89,8 +89,9 @@ VimguiEnd(plore_vimgui_context *Context) {
 						   .Colour = BackgroundColour, 
 						   .Texture = Widget->Texture,
 					   });
-		u64 FontHeight = Context->RenderList->Font->Fonts[0].Height;
-		u64 FontWidth = Context->RenderList->Font->Fonts[0].Data[0].xadvance;
+		f32 FontHeight = Context->RenderList->Font->Data[0]->Height;
+		f32 FontWidth = Context->RenderList->Font->Data[Context->RenderList->Font->CurrentFont]->Data[0].xadvance;
+		PrintLine("FontWidth %f", FontWidth);
 		u64 MaxTextCols = Widget->Rect.Span.W / FontWidth;
 		u64 MaxTextRows = Widget->Rect.Span.H / FontHeight;
 		
@@ -115,7 +116,7 @@ VimguiEnd(plore_vimgui_context *Context) {
 					if (Widget->Title.Text && 
 						(Widget->Title.Alignment == VimguiLabelAlignment_Left) || 
 						(Widget->Title.Alignment == VimguiLabelAlignment_Default)) {
-						SecondaryRect.P.X += (StringLength(Widget->Title.Text) + 1) * Context->RenderList->Font->Fonts[0].Data[0].xadvance; // @Cleanup
+						SecondaryRect.P.X += (StringLength(Widget->Title.Text) + 1) * FontWidth; // @Cleanup
 					}
 				}
 				
@@ -129,7 +130,7 @@ VimguiEnd(plore_vimgui_context *Context) {
 									   .Pad = Widget->Secondary.Pad,
 									   .ColourFlags = Widget->Title.ColourFlags,
 								   },
-								   .Height = 32.0f,
+								   .Height = FontHeight,
 								   });
 			}
 		}
@@ -151,7 +152,7 @@ VimguiEnd(plore_vimgui_context *Context) {
 								   .Pad = Widget->Title.Pad,
 								   .ColourFlags = Widget->Title.ColourFlags,
 							   },
-							   .Height = 32.0f,
+							   .Height = FontHeight,
 							   .TextCount = TextCount,
 						   });
 			
@@ -189,7 +190,7 @@ VimguiEnd(plore_vimgui_context *Context) {
 										   //.Pad = Widget->Title.Pad,
 										   //.ColourFlags = Widget->Title.ColourFlags,
 									   },
-									   .Height = 32.0f,
+									   .Height = FontHeight,
 								   });
 					
 					if (!Lines) break;
@@ -560,7 +561,8 @@ PushRenderText(plore_render_list *RenderList, vimgui_render_text_desc Desc) {
 	Assert(RenderList && RenderList->TextCount < ArrayCount(RenderList->Text));
 	render_text *T = RenderList->Text + RenderList->TextCount++;
 	
-	u64 MaxTextCount = Desc.Rect.Span.W / RenderList->Font->Fonts[0].Data[0].xadvance - Desc.TextCount;
+	f32 FontWidth = RenderList->Font->Data[RenderList->Font->CurrentFont]->Data[0].xadvance;
+	u64 MaxTextCount = Desc.Rect.Span.W / FontWidth - Desc.TextCount;
 	u64 ThisTextLength = StringLength(Desc.Text.Text);
 	if (ThisTextLength > MaxTextCount) {
 		Desc.Text.Text[MaxTextCount] = '\0';
@@ -578,11 +580,11 @@ PushRenderText(plore_render_list *RenderList, vimgui_render_text_desc Desc) {
 		
 		case VimguiLabelAlignment_Center: {
 			TextP.X += Desc.Rect.Span.W/2.0f;
-			TextP.X -= StringLength(Desc.Text.Text)/2.0f * RenderList->Font->Fonts[0].Data[0].xadvance;
+			TextP.X -= StringLength(Desc.Text.Text)/2.0f * FontWidth;
 		} break;
 		
 		case VimguiLabelAlignment_Right: {
-			f32 TextSpan = StringLength(Desc.Text.Text) * RenderList->Font->Fonts[0].Data[0].xadvance + Desc.Text.Pad.X;
+			f32 TextSpan = StringLength(Desc.Text.Text) * FontWidth + Desc.Text.Pad.X;
 			TextP.X = Desc.Rect.P.X + (Desc.Rect.Span.W - TextSpan);//Desc.Rect.P.X + Desc.Rect.Span.W;
 		} break;
 		
