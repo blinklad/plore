@@ -8,6 +8,9 @@
 
 u8 FontBuffer[1<<22];
 
+#define FONT_MAX_WIDTH 256
+#define FONT_MAX_HEIGHT 256
+
 #define GLYPH_COUNT 96
 
 // NOTE(Evan): This must be invoked from "build/"
@@ -40,8 +43,8 @@ main(int ArgCount, char **Args) {
 	fclose(FontFile);
 	
 	ForArray(H, Heights) {
-		Bitmaps[H] = calloc(512*512, 1);
-		stbtt_BakeFontBitmap(FontBuffer, 0, Heights[H], Bitmaps[H], 512, 512, 32, GLYPH_COUNT, BakedData[H]); // No guarantee this fits!
+		Bitmaps[H] = calloc(FONT_MAX_WIDTH*FONT_MAX_HEIGHT, 1);
+		stbtt_BakeFontBitmap(FontBuffer, 0, Heights[H], Bitmaps[H], FONT_MAX_WIDTH, FONT_MAX_HEIGHT, 32, GLYPH_COUNT, BakedData[H]); // No guarantee this fits!
 	}
 	
 	
@@ -55,7 +58,9 @@ main(int ArgCount, char **Args) {
 	
 	fprintf(Output, "typedef struct plore_baked_font_bitmap {\n");
 	fprintf(Output, "    f32 Height;\n");
-	fprintf(Output, "    u8 Bitmap[512*512];\n");
+	fprintf(Output, "    u64 BitmapWidth;\n");
+	fprintf(Output, "    u64 BitmapHeight;\n");
+	fprintf(Output, "    u8 Bitmap[%d*%d];\n", FONT_MAX_WIDTH, FONT_MAX_HEIGHT);
     fprintf(Output, "} plore_baked_font_bitmap;\n");
 	
 	fprintf(Output, "typedef struct plore_baked_font_data {\n");
@@ -73,9 +78,9 @@ main(int ArgCount, char **Args) {
 	fprintf(Output, "#ifdef PLORE_BAKED_FONT_IMPLEMENTATION\n");
 	fprintf(Output, "plore_baked_font_bitmap BakedFontBitmaps[] = {\n");
 	ForArray(H, Heights) {
-		fprintf(Output, "\t[%d] = { .Height = %f, .Bitmap = {", (int)H, Heights[H]);
+		fprintf(Output, "\t[%d] = { .Height = %f, .BitmapWidth = %d, .BitmapHeight = %d, .Bitmap = {", (int)H, Heights[H], FONT_MAX_WIDTH, FONT_MAX_HEIGHT);
 		
-		for (u64 B = 0; B < 512*512; B++) {
+		for (u64 B = 0; B < FONT_MAX_WIDTH*FONT_MAX_HEIGHT; B++) {
 			if ((B % 32) == 0) fprintf(Output, "\n\t");
 			fprintf(Output, " 0x%02x,", Bitmaps[H][B]);
 		}
