@@ -1,9 +1,3 @@
-internal f32
-GetCurrentFontHeight(plore_font *Font) {
-	f32 Result = Font->Data[Font->CurrentFont]->Height;
-	return(Result);
-}
-
 // TODO(Evan): Metaprogram tables.
 internal u32 
 GetTextColour(text_colour TextColour, text_colour_flags Flags) {
@@ -39,6 +33,7 @@ internal void
 VimguiInit(memory_arena *Arena, plore_vimgui_context *Context, plore_render_list *RenderList) {
 	Assert(RenderList->Font);
 	Context->RenderList = RenderList;
+	Context->Font = RenderList->Font;
 	Context->FrameArena = SubArena(Arena, Megabytes(1), 16);
 }
 
@@ -95,8 +90,8 @@ VimguiEnd(plore_vimgui_context *Context) {
 						   .Colour = BackgroundColour, 
 						   .Texture = Widget->Texture,
 					   });
-		f32 FontHeight = Context->RenderList->Font->Data[0]->Height;
-		f32 FontWidth = Context->RenderList->Font->Data[Context->RenderList->Font->CurrentFont]->Data[0].xadvance;
+		f32 FontHeight = GetCurrentFontHeight(Context->Font);
+		f32 FontWidth = GetCurrentFontWidth(Context->Font);
 		u64 MaxTextCols = Widget->Rect.Span.W / FontWidth;
 		u64 MaxTextRows = Widget->Rect.Span.H / FontHeight;
 		
@@ -135,11 +130,17 @@ VimguiEnd(plore_vimgui_context *Context) {
 									   .Pad = Widget->Secondary.Pad,
 									   .ColourFlags = Widget->Title.ColourFlags,
 								   },
-								   .Height = FontHeight,
+								   .FontID = Context->Font->CurrentFont,
 								   });
 			}
 		}
 		if (Widget->Title.Text) {
+			// NOTE(Evan): Grab a bigger font for the title.
+			u64 TitleFontID = Context->Font->CurrentFont;
+			if (Widget->Type == WidgetType_Window) {
+				TitleFontID = Min(PloreBakedFont_Count-1, Context->Font->CurrentFont+5);
+			}
+				
 			vimgui_label_alignment Alignment = 0;
 			if (Widget->Title.Alignment) Alignment = Widget->Title.Alignment;
 			else if (Widget->Alignment) Alignment = Widget->Alignment;
@@ -157,7 +158,7 @@ VimguiEnd(plore_vimgui_context *Context) {
 								   .Pad = Widget->Title.Pad,
 								   .ColourFlags = Widget->Title.ColourFlags,
 							   },
-							   .Height = FontHeight,
+							   .FontID = TitleFontID,
 							   .TextCount = TextCount,
 						   });
 			
@@ -195,7 +196,7 @@ VimguiEnd(plore_vimgui_context *Context) {
 										   //.Pad = Widget->Title.Pad,
 										   //.ColourFlags = Widget->Title.ColourFlags,
 									   },
-									   .Height = FontHeight,
+									   .FontID = Context->Font->CurrentFont,
 								   });
 					
 					if (!Lines) break;
@@ -385,7 +386,8 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	
 	
 	if (Desc.FillWidth) {
-		f32 TitlePad = 30.0f;
+		f32 FontHeight = GetCurrentFontHeight(Context->Font);
+		f32 TitlePad = FontHeight+2.0f;
 		f32 ButtonStartY = Window->Rect.P.Y + TitlePad;
 		f32 RowPad = 4.0f;
 		f32 RowHeight = Desc.Rect.Span.H;
@@ -504,7 +506,7 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 			MaybeWindow->Rect.P.Y += Parent->Rect.P.Y;
 			MaybeWindow->Rect.P.Y += 26.0f; // NOTE(Evan): This offsets child widgets, currently it must account for tabs - cleanup!
 		} 
-		MaybeWindow->RowMax = (Desc.Rect.Span.Y) / (GetCurrentFontHeight(Context->RenderList->Font) + 4.0f) - 1; // @Hardcode
+		MaybeWindow->RowMax = (Desc.Rect.Span.Y) / (GetCurrentFontHeight(Context->Font) + 4.0f) - 1; // @Hardcode
 		MaybeWindow->BackgroundColour = Desc.BackgroundColour;
 		Context->ThisFrame.WindowWeAreLayingOut = MyID;
 		
@@ -566,8 +568,8 @@ PushRenderText(plore_render_list *RenderList, vimgui_render_text_desc Desc) {
 	Assert(RenderList && RenderList->TextCount < ArrayCount(RenderList->Text));
 	render_text *T = RenderList->Text + RenderList->TextCount++;
 	
-	f32 FontHeight = RenderList->Font->Data[RenderList->Font->CurrentFont]->Height;
-	f32 FontWidth = RenderList->Font->Data[RenderList->Font->CurrentFont]->Data[0].xadvance;
+	f32 FontHeight = GetCurrentFontHeight(RenderList->Font);
+	f32 FontWidth = GetCurrentFontWidth(RenderList->Font);
 	
 	u64 MaxTextCount = Desc.Rect.Span.W / FontWidth - Desc.TextCount;
 	u64 ThisTextLength = StringLength(Desc.Text.Text);
@@ -603,7 +605,8 @@ PushRenderText(plore_render_list *RenderList, vimgui_render_text_desc Desc) {
 			.Span = Desc.Rect.Span,
 		},
 		.Colour = ColourU32ToV4(GetTextColour(Desc.Text.Colour, Desc.Text.ColourFlags)),
-		.Height = Desc.Height,
+		.Texture = RenderList->Font->Handles[Desc.FontID],
+		.Data = RenderList->Font->Data[Desc.FontID],
 	};
 	
 	if (Desc.Text.Text && *Desc.Text.Text) {

@@ -14,8 +14,8 @@ WriteText(plore_font *Font, render_text T) {
 	stbtt_bakedchar *Data = 0;
 	platform_texture_handle Handle = {0};
 	
-	Data = Font->Data[Font->CurrentFont]->Data;
-	Handle = Font->Handles[Font->CurrentFont];
+	Data = T.Data->Data;
+	Handle = T.Texture;
 	f32 X = T.Rect.P.X;
 	f32 Y = T.Rect.P.Y;// - Font->Height;
 	char *Text = T.Text;

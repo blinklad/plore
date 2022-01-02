@@ -36,8 +36,10 @@ global platform_debug_print *Print;
 #endif
 #endif
 #endif
+
 platform_texture_handle TextureHandle_CantLoad;
 memory_arena *STBIFrameArena = 0;
+
 internal void *
 STBIMalloc(u64 Size) {
 	void *Result = PushBytes(STBIFrameArena, Size);
@@ -198,6 +200,12 @@ GetCursorFile(plore_state *State);
 internal plore_path *
 GetImpliedSelection(plore_state *State);
 	
+internal f32
+GetCurrentFontHeight(plore_font *Font);
+
+internal f32
+GetCurrentFontWidth(plore_font *Font);
+	
 internal plore_key
 GetKey(char C) {
 	plore_key Result = 0;
@@ -258,6 +266,19 @@ PlatformInit(platform_api *PlatformAPI) {
 	Platform = PlatformAPI;
 	PrintLine = PlatformAPI->DebugPrintLine;
 	Print = PlatformAPI->DebugPrint;
+}
+
+internal f32
+GetCurrentFontHeight(plore_font *Font) {
+	f32 Result = Font->Data[Font->CurrentFont]->Height;
+	return(Result);
+}
+
+// NOTE(Evan): Requires a monospace font.
+internal f32
+GetCurrentFontWidth(plore_font *Font) {
+	f32 Result = Font->Data[Font->CurrentFont]->Data[0].xadvance;
+	return(Result);
 }
 
 internal plore_font * 

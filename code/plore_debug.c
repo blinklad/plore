@@ -79,7 +79,7 @@ FlushText(void) {
 								   .Text = Text->Buffer,
 								   .Alignment = VimguiLabelAlignment_Center, 
 							   },
-							   .Height = 64.0f,
+							   .FontID = PloreBakedFont_Count-1,
 						   }
 						   );
 			
@@ -99,7 +99,7 @@ FlushText(void) {
 							   .Text = Text->Buffer,
 							   .Alignment = VimguiLabelAlignment_Center, 
 						   },
-						   .Height = 64.0f
+							   .FontID = PloreBakedFont_Count-1,
 						   });
 		}
 	}
