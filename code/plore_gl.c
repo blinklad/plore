@@ -58,6 +58,26 @@ WriteText(plore_font *Font, render_text T) {
 				glTexCoord2f(Q.s1, Q.t0); glVertex2f(Q.x1, Q.y0);
 				glTexCoord2f(Q.s1, Q.t1); glVertex2f(Q.x1, Q.y1);
 				glTexCoord2f(Q.s0, Q.t1); glVertex2f(Q.x0, Q.y1);
+				
+				
+				WindowsDebugPrintLine("Char = %c, X = %f, .Y = %f, Q = { .s0 = %f, .s1 = %f, .t0 = %f, .t1 = %f, .x0 = %f, .x1 = %f, .y0 = %f, .y1 = %f }",
+						  *Text,
+						  X,
+						  Y,
+						  Q.s0,
+						  Q.s1,
+						  Q.t0,
+						  Q.t1, 
+						  Q.x0,
+						  Q.x1,
+						  Q.y0,
+						  Q.y1);
+						  
+				
+				
+				
+				
+				
 			} else if (*Text == '\t') {
 				CurrentWidth += Data[0].xadvance*3;
 				X += Data[0].xadvance*4;
