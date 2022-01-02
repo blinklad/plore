@@ -46,7 +46,11 @@ main(int ArgCount, char **Args) {
 	
 	
 	
-	fprintf(Output, "// Generated baked font\n");
+	fprintf(Output, "//\n");
+	fprintf(Output, "// plore_baked_font.h\n");
+	fprintf(Output, "// Automatically generated, baked font bitmap and definitions\n");
+	fprintf(Output, "// Font: `%s`\n", Font);
+	fprintf(Output, "//\n");
 	fprintf(Output, "#define PloreBakedFont_Count %d\n", (int)ArrayCount(Heights));
 	
 	fprintf(Output, "typedef struct plore_baked_font_bitmap {\n");
