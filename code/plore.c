@@ -272,8 +272,8 @@ FontInit(memory_arena *Arena, char *Path) {
 		Result->Bitmaps[F] = BakedFontBitmaps + F;
 		Result->Handles[F] = Platform->CreateTextureHandle((platform_texture_handle_desc) {
 																	.Pixels = Result->Bitmaps[F]->Bitmap, 
-																	.Height = 512, 
-																	.Width = 512,
+																    .Width = Result->Bitmaps[F]->BitmapWidth, 
+																    .Height = Result->Bitmaps[F]->BitmapHeight, 
 																	.TargetPixelFormat = PixelFormat_ALPHA,
 																	.ProvidedPixelFormat = PixelFormat_ALPHA,
 																	.FilterMode = FilterMode_Linear
