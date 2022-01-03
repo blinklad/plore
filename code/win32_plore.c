@@ -134,6 +134,22 @@ PLATFORM_DEBUG_READ_ENTIRE_FILE(WindowsDebugReadEntireFile) {
     return(Result);
 }
 
+PLATFORM_DEBUG_READ_ENTIRE_FILE(WindowsDebugReadFileSize) {
+    platform_read_file_result Result = {0};
+    
+    HANDLE FileHandle = File.Opaque;
+    DWORD BytesRead;
+	
+    Assert(BufferSize < UINT32_MAX);
+    DWORD BufferSize32 = (DWORD) BufferSize;
+	
+    Result.ReadSuccessfully = ReadFile(FileHandle, Buffer, BufferSize32, &BytesRead, NULL);
+    Result.BytesRead = BytesRead;
+    Result.Buffer = Buffer;
+    
+    return(Result);
+}
+
 PLATFORM_CREATE_TEXTURE_HANDLE(WindowsGLCreateTextureHandle) {
 	platform_texture_handle Result = {
 		.Width = Desc.Width,
@@ -1151,6 +1167,7 @@ int WinMain (
 		.DebugAssertHandler  = WindowsDebugAssertHandler,
         .DebugOpenFile       = WindowsDebugOpenFile,
         .DebugReadEntireFile = WindowsDebugReadEntireFile,
+        .DebugReadFileSize   = WindowsDebugReadFileSize,
 		.DebugCloseFile      = WindowsDebugCloseFile,
 		
         .DebugPrintLine = WindowsDebugPrintLine,
