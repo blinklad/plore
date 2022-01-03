@@ -112,27 +112,24 @@ typedef struct plore_get_file_extension_result {
 	plore_file_extension Extension;
 } plore_get_file_extension_result;
 
-// NOTE(Evan): This grabs the *first* '.' starting from the left of the filename.
 internal plore_get_file_extension_result
 GetFileExtension(char *FilePart) {
 	plore_get_file_extension_result Result = {
 		.FilePart = FilePart,
 	};
 	
-	u64 NameSize = StringLength(FilePart);
-	u64 ExtensionSize = NameSize;
-	char *S = FilePart;
-	while (*S) {
-		if (*S == '.') {
-			S++; 
-			break;
-		}
-		else {
-			S++;
-			NameSize--;
-		}
+	u64 Length = StringLength(FilePart);
+	u64 NameSize = Length;
+	u64 ExtensionSize = 0;
+	
+	char *S = FilePart+NameSize;
+	while (*--S != '.') {
+		if (!NameSize--) break;
+		ExtensionSize++;
 	}
-	if (*S) {
+	
+	if (NameSize) {
+		S = FilePart+Length-ExtensionSize;
 		Result.ExtensionPart = S;
 		for (plore_file_extension E = 0; E < PloreFileExtension_Count; E++) {
 			if (StringsAreEqualIgnoreCase(PloreFileExtensionShortStrings[E], S)) {
