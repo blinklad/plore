@@ -588,7 +588,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 					   .P = V2(0, 0), 
 					   .Span = { 
 						   PlatformAPI->WindowDimensions.X, 
-						   PlatformAPI->WindowDimensions.Y - FooterHeight 
+						   PlatformAPI->WindowDimensions.Y - FooterHeight, 
 					   } 
 				   },
 				   .BackgroundColour      = WidgetColour_Window,
@@ -627,7 +627,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 									   .Text = Tab->CurrentDirectory.FilePart, 
 									   .Colour = (Tab == Active) ? TextColour_TabActive : TextColour_Tab,
 									   .Pad = V2(0, 6),
-									   .Alignment = VimguiLabelAlignment_Center,
+									   .Alignment = VimguiLabelAlignment_CenterHorizontal,
 								   },
 								   .Secondary = {
 									   .Text = Number,
@@ -645,8 +645,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		}
 		
 		if (State->TabCount) {
-			Y += TabHeight;
-			H -= TabHeight;
+			Y += TabHeight+2*PadY;
+			H -= TabHeight-PadY;
 		}
 		// NOTE(Evan): Cursor state.
 		local f64 Tick = 0;
@@ -779,7 +779,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 									   .Colour = TextColour_PromptCursor,
 								   },
 								   .Rect = {
-									   .P = V2(PadX, PlatformAPI->WindowDimensions.Y + SmallPageAdjustment - MaybeInsertHeight - FooterHeight - (RowMax-ListerCount+1)*FooterHeight - 10),
+									   .P = V2(PadX, PlatformAPI->WindowDimensions.Y + SmallPageAdjustment - MaybeInsertHeight - FooterHeight - (RowMax-ListerCount+1)*FooterHeight - PadY),
 									   .Span = V2(PlatformAPI->WindowDimensions.X-2*PadX, FooterHeight)
 								   },
 								   .BackgroundColour = (L == VimContext->ListerState.Cursor) ? WidgetColour_Secondary : WidgetColour_Primary,
@@ -909,25 +909,24 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							 );
 		}
 		
-		if (Button(State->VimguiContext, (vimgui_button_desc) {
+		Button(State->VimguiContext, (vimgui_button_desc) {
 					   .Title     = { 
 						   .Text = CursorInfo, 
 						   .Alignment = VimguiLabelAlignment_Left, 
 						   .Colour = TextColour_CursorInfo,
-						   .Pad = V2(8, 6),
+						   .Pad = V2(8, 4),
 					   },
 					   .Secondary = { 
 						   .Text = Buffer,
 						   .Alignment = VimguiLabelAlignment_Left,
-						   .Pad = V2(0, 6),
+						   .Pad = V2(0, 4),
 						   .Colour = TextColour_Prompt
 					   },
 					   .Rect = { 
 						   .P    = V2(PadX, Y + PlatformAPI->WindowDimensions.X + FooterHeight + FooterPad), 
 						   .Span = V2(PlatformAPI->WindowDimensions.X-2*PadX, FooterHeight + PadY-20)
 					   },
-				   })) {
-		}
+		});
 		
 		
 		if (!ExclusiveListerMode) {
@@ -1113,13 +1112,13 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 													  .Rect = {
 														  .Span = V2(512, 512),
 													  }, 
-													  .Centered = true,
+													  .Centered = true, // @Cleanup
 											  });
 									} else {
 										Button(State->VimguiContext, (vimgui_button_desc) {
 													   .Rect = {
 														   .P = V2(0, H/2),
-														   .Span = V2(W, 128),
+														   .Span = V2(W, FontHeight*4),
 													   },
 													   .Title = {
 														   .Text = "Could not load image.",
@@ -1131,27 +1130,27 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								
 								// TODO(Evan): Easier way to specify inclusion/exclusion of extensions.
 								default: {
-									u64 TextBoxSize = Kilobytes(8);
-									char *Text = PushBytes(&State->FrameArena, TextBoxSize);
-									
 									platform_readable_file TheFile = Platform->DebugOpenFile(Listing->File.Path.Absolute);
-									Assert(TheFile.OpenedSuccessfully);
-									
-									platform_read_file_result ReadResult = Platform->DebugReadFileSize(TheFile, Text, TextBoxSize);
-									Assert(ReadResult.ReadSuccessfully);
-									
-									if (TextBox(State->VimguiContext, (vimgui_text_box_desc) {
-													.ID = (u64)Text,
+									if (TheFile.OpenedSuccessfully) {
+										u64 TextBoxSize = Kilobytes(8);
+										char *Text = PushBytes(&State->FrameArena, TextBoxSize);
+										
+										platform_read_file_result ReadResult = Platform->DebugReadFileSize(TheFile, Text, TextBoxSize);
+										Assert(ReadResult.ReadSuccessfully);
+										
+										u64 TextBoxID = (u64)HashString(Listing->File.Path.Absolute);
+										
+										TextBox(State->VimguiContext, (vimgui_text_box_desc) {
+													.ID = TextBoxID,
 													.Text = Text,
 													.Rect = {
-														.P = V2(PadX, FooterHeight),
-														.Span = V2(W-2*PadX, H-2*FooterHeight),
+														.P = V2(PadX, FontHeight+4),
+														.Span = V2(W-2*PadX, H-FooterHeight-PadY),
 													},
-												})) {
-										// TODO(Evan): Something when this is selected.
+										});
+										
+										Platform->DebugCloseFile(TheFile);
 									}
-									
-									Platform->DebugCloseFile(TheFile);
 								} break;
 							}
 							

@@ -121,6 +121,8 @@ typedef enum vimgui_label_alignment {
 	VimguiLabelAlignment_Left,
 	VimguiLabelAlignment_Right,
 	VimguiLabelAlignment_Center,
+	VimguiLabelAlignment_CenterHorizontal,
+	VimguiLabelAlignment_CenterVertical,
 	VimguiLabelAlignment_Count,
 	_VimguiLabelAlignment_ForceU64 = 0xffffffffull,
 } vimgui_label_alignment;

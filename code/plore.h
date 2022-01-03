@@ -218,10 +218,13 @@ typedef struct plore_file_context {
 } plore_file_context;
 
 typedef struct plore_render_list {
-	render_quad Quads[512];
+	render_quad Quads[256];
 	u64 QuadCount;
 	
-	render_text Text[512];
+	render_line Lines[256];
+	u64 LineCount;
+	
+	render_text Text[256];
 	u64 TextCount;
 	
 	plore_font *Font;
