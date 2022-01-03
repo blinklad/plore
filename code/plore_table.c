@@ -12,6 +12,7 @@ typedef struct plore_file_listing_desc {
 	plore_file_node Type;
 	plore_path_ref Path;
 	plore_time LastModification;
+	u64 Bytes;
 } plore_file_listing_desc;
 
 
@@ -27,6 +28,7 @@ ListingFromFile(plore_file *File) {
 			.FilePart = File->Path.FilePart,
 		},
 		.LastModification = File->LastModification,
+		.Bytes = File->Bytes,
 	};
 	
 	return(Result);
