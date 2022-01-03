@@ -24,20 +24,19 @@ global platform_debug_print *Print;
 #ifdef Assert
 #undef Assert
 #define Assert(X) if (!(X)) {                                                                                      \
-					  char __AssertBuffer[256];                                                                    \
-					  StringPrintSized(__AssertBuffer,                                                             \
-					  ArrayCount(__AssertBuffer),                                                                  \
-						"Assert fired on line %d in file %s\n"                                                     \
-						"Try again to attach debugger, abort to exit, continue to ignore.",                        \
-					  __LINE__,                                                                                    \
-					  __FILE__);                                                                                   \
-					  if (Platform->DebugAssertHandler(__AssertBuffer)) Debugger;                                  \
+                      char __AssertBuffer[256];                                                                    \
+                      StringPrintSized(__AssertBuffer,                                                             \
+                      ArrayCount(__AssertBuffer),                                                                  \
+                        "Assert fired on line %d in file %s\n"                                                     \
+                        "Try again to attach debugger, abort to exit, continue to ignore.",                        \
+                      __LINE__,                                                                                    \
+                      __FILE__);                                                                                   \
+                      if (Platform->DebugAssertHandler(__AssertBuffer)) Debugger;                                  \
 }
 #endif
 #endif
 #endif
 
-platform_texture_handle TextureHandle_CantLoad;
 memory_arena *STBIFrameArena = 0;
 
 internal void *
@@ -152,7 +151,7 @@ GetCurrentTab(plore_state *State);
 
 internal void
 ClearTab(plore_state *State, u64 TabIndex);
-	
+
 
 typedef struct load_image_result {
 	platform_texture_handle Texture;
@@ -177,7 +176,7 @@ ToggleSelected(plore_file_context *Context, plore_path *Selectee);
 
 internal void
 ToggleYanked(plore_file_context *Context, plore_path *Yankee);
-	
+
 internal char *
 PloreKeysToString(memory_arena *Arena, vim_key *Keys, u64 KeyCount);
 
@@ -187,25 +186,25 @@ typedef struct vim_keys_to_string_result {
 } vim_keys_to_string_result;
 internal vim_keys_to_string_result
 VimKeysToString(char *Buffer, u64 BufferSize, vim_key *Keys);
-	
+
 internal char *
 VimBindingToString(char *Buffer, u64 BufferSize, vim_binding *Binding);
-	
+
 internal void
 SynchronizeCurrentDirectory(memory_arena *FrameArena, plore_tab *Tab);
-	
+
 internal plore_file *
 GetCursorFile(plore_state *State);
 
 internal plore_path *
 GetImpliedSelection(plore_state *State);
-	
+
 internal f32
 GetCurrentFontHeight(plore_font *Font);
 
 internal f32
 GetCurrentFontWidth(plore_font *Font);
-	
+
 internal plore_key
 GetKey(char C) {
 	plore_key Result = 0;
@@ -576,6 +575,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		plore_path Path;
 		platform_texture_handle Texture;
 		b64 Allocated;
+		b64 LoadedOkay;
 	} image_preview_handle;
 	
 	b64 StoleFocus = false;
@@ -1553,7 +1553,6 @@ LoadImage(memory_arena *Arena, char *AbsolutePath, u64 MaxX, u64 MaxY) {
 														   .FilterMode = FilterMode_Nearest,
 													   });
 	} else {
-		Result.Texture = TextureHandle_CantLoad;
 		Result.ErrorReason = (char *)stbi_failure_reason();
 	}
 	
