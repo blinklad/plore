@@ -128,9 +128,9 @@ MSVC is the only supported compiler, no plans to support LLVM/Mingw.
 There is no `.sln` used, nor any other build system. Visual Studio is required "only" to install the correct development environment.
 
 However, we are not out of the woods yet, that is a *big* "only".
-For the [tiny build script](build.bat) to work, it assumes Visual Studio has placed `vcvarsall.bat` in `C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat`, or wherever you installed Visual Studio.
+For the [tiny build script](build.bat) to work, it assumes Visual Studio has placed `vcvarsall.bat` in `C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat`, or in a similar relative directory to wherever you installed Visual Studio.
 
-Locating Windows development files on a Windows system is unfortunately [an unsolved problem] problem](https://gist.github.com/Kalinovcic/b4d9cc55a37f929cb62320763e8fbb47).
+Locating Windows development files on a Windows system is unfortunately [an unsolved problem](https://gist.github.com/Kalinovcic/b4d9cc55a37f929cb62320763e8fbb47).
 `vcvarsall.bat` has a different naming convention and installation location between Visual Studio versions.
 
 So, have fun with that.
