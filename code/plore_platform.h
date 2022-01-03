@@ -22,6 +22,9 @@ typedef struct platform_read_file_result {
 #define PLATFORM_DEBUG_READ_ENTIRE_FILE(name) platform_read_file_result name(platform_readable_file File, void *Buffer, u64 BufferSize)
 typedef PLATFORM_DEBUG_READ_ENTIRE_FILE(platform_debug_read_entire_file);
 
+#define PLATFORM_DEBUG_READ_FILE_SIZE(name) platform_read_file_result name(platform_readable_file File, void *Buffer, u64 BufferSize)
+typedef PLATFORM_DEBUG_READ_FILE_SIZE(platform_debug_read_file_size);
+
 #define PLATFORM_CREATE_FILE(name) b64 name(char *Path, b64 OverwriteExisting)
 typedef PLATFORM_CREATE_FILE(platform_create_file);
 
@@ -160,6 +163,7 @@ typedef struct platform_api {
 	    
     platform_debug_open_file             *DebugOpenFile;
     platform_debug_read_entire_file      *DebugReadEntireFile;
+    platform_debug_read_file_size        *DebugReadFileSize;
 	platform_debug_close_file            *DebugCloseFile;
     platform_debug_print_line            *DebugPrintLine;
     platform_debug_print                 *DebugPrint;
