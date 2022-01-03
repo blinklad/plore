@@ -28,6 +28,8 @@ GetWidgetColour(widget_colour WidgetColour, widget_colour_flags Flags) {
 	return(Result);
 }
 
+internal vimgui_widget_state *
+GetOrCreateWidgetState(plore_vimgui_context *Context, u64 ID);
 
 internal void
 VimguiInit(memory_arena *Arena, plore_vimgui_context *Context, plore_render_list *RenderList) {
@@ -84,12 +86,38 @@ VimguiEnd(plore_vimgui_context *Context) {
 		}
 		
 		u32 BackgroundColour = GetWidgetColour(Widget->BackgroundColour, Widget->BackgroundColourFlags);
+		u32 Border = 0x25ffffff;
+		rectangle BorderRect = Widget->Rect;
+		f32 GapPad = 2.0f;
+		
+		if (Widget->Type == WidgetType_Button) {
+			Border = 0x25ffffff;
+		}
+		
+		if (Widget->Layer == 0) {
+			Border = 0;
+		}
+		
+		BorderRect.Span.W += GapPad;
+		BorderRect.Span.H += GapPad;
+		Widget->Rect.Span.W -= GapPad;
+		Widget->Rect.Span.H -= GapPad;
+		Widget->Rect.P.X += GapPad;
+		Widget->Rect.P.Y += GapPad;
+		
+		PushRenderQuad(Context->RenderList, (vimgui_render_quad_desc) { 
+						   .Rect = BorderRect, 
+						   .Colour = Border, 
+						   .Texture = Widget->Texture,
+					   });
 		
 		PushRenderQuad(Context->RenderList, (vimgui_render_quad_desc) { 
 						   .Rect = Widget->Rect, 
 						   .Colour = BackgroundColour, 
 						   .Texture = Widget->Texture,
 					   });
+		
+		
 		f32 FontHeight = GetCurrentFontHeight(Context->Font);
 		f32 FontWidth = GetCurrentFontWidth(Context->Font);
 		u64 MaxTextCols = Widget->Rect.Span.W / FontWidth;
@@ -167,6 +195,17 @@ VimguiEnd(plore_vimgui_context *Context) {
 		if (Widget->Type == WidgetType_TextBox) {
 			char *Lines = Widget->Text;
 			if (Lines) {
+				vimgui_widget_state *WidgetState = GetOrCreateWidgetState(Context, Widget->ID);
+				u64 StartLine = WidgetState->TextBoxScroll;
+				
+				if (Widget->ID == Context->HotWidgetID) {
+					i64 ScrollDir = Context->ThisFrame.Input.ScrollDirection;
+					if (!(ScrollDir < 0 && WidgetState->TextBoxScroll == 0)) {
+						WidgetState->TextBoxScroll += ScrollDir;
+						
+					}
+				}
+				u64 RenderedLines = 0;
 				for (u64 L = 0; L < MaxTextRows; L++) {
 					u64 LineCount = 0;
 					char *LineStart = Lines;
@@ -177,6 +216,10 @@ VimguiEnd(plore_vimgui_context *Context) {
 						if (LineCount < MaxTextCols) LineCount += 1;
 						
 					}
+					if (L < StartLine) {
+						MaxTextRows += 1;
+						continue;
+					}
 					
 					char *ThisLine = PushBytes(&Context->FrameArena, LineCount+1);
 					StringCopy(LineStart, ThisLine, LineCount+1);
@@ -186,7 +229,7 @@ VimguiEnd(plore_vimgui_context *Context) {
 									   .Rect = {
 										   .P = {
 											   Widget->Rect.P.X,
-											   Widget->Rect.P.Y + L*FontHeight,
+											   Widget->Rect.P.Y + RenderedLines++*FontHeight,
 										   },
 										   .Span = Widget->Rect.Span,
 									   },
@@ -199,7 +242,10 @@ VimguiEnd(plore_vimgui_context *Context) {
 									   .FontID = Context->Font->CurrentFont,
 								   });
 					
-					if (!Lines) break;
+					if (!Lines) {
+						int BreakHere = 5;
+						break;
+					}
 				}
 				
 			}
@@ -221,6 +267,7 @@ VimguiEnd(plore_vimgui_context *Context) {
 		}
 	}
 	
+	Context->HotWidgetID = 0;
 	Context->GenerationCount++;
 	
 }
@@ -253,6 +300,43 @@ GetWindow(plore_vimgui_context *Context, u64 ID) {
 	return(MaybeWindow);
 }
 
+internal vimgui_widget *
+GetWidget(plore_vimgui_context *Context, u64 ID) {
+	vimgui_widget *MaybeWidget = 0;
+	for (u64 W = 0; W < Context->ThisFrame.WidgetCount; W++) {
+		vimgui_widget *Widget = Context->ThisFrame.Widgets + W;
+		if (Widget->ID == ID) {
+			MaybeWidget = Widget;
+			break;
+		}
+			
+	}
+	
+	return(MaybeWidget);
+}
+
+internal vimgui_widget_state *
+GetOrCreateWidgetState(plore_vimgui_context *Context, u64 ID) {
+	vimgui_widget_state *Result = 0;
+	for (u64 S = 0; S < Context->WidgetStateCount; S++) {
+		if (Context->WidgetState[S].ID == ID) {
+			Result = Context->WidgetState + S;
+			break;
+		}
+	}
+	
+	if (!Result) {
+		if (Context->WidgetStateCount == ArrayCount(Context->WidgetState)) {
+			Context->WidgetState[0] = ClearStruct(vimgui_widget_state);
+			Result = Context->WidgetState + 0;
+		} else {
+			Result = Context->WidgetState + Context->WidgetStateCount++;
+		}
+		Result->ID = ID;
+	}
+	
+	return(Result);
+}
 
 
 internal void
@@ -267,6 +351,29 @@ SetHotWindow(plore_vimgui_context *Context, vimgui_window *Window) {
 	}
 }
 
+typedef struct vimgui_hit_test_result {
+	b64 Hot;
+	b64 Active;
+} vimgui_hit_test_result;
+
+// NOTE(Evan): Assumes the rectangle is already adjusted to be parent-relative!
+internal vimgui_hit_test_result
+DoHitTest(plore_vimgui_context *Context, vimgui_window *Window, u64 ID, rectangle Rect) {
+	vimgui_hit_test_result Result = {0};
+	
+	if (IsWithinRectangleInclusive(Context->ThisFrame.Input.MouseP, Rect)) {
+		SetHotWindow(Context, Window);
+		Context->HotWidgetID = ID;
+		Result.Hot = true;
+		if (Context->ThisFrame.Input.pKeys[PloreKey_MouseLeft]) {
+			SetActiveWindow(Context, Window);
+			Result.Active = true;
+		}
+	}
+	
+	return(Result);
+}
+
 typedef struct vimgui_image_desc {
 	u64 ID;
 	platform_texture_handle Texture;
@@ -274,25 +381,14 @@ typedef struct vimgui_image_desc {
 	b64 Centered;
 } vimgui_image_desc;
 
-internal b64
+internal void
 Image(plore_vimgui_context *Context, vimgui_image_desc Desc) {
-	b64 Result = true;
-	
 	Assert(Desc.ID);
 	u64 MyID = Desc.ID;
 	
 	vimgui_window *Window = GetLayoutWindow(Context);
-	
-	if (IsWithinRectangleInclusive(Context->ThisFrame.Input.MouseP, Desc.Rect)) {
-		SetHotWindow(Context, Window);
-		Context->HotWidgetID = MyID;
-		if (Context->ThisFrame.Input.pKeys[PloreKey_MouseLeft]) {
-			SetActiveWindow(Context, Window);
-			Result = true;
-		}
-	}
-	
 	Desc.Rect.P = AddVec2(Desc.Rect.P, Window->Rect.P);
+	
 	if (Desc.Centered) {
 		Desc.Rect.P.X += (Window->Rect.Span.X - Desc.Rect.Span.X) / 2.0f;
 		Desc.Rect.P.Y += (Window->Rect.Span.Y - Desc.Rect.Span.X) / 2.0f;
@@ -306,7 +402,6 @@ Image(plore_vimgui_context *Context, vimgui_image_desc Desc) {
 				   .Rect = Desc.Rect,
 				   .Texture = Desc.Texture,
 			   });
-	return(Result);
 }
 
 typedef struct vimgui_text_box_desc {
@@ -316,28 +411,25 @@ typedef struct vimgui_text_box_desc {
 	b64 Centered;
 } vimgui_text_box_desc;
 
-internal b64
+internal void
 TextBox(plore_vimgui_context *Context, vimgui_text_box_desc Desc) {
-	b64 Result = true;
-	
 	Assert(Desc.ID);
 	u64 MyID = Desc.ID;
 	
 	vimgui_window *Window = GetLayoutWindow(Context);
-	
-	if (IsWithinRectangleInclusive(Context->ThisFrame.Input.MouseP, Desc.Rect)) {
-		SetHotWindow(Context, Window);
-		Context->HotWidgetID = MyID;
-		if (Context->ThisFrame.Input.pKeys[PloreKey_MouseLeft]) {
-			SetActiveWindow(Context, Window);
-			Result = true;
-		}
-	}
-	
 	Desc.Rect.P = AddVec2(Desc.Rect.P, Window->Rect.P);
+	
+	vimgui_hit_test_result HitResult = DoHitTest(Context, Window, MyID, Desc.Rect);
 	if (Desc.Centered) {
 		Desc.Rect.P.X += (Window->Rect.Span.X - Desc.Rect.Span.X) / 2.0f;
 		Desc.Rect.P.Y += (Window->Rect.Span.Y - Desc.Rect.Span.X) / 2.0f;
+	}
+	
+	vimgui_widget_state *State = GetOrCreateWidgetState(Context, MyID);
+	if (HitResult.Hot) {
+		if (!(Context->ThisFrame.Input.ScrollDirection < 0 && State->TextBoxScroll == 0)) {
+			State->TextBoxScroll += Context->ThisFrame.Input.ScrollDirection;
+		}
 	}
 	
 	PushWidget(Context, Window, (vimgui_widget) {
@@ -348,7 +440,6 @@ TextBox(plore_vimgui_context *Context, vimgui_text_box_desc Desc) {
 				   .Rect = Desc.Rect,
 				   .Text = Desc.Text,
 			   });
-	return(Result);
 }
 
 
@@ -368,7 +459,7 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	Assert(Desc.Title.Text); 
 	Assert(Context->ThisFrame.WindowWeAreLayingOut);
 	
-	b64 Result = false;
+	vimgui_hit_test_result Result = {0};
 	u64 MyID; 
 	if (Desc.ID) {
 		MyID = Desc.ID;
@@ -378,16 +469,13 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	}
 	
 	vimgui_window *Window = GetLayoutWindow(Context);
-	if (Window->RowCountThisFrame > Window->RowMax) {
-		return false;
-	}
+	if (Window->RowCountThisFrame > Window->RowMax) return false;
 	
 	// NOTE(Evan): Default args.
 	
-	
 	if (Desc.FillWidth) {
 		f32 FontHeight = GetCurrentFontHeight(Context->Font);
-		f32 TitlePad = FontHeight+2.0f;
+		f32 TitlePad = FontHeight+4.0f;
 		f32 ButtonStartY = Window->Rect.P.Y + TitlePad;
 		f32 RowPad = 4.0f;
 		f32 RowHeight = Desc.Rect.Span.H;
@@ -402,22 +490,14 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 			.X = Window->Rect.P.X,
 			.Y = ButtonStartY + Window->RowCountThisFrame*RowHeight+1,
 		};
+		Window->RowCountThisFrame++;
 		
 	} else {
 		Desc.Rect.P.X += Window->Rect.P.X;
 		Desc.Rect.P.Y += Window->Rect.P.Y;
 	}
 	
-	if (IsWithinRectangleInclusive(Context->ThisFrame.Input.MouseP, Desc.Rect)) {
-		SetHotWindow(Context, Window);
-		Context->HotWidgetID = MyID;
-		if (Context->ThisFrame.Input.pKeys[PloreKey_MouseLeft]) {
-			SetActiveWindow(Context, Window);
-			Result = true;
-		}
-	}
-	
-	Window->RowCountThisFrame++;
+	Result = DoHitTest(Context, Window, MyID, Desc.Rect);
 	
 	PushWidget(Context, Window,
 			   (vimgui_widget) {
@@ -433,7 +513,7 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 			   });
 	
 	
-	return(Result);
+	return(Result.Active);
 }
 
 typedef struct vimgui_window_desc {
@@ -486,6 +566,16 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 		Context->ThisFrame.ParentStackMax = Max(Context->ThisFrame.ParentStackCount, Context->ThisFrame.ParentStackMax);
 		MaybeWindow->Layer = MyParentIndex+1;
 		
+		// NOTE(Evan): If index is 0, then we are the top-level window, and shouldn't offset ourselves
+		vimgui_window *Parent = 0;
+		if (MyParentIndex) {
+			MyParentIndex -= 1;
+			Parent = GetWindow(Context, Context->ThisFrame.ParentStack[MyParentIndex]);
+			MaybeWindow->Rect.P.X += Parent->Rect.P.X;
+			MaybeWindow->Rect.P.Y += Parent->Rect.P.Y;
+			MaybeWindow->Rect.P.Y += 26.0f; // NOTE(Evan): This offsets child widgets, currently it must account for tabs - cleanup!
+		} 
+		
 		// NOTE(Evan): Only check if the active window needs updating if focus wasn't stolen.
 		if (!Context->ThisFrame.WindowFocusStolen || Desc.ForceFocus) {
 			if (IsWithinRectangleInclusive(Context->ThisFrame.Input.MouseP, Desc.Rect)) {
@@ -497,15 +587,6 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 		}
 		MaybeWindow->Rect = Desc.Rect;
 		
-		// NOTE(Evan): If index is 0, then we are the top-level window, and shouldn't offset ourselves
-		vimgui_window *Parent = 0;
-		if (MyParentIndex) {
-			MyParentIndex -= 1;
-			Parent = GetWindow(Context, Context->ThisFrame.ParentStack[MyParentIndex]);
-			MaybeWindow->Rect.P.X += Parent->Rect.P.X;
-			MaybeWindow->Rect.P.Y += Parent->Rect.P.Y;
-			MaybeWindow->Rect.P.Y += 26.0f; // NOTE(Evan): This offsets child widgets, currently it must account for tabs - cleanup!
-		} 
 		MaybeWindow->RowMax = (Desc.Rect.Span.Y) / (GetCurrentFontHeight(Context->Font) + 4.0f) - 1; // @Hardcode
 		MaybeWindow->BackgroundColour = Desc.BackgroundColour;
 		Context->ThisFrame.WindowWeAreLayingOut = MyID;
@@ -521,7 +602,7 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 					   .BackgroundColour = Desc.BackgroundColour,
 					   .BackgroundColourFlags = Desc.BackgroundColourFlags,
 //					   .TextColour = Desc.TextColour,
-					   .Alignment = VimguiLabelAlignment_Center,
+					   .Alignment = VimguiLabelAlignment_CenterHorizontal,
 				   });
 		
 	}
@@ -573,7 +654,7 @@ PushRenderText(plore_render_list *RenderList, vimgui_render_text_desc Desc) {
 	
 	u64 MaxTextCount = Desc.Rect.Span.W / FontWidth - Desc.TextCount;
 	u64 ThisTextLength = StringLength(Desc.Text.Text);
-	if (ThisTextLength > MaxTextCount) {
+	if (ThisTextLength >= MaxTextCount-1) {
 		Desc.Text.Text[MaxTextCount] = '\0';
 	}
 	
@@ -588,6 +669,14 @@ PushRenderText(plore_render_list *RenderList, vimgui_render_text_desc Desc) {
 		} break;
 		
 		case VimguiLabelAlignment_Center: {
+			TextP.X += Desc.Rect.Span.W/2.0f;
+			TextP.X -= StringLength(Desc.Text.Text)/2.0f * FontWidth;
+			TextP.Y += Desc.Rect.Span.H/2.0f-FontHeight/2;
+		} break;
+		case VimguiLabelAlignment_CenterVertical: {
+			TextP.Y += Desc.Rect.Span.H/2.0f;
+		} break;
+		case VimguiLabelAlignment_CenterHorizontal: {
 			TextP.X += Desc.Rect.Span.W/2.0f;
 			TextP.X -= StringLength(Desc.Text.Text)/2.0f * FontWidth;
 		} break;
@@ -610,7 +699,7 @@ PushRenderText(plore_render_list *RenderList, vimgui_render_text_desc Desc) {
 	};
 	
 	if (Desc.Text.Text && *Desc.Text.Text) {
-		StringPrintSized(T->Text, ArrayCount(T->Text), Desc.Text.Text);
+		StringPrintSized(T->Text, ArrayCount(T->Text), "%s", Desc.Text.Text);
 	}
 }
 

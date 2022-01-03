@@ -993,6 +993,11 @@ WindowsProcessMessages(windows_context *Context, keyboard_and_mouse *ThisFrame) 
 	            
 	        } break;
 			
+			case WM_MOUSEWHEEL: {
+				ThisFrame->ScrollDirection = SignOf(GET_WHEEL_DELTA_WPARAM(Message.wParam));
+				WindowsDebugPrintLine("SCROLL! %d", ThisFrame->ScrollDirection);
+			} break;
+			
 			case WM_CHAR: {
 				WindowsPushTextInput(ThisFrame, Message);
 			} break;
@@ -1240,13 +1245,13 @@ int WinMain (
 		// Mouse input!
 		// TODO(Evan): A more systematic way of handling our window messages vs input?
 		{
-			POINT P;
-			GetCursorPos(&P);
-			ScreenToClient(GlobalWindowsContext->Window, &P);
-			GlobalPloreInput.ThisFrame.MouseP = (v2) {
-				.X = P.x,
-				.Y = P.y,
-			};
+			//POINT P;
+			//GetCursorPos(&P);
+			//ScreenToClient(GlobalWindowsContext->Window, &P);
+			//GlobalPloreInput.ThisFrame.MouseP = (v2) {
+			//	.X = P.x,
+			//	.Y = P.y,
+			//};
 			GlobalPloreInput.ThisFrame.dKeys[PloreKey_MouseLeft] = GetKeyState(VK_LBUTTON) & (1 << 15);
 			GlobalPloreInput.ThisFrame.pKeys[PloreKey_MouseLeft] = (GetKeyState(VK_LBUTTON) & (1 << 15)) && !(GlobalPloreInput.LastFrame.dKeys[PloreKey_MouseLeft]);
 		}		
@@ -1296,6 +1301,7 @@ int WinMain (
 		
 		GlobalPloreInput.LastFrame = GlobalPloreInput.ThisFrame;
 		GlobalPloreInput.ThisFrame.TextInputCount = 0;
+		GlobalPloreInput.ThisFrame.ScrollDirection = 0;
 		MemoryClear(GlobalPloreInput.ThisFrame.pKeys, sizeof(GlobalPloreInput.ThisFrame.pKeys));
 		MemoryClear(GlobalPloreInput.ThisFrame.TextInput, sizeof(GlobalPloreInput.ThisFrame.TextInput));
 		MemoryClear(GlobalPloreInput.ThisFrame.cKeys, sizeof(GlobalPloreInput.ThisFrame.cKeys));

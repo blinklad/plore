@@ -154,7 +154,7 @@ typedef struct keyboard_and_mouse {
 	char TextInput[256];
 	u64 TextInputCount;
 	v2 MouseP;
-    uint32 MouseWheel;
+    i32 ScrollDirection;
 	b32 CursorIsShowing;
 } keyboard_and_mouse;
 

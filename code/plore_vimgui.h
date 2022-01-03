@@ -5,11 +5,11 @@
 
 #define PLORE_WIDGET_COLOURS \
 PLORE_X(Default,     0xff111111, 0xff161616, 0xff1c1c1c) \
-PLORE_X(Primary,     0xff111111, 0xff161616, 0xff1c1c1c) \
+PLORE_X(Primary,     0xff111111, 0xff131313, 0xff181818) \
 PLORE_X(Secondary,   0xff191933, 0xff191933, 0xff26263f) \
 PLORE_X(Tertiary,    0xff66667f, 0xff000000, 0xffffffff) \
 PLORE_X(Quaternary,  0xff667f66, 0xff000000, 0xffffffff) \
-PLORE_X(RowPrimary,  0xff282828, 0xff3f3f3f, 0xff4c4c4c) \
+PLORE_X(RowPrimary,  0xff242424, 0xff3f3f3f, 0xff4c4c4c) \
 PLORE_X(RowSecondary,0xff191933, 0xff19194c, 0xff191966) \
 PLORE_X(RowTertiary, 0xff193319, 0xff194c19, 0xff194c19) \
 PLORE_X(Window,      0xff000000, 0xff0c0c0c, 0xff232323)
@@ -150,6 +150,11 @@ typedef struct vimgui_widget {
 	char *Text; // NOTE(Evan): TextBoxes only.
 } vimgui_widget;
 
+typedef struct vimgui_widget_state {
+	u64 ID;
+	u64 TextBoxScroll;
+} vimgui_widget_state;
+
 typedef struct plore_vimgui_context {
 	struct plore_vimgui_context_this_frame {
 		u64 WidgetCount;
@@ -162,6 +167,9 @@ typedef struct plore_vimgui_context {
 		vimgui_widget Widgets[512];
 		keyboard_and_mouse Input;
 	} ThisFrame;
+	
+	vimgui_widget_state WidgetState[16];
+	u64 WidgetStateCount;
 	
 	b64 GUIPassActive;
 	b64 LayoutPassActive;
@@ -220,6 +228,9 @@ typedef struct vimgui_window_search_result {
 
 internal vimgui_window *
 GetWindow(plore_vimgui_context *Context, u64 ID);
+
+internal vimgui_widget *
+GetWidget(plore_vimgui_context *Context, u64 ID);
 
 internal vimgui_window *
 GetActiveWindow(plore_vimgui_context *Context);
