@@ -41,7 +41,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 ### Features:
 - Fully integrated vim bindings and movement; every action is keyboard-initiated, although some controls can be selected via mouse.
 - Basic selection and marking, _a la_ ranger
-- Basic file preview for .jpg, .png, .bmp
+- Basic file preview for .jpg, .png, .bmp, and text files.
 - Multiple tabs, each with their own state (selection, filter, etc)
 - Searching, sorting, filtering
 - Basic global font scaling.
@@ -78,6 +78,8 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
    - ~~Close tab.~~
    - ~~Command lister.~~
    - ~~Font scaling.~~
+   - Fullscreen listing views.
+   - Toggle file metadata (date, size, etc). Possible expanded forms of these in fullscreen listing?
 
 
 ### File Management TODOs:
