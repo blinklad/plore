@@ -16,6 +16,13 @@ typedef struct render_quad {
 	platform_texture_handle Texture;
 } render_quad;
 
+typedef struct render_line {
+	v2 P0;
+	v2 P1;
+	v4 Colour;
+	f32 Width;
+} render_line;
+
 typedef struct render_text {
 	rectangle Rect;
 	char Text[256];
