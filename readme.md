@@ -66,14 +66,14 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
    - ~~Paste~~
    - ~~Interactive make directory~~
    - ~~Interactive make file~~
-   - ISearch: ~~Jump to result on return~~, navigate between results (n/p)
+   - ISearch: ~~Jump to result on return~~, ~~navigate between results~~
    - ~~Open file, from list of candidate extension handlers~~
    - Tabs: ~~create tab~~, ~~close tab~~, create tab in specified directory
    - ~~Toggle hidden file display~~
    - ~~Sorting by various file metadata~~
    - ~~Filter any files matching substring~~
    - ~~Interactive open file, using user-specified shell.~~
-   - Lister navigation: Select numbered item (ctrl+number), ISearch
+   - Lister navigation: Select numbered item (ctrl+number), ~~ISearch~~
    - ~~File opening handler suggestion.~~
    - ~~Close tab.~~
    - ~~Command lister.~~
@@ -107,11 +107,11 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
    - ~~Z-order~~ Implicit z-ordering using the parent window stack will work ok!
    - Animation.
    - ~Focus~
-   - Borders
+   - ~~Borders~~
    - Better primitive lists (curves, stroked lines, bitmaps)
-   - Floating windows
-   - More widgets: labels, dropdowns, textfields.
-   - Bake font into executable.
+   - ~~Floating windows~~ God is not the author of such confusion.
+   - More widgets: ~~labels~~ just using buttons is okay, ~~textboxes~~.
+   - ~~Bake font into executable.~~
    - ~~Global font scale.~~
    - Font colour mask.
 
@@ -119,19 +119,35 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 * Changing assertions to error codes to prevent crashing when a stabler version is made.
 * ... Many more ...
 
-### Building
-Currently, there is only a Windows implementation.
+## Building
+Currently, there is only a Windows implementation, but the application's design doesn't maintain any OS-specific logic.
 
-Requires Visual Studio 2019 installed to setup MSVC _only_. There is no `.sln` used to build plore.
+#### Windows Pre-requisites/Microsoft Craziness
+MSVC is the only supported compiler, no plans to support LLVM/Mingw.
 
-Assuming you have Visual Studio 2019's `vcvarsall.bat` installed at `C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat`...
+There is no `.sln` used, nor any other build system. Visual Studio is required "only" to install the correct development environment.
 
+However, we are not out of the woods yet, that is a *big* "only".
+For the [tiny build script](build.bat) to work, it assumes Visual Studio has placed `vcvarsall.bat` in `C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat`, or wherever you installed Visual Studio.
+
+Locating Windows development files on a Windows system is unfortunately [an unsolved problem] problem](https://gist.github.com/Kalinovcic/b4d9cc55a37f929cb62320763e8fbb47).
+`vcvarsall.bat` has a different naming convention and installation location between Visual Studio versions.
+
+So, have fun with that.
+
+#### Actual build steps
 0. (optional) Tweak the file extension handlers in `plore_file.h` to programs of your choice.
-1. Run `build.bat meta`, which runs three compilation passes: a metaprogram pre-pass for generating fonts, the application's `.dll`, and the WinMain entry point.
+
+1. Run the build script (with the `meta` argument if building for the first time), `$ build.bat meta`. 
+This runs three compilation passes: A metaprogram pre-pass for generating fonts, the application's `.dll`, and the WinMain entry point. Note that the this is three translation units per compilation as unity/jumbo builds are used throughout.
+
 2. Launch the executable from the parent directory of `build`, i.e., `$ build\win32_plore.exe`.
 
-There is currently no discovery of the executable's runtime location, so make sure to run it from the parent of `build`.
+There is very limited discovery of the executable's runtime location, so make sure to run it from the parent of `build`.
+
 In release mode, this will not matter, as the application will be a single, statically-linked executable.
+
+In development mode, re-compiling the application into `plore.dll` allows for _hot code re-loading_.
 
 ### "Documentation"/notes
 The codebase is scattered with comments where they are useful. 
@@ -143,5 +159,5 @@ I am happy to explain any part of the codebase, though, and conversation in gene
 
 Basic "user" documentation exists in the form of `plore_vim.h`, where all the commands and bindings are specified.
 
-There is currently a metaprogram pre-pass that generates the baked font data. 
+There is currently a [metaprogram pre-pass](code/plore_meta.c) that generates the baked font data. 
 This metaprogram is likely to eventually generate information currently maintained in most of the X macros, along with similar occurences with `plore_file` extension handlers and `plore_vimgui` skinning.
