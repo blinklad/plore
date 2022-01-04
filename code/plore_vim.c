@@ -1103,6 +1103,10 @@ PLORE_VIM_COMMAND(FontScaleDecrease) {
 	}
 }
 
+PLORE_VIM_COMMAND(ToggleFileMetadata) {
+	Tab->FilterState->HideFileMetadata = !Tab->FilterState->HideFileMetadata;
+}
+
 PLORE_VIM_COMMAND(ExitPlore) {
 	DrawText("ExitPlore");
 	State->ShouldQuit = true;
