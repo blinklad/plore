@@ -79,45 +79,43 @@ WriteText(plore_font *Font, render_text T) {
 	//Y = GLWindowHeight - Y;
 	
 	// assume orthographic projection with units = screen pixels, origin at top left
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	SetBlendState();
 	glEnable(GL_TEXTURE_2D);
 	glBindTexture(GL_TEXTURE_2D, Handle.Opaque);
 	glMatrixMode(GL_PROJECTION);
 	glBegin(GL_QUADS);
-	
-	f32 StartX = X;
-	f32 StartY = Y;
-	char *StartText = Text; 
-	
-	glColor4f(T.Colour.R, T.Colour.G, T.Colour.B, T.Colour.A);
-	Text = StartText;
-	X = StartX;
-	Y = StartY;
-	
-	f32 MaxWidth = T.Rect.Span.W;
-	f32 CurrentWidth = 0;
-	f32 FontWidth = Data[0].xadvance;
-	{
-		while (*Text) {
-			if (*Text >= 32 && *Text < 128) {
-				stbtt_aligned_quad Q;
-				stbtt_GetBakedQuad(Data, Handle.Width, Handle.Height, *Text-32, &X, &Y, &Q, 1);//1=opengl & d3d10+,0=d3d9
-				
-				glTexCoord2f(Q.s0, Q.t0); glVertex2f(Q.x0, Q.y0);
-				glTexCoord2f(Q.s1, Q.t0); glVertex2f(Q.x1, Q.y0);
-				glTexCoord2f(Q.s1, Q.t1); glVertex2f(Q.x1, Q.y1);
-				glTexCoord2f(Q.s0, Q.t1); glVertex2f(Q.x0, Q.y1);
-				
-			} else if (*Text == '\t') {
-				CurrentWidth += Data[0].xadvance*3;
-				X += Data[0].xadvance*4;
+		f32 StartX = X;
+		f32 StartY = Y;
+		char *StartText = Text; 
+		
+		glColor4f(T.Colour.R, T.Colour.G, T.Colour.B, T.Colour.A);
+		Text = StartText;
+		X = StartX;
+		Y = StartY;
+		
+		f32 MaxWidth = T.Rect.Span.W;
+		f32 CurrentWidth = 0;
+		f32 FontWidth = Data[0].xadvance;
+		{
+			while (*Text) {
+				if (*Text >= 32 && *Text < 128) {
+					stbtt_aligned_quad Q;
+					stbtt_GetBakedQuad(Data, Handle.Width, Handle.Height, *Text-32, &X, &Y, &Q, 1);//1=opengl & d3d10+,0=d3d9
+					
+					glTexCoord2f(Q.s0, Q.t0); glVertex2f(Q.x0, Q.y0);
+					glTexCoord2f(Q.s1, Q.t0); glVertex2f(Q.x1, Q.y0);
+					glTexCoord2f(Q.s1, Q.t1); glVertex2f(Q.x1, Q.y1);
+					glTexCoord2f(Q.s0, Q.t1); glVertex2f(Q.x0, Q.y1);
+					
+				} else if (*Text == '\t') {
+					CurrentWidth += Data[0].xadvance*3;
+					X += Data[0].xadvance*4;
+				}
+				++Text;
+				CurrentWidth += Data[0].xadvance;
+				if (CurrentWidth + 2 >= MaxWidth) break; 
 			}
-			++Text;
-			CurrentWidth += Data[0].xadvance;
-			if (CurrentWidth + 2 >= MaxWidth) break; 
 		}
-	}
 	glEnd();
 }
 
@@ -202,23 +200,40 @@ DrawLine(render_line Line) {
 
 internal void
 DrawQuarterCircle(render_quarter_circle Circle) {
-	u32 Vertices = 32;
+	u32 Vertices = 64;
 	f32 Theta = TwoPi32 / Vertices;
 	f32 R = Circle.R;
 	
 	v2 C = Circle.P;
 	u64 StartV = Circle.Quadrant*(Vertices/4);
-	glBegin(GL_TRIANGLES);
-	for (u64 V = StartV; V < StartV + Vertices/4; V++) {
-		f32 P0X = C.X + R * Cos(V * Theta);
-		f32 P0Y = C.Y + R * Sin(V * Theta);
-	    f32 P1X = C.X + R * Cos((V + 1) * Theta);
-		f32 P1Y = C.Y + R * Sin((V + 1) * Theta);
-		
-		glVertex2f(C.X, C.Y);
-		glVertex2f(P0X, P0Y);
-		glVertex2f(P1X, P1Y);
+	
+	if (Circle.DrawOutline) {
+		glBegin(GL_LINES);
+		glColor4f(Circle.Colour.R, Circle.Colour.G, Circle.Colour.B, Circle.Colour.A);
+		for (u64 V = StartV; V < StartV + Vertices/4; V++) {
+			f32 P0X = C.X + R * Cos(V * Theta);
+			f32 P0Y = C.Y + R * Sin(V * Theta);
+			f32 P1X = C.X + R * Cos((V + 1) * Theta);
+			f32 P1Y = C.Y + R * Sin((V + 1) * Theta);
+			
+			glVertex2f(P0X, P0Y);
+			glVertex2f(P1X, P1Y);
+		}
+	} else {
+		glBegin(GL_TRIANGLES);
+		glColor4f(Circle.Colour.R, Circle.Colour.G, Circle.Colour.B, Circle.Colour.A);
+		for (u64 V = StartV; V < StartV + Vertices/4; V++) {
+			f32 P0X = C.X + R * Cos(V * Theta);
+			f32 P0Y = C.Y + R * Sin(V * Theta);
+			f32 P1X = C.X + R * Cos((V + 1) * Theta);
+			f32 P1Y = C.Y + R * Sin((V + 1) * Theta);
+			
+			glVertex2f(C.X, C.Y);
+			glVertex2f(P0X, P0Y);
+			glVertex2f(P1X, P1Y);
+		}
 	}
+	
 	glEnd();
 }
 
