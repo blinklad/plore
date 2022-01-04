@@ -62,6 +62,14 @@ FlushText(void) {
 					
 			Text->T += GlobalState->DT;
 			
+			PushRenderScissor(GlobalState->RenderList,
+							  (vimgui_render_scissor_desc) {
+								  .Rect = {
+									  .P = V2(0, 0),
+									  .Span = GlobalState->VimguiContext->WindowDimensions,
+								  }
+							  });
+								  
 			PushRenderText(GlobalState->RenderList,
 						   (vimgui_render_text_desc) {
 							   .Rect =  { 
