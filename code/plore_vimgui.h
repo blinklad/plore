@@ -199,7 +199,12 @@ VimguiEnd(plore_vimgui_context *Context);
 
 internal void
 PushWidget(plore_vimgui_context *Context, vimgui_window *Parent, vimgui_widget Widget);
-	
+
+//
+// (Crappy) render primitives.
+// These will eventually be converted into vertex buffers when pushed into the RenderList.
+//
+
 typedef struct vimgui_render_text_desc {
 	rectangle Rect; 
 	v4 _TextColour; 
@@ -207,8 +212,6 @@ typedef struct vimgui_render_text_desc {
 	vimgui_label_desc Text;
 	u64 FontID;
 } vimgui_render_text_desc;
-
-// @Cleanup
 internal void
 PushRenderText(plore_render_list *RenderList, vimgui_render_text_desc Desc);
 
@@ -217,17 +220,30 @@ typedef struct vimgui_render_quad_desc {
 	u32 Colour;
 	platform_texture_handle Texture;
 } vimgui_render_quad_desc;
-
-// @Cleanup
 internal void
 PushRenderQuad(plore_render_list *RenderList, vimgui_render_quad_desc Desc);
 
+typedef struct vimgui_render_line_desc {
+	v2 P0;
+	v2 P1;
+	u32 Colour;
+} vimgui_render_line_desc;
+internal void
+PushRenderLine(plore_render_list *RenderList, vimgui_render_line_desc Line);
+
+typedef struct vimgui_render_quarter_circle_desc {
+	v2 P;
+	f32 R;
+	u32 Colour;
+	quarter_circle_quadrant Quadrant;
+} vimgui_render_quarter_circle_desc;
+internal void
+PushRenderQuarterCircle(plore_render_list *RenderList, vimgui_render_quarter_circle_desc Desc);
+	
 typedef struct vimgui_window_search_result {
 	u64 ID;
 	vimgui_window *Window;
 } vimgui_window_search_result;
-
-
 internal vimgui_window *
 GetWindow(plore_vimgui_context *Context, u64 ID);
 

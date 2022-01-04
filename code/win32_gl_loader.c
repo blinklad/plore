@@ -22,10 +22,10 @@ typedef char GLchar;
 typedef OPENGL_DEBUG_CALLBACK(opengl_debug_callback);
 
 #define PLORE_GL_FUNCS \
-    PLORE_X(wglCreateContextAttribsARB,        HGLRC, (HDC hDC, HGLRC hshareContext, const int *attribList)) \
+    PLORE_X(wglCreateContextAttribsARB,        HGLRC, (HDC hDC, HGLRC hshareContext, const int *attribList))                                                                \
     PLORE_X(wglChoosePixelFormatARB,           BOOL,  (HDC hDC, const int *piAttribIList, const float *pfAttribFList, UINT nMaxFormats, int *piFormats, UINT *nNumFormats)) \
-    PLORE_X(glDebugMessageCallback,            void,  (opengl_debug_callback callback, const void *userParam)) \
-    PLORE_X(wglSwapIntervalEXT,                BOOL,  (int interval))
+    PLORE_X(glDebugMessageCallback,            void,  (opengl_debug_callback callback, const void *userParam))                                                              \
+    PLORE_X(wglSwapIntervalEXT,                BOOL,  (int interval))                                                                                                       \
 
 #pragma warning(push) 
 #pragma warning(disable : 4028) // C4028 'formal parameter 3 different from declaration'

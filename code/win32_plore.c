@@ -1289,6 +1289,14 @@ int WinMain (
 				DrawSquare(FrameResult.RenderList.Quads[I]);
 			}
 			
+			for (u64 I = 0; I < FrameResult.RenderList.LineCount; I++) {
+				DrawLine(FrameResult.RenderList.Lines[I]);
+			}
+			
+			for (u64 I = 0; I < FrameResult.RenderList.QuarterCircleCount; I++) {
+				DrawQuarterCircle(FrameResult.RenderList.QuarterCircles[I]);
+			}
+			
 			for (u64 I = 0; I < FrameResult.RenderList.TextCount; I++) {
 				WriteText(FrameResult.RenderList.Font, FrameResult.RenderList.Text[I]);
 			}

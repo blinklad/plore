@@ -48,6 +48,8 @@ VimguiBegin(plore_vimgui_context *Context, keyboard_and_mouse Input, v2 WindowDi
 	Context->ThisFrame.Input = Input;
 	Context->RenderList->QuadCount = 0;
 	Context->RenderList->TextCount = 0;
+	Context->RenderList->LineCount = 0;
+	Context->RenderList->QuarterCircleCount = 0;
 	
 	Context->WindowDimensions = WindowDimensions;
 	
@@ -87,8 +89,8 @@ VimguiEnd(plore_vimgui_context *Context) {
 		
 		u32 BackgroundColour = GetWidgetColour(Widget->BackgroundColour, Widget->BackgroundColourFlags);
 		u32 Border = 0x25ffffff;
-		rectangle BorderRect = Widget->Rect;
-		f32 GapPad = 2.0f;
+		rectangle bRect = Widget->Rect;
+		f32 GapPad = 0.0f;
 		
 		if (Widget->Type == WidgetType_Button) {
 			Border = 0x25ffffff;
@@ -98,18 +100,47 @@ VimguiEnd(plore_vimgui_context *Context) {
 			Border = 0;
 		}
 		
-		BorderRect.Span.W += GapPad;
-		BorderRect.Span.H += GapPad;
+		
+		bRect.Span.W += GapPad;
+		bRect.Span.H += GapPad;
 		Widget->Rect.Span.W -= GapPad;
 		Widget->Rect.Span.H -= GapPad;
 		Widget->Rect.P.X += GapPad;
 		Widget->Rect.P.Y += GapPad;
 		
-		PushRenderQuad(Context->RenderList, (vimgui_render_quad_desc) { 
-						   .Rect = BorderRect, 
-						   .Colour = Border, 
-						   .Texture = Widget->Texture,
+		f32 R = 10.0f;
+		
+		PushRenderLine(Context->RenderList, (vimgui_render_line_desc) { 
+						   .P0 = V2(bRect.P.X+R, bRect.P.Y), 
+						   .P1 = V2(bRect.P.X+bRect.Span.W-R, bRect.P.Y),
+						   .Colour = Border,
 					   });
+		
+		PushRenderLine(Context->RenderList, (vimgui_render_line_desc) { 
+						   .P0 = V2(bRect.P.X, bRect.P.Y+R), 
+						   .P1 = V2(bRect.P.X, bRect.P.Y+bRect.Span.H-R),
+						   .Colour = Border,
+					   });
+		
+		PushRenderLine(Context->RenderList, (vimgui_render_line_desc) { 
+						   .P0 = V2(bRect.P.X+bRect.Span.W, bRect.P.Y+R), 
+						   .P1 = V2(bRect.P.X+bRect.Span.W, bRect.P.Y+bRect.Span.H-R),
+						   .Colour = Border,
+					   });
+		
+		PushRenderLine(Context->RenderList, (vimgui_render_line_desc) { 
+						   .P0 = V2(bRect.P.X+R, bRect.P.Y+bRect.Span.H), 
+						   .P1 = V2(bRect.P.X+bRect.Span.W-R, bRect.P.Y+bRect.Span.H),
+						   .Colour = Border,
+					   });
+		
+		PushRenderQuarterCircle(Context->RenderList, (vimgui_render_quarter_circle_desc) {
+									.P = V2(bRect.P.X+R, bRect.P.Y+R), 
+									.R = R,
+									.Colour = Border,
+									.Quadrant = QuarterCircleQuadrant_TopLeft,
+								});
+		
 		
 		PushRenderQuad(Context->RenderList, (vimgui_render_quad_desc) { 
 						   .Rect = Widget->Rect, 
@@ -714,4 +745,26 @@ PushRenderQuad(plore_render_list *RenderList, vimgui_render_quad_desc Desc) {
 	};
 }
 
+internal void
+PushRenderLine(plore_render_list *RenderList, vimgui_render_line_desc Desc) {
+	Assert(RenderList && RenderList->LineCount < ArrayCount(RenderList->Lines));
+	
+	RenderList->Lines[RenderList->LineCount++] = (render_line) {
+		.P0 = Desc.P0,
+		.P1 = Desc.P1,
+		.Colour = ColourU32ToV4(Desc.Colour),
+	};
+}
+
+internal void
+PushRenderQuarterCircle(plore_render_list *RenderList, vimgui_render_quarter_circle_desc Desc) {
+	Assert(RenderList && RenderList->QuarterCircleCount < ArrayCount(RenderList->QuarterCircles));
+	
+	RenderList->QuarterCircles[RenderList->QuarterCircleCount++] = (render_quarter_circle) {
+		.P = Desc.P,
+		.R = Desc.R,
+		.Colour = ColourU32ToV4(Desc.Colour),
+		.Quadrant = Desc.Quadrant,
+	};
+}
 

@@ -20,8 +20,22 @@ typedef struct render_line {
 	v2 P0;
 	v2 P1;
 	v4 Colour;
-	f32 Width;
 } render_line;
+
+typedef enum quarter_circle_quadrant {
+	QuarterCircleQuadrant_BottomRight,
+	QuarterCircleQuadrant_TopRight,
+	QuarterCircleQuadrant_TopLeft,
+	QuarterCircleQuadrant_BottomLeft,
+	_QuarterCircleQuadrant_ForceU64 = 0xffffffffull,
+} quarter_circle_quadrant;
+
+typedef struct render_quarter_circle {
+	v2 P;
+	f32 R;
+	v4 Colour;
+	quarter_circle_quadrant Quadrant;
+} render_quarter_circle;
 
 typedef struct render_text {
 	rectangle Rect;

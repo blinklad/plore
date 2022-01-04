@@ -221,6 +221,9 @@ typedef struct plore_render_list {
 	render_quad Quads[256];
 	u64 QuadCount;
 	
+	render_quarter_circle QuarterCircles[128];
+	u64 QuarterCircleCount;
+	
 	render_line Lines[256];
 	u64 LineCount;
 	
