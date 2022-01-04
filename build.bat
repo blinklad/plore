@@ -2,6 +2,8 @@
 
 pushd "%~dp0"
 IF NOT EXIST .\build mkdir .\build
+IF NOT EXIST .\code\generated mkdir .\code\generated
+
 pushd .\build
 
 call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
