@@ -588,11 +588,10 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 					   .P = V2(0, 0), 
 					   .Span = { 
 						   PlatformAPI->WindowDimensions.X, 
-						   PlatformAPI->WindowDimensions.Y - FooterHeight, 
+						   PlatformAPI->WindowDimensions.Y, 
 					   } 
 				   },
-				   .BackgroundColour      = WidgetColour_Window,
-				   .BackgroundColourFlags = WidgetColourFlags_Default,
+				   .BackgroundColour = WidgetColour_Black,
 				   .NeverFocus = true,
 			   })) {
 		
@@ -714,28 +713,20 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			}
 		} 
 		if (VimContext->Mode == VimMode_Lister) {
-			
 			Assert(VimContext->ActiveCommand.Type);
 			
 			u64 ListerCount = 0;
 			vim_lister_state *Lister = &VimContext->ListerState;
 			
-			u64 RowMax = PlatformAPI->WindowDimensions.Y / FooterHeight - 1;
-			u64 ListStart = ((((Lister->Cursor)/RowMax))*RowMax) % Lister->Count;
-			
-			// NOTE(Evan): Adjust height if we're currently showing the ISearch prompt.
 			u64 MaybeInsertHeight = 0;
+			f32 ListerArea = (PlatformAPI->WindowDimensions.Y - (FooterHeight+PadY));
 			if (VimContext->ListerState.Mode == VimListerMode_ISearch) {
+				ListerArea -= FooterHeight+PadY;
 				MaybeInsertHeight = FooterHeight+2*PadY;
-				RowMax -= 1;
 			}
 			
-			u64 SmallPageAdjustment = 0;
-			if (Lister->Count < RowMax) {
-				SmallPageAdjustment = (RowMax-Lister->Count)*FooterHeight;
-			} else if (Lister->Count-ListStart < RowMax) {						
-				SmallPageAdjustment = (RowMax-(Lister->Count-ListStart))*FooterHeight;
-			}
+			u64 RowMax = ListerArea / FooterHeight;
+			u64 ListStart = ((((Lister->Cursor)/RowMax))*RowMax) % Lister->Count;
 			
 			char *ListerFilter = 0;
 			if (VimContext->CommandKeyCount) {
@@ -779,12 +770,13 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 									   .Colour = TextColour_PromptCursor,
 								   },
 								   .Rect = {
-									   .P = V2(PadX, PlatformAPI->WindowDimensions.Y + SmallPageAdjustment - MaybeInsertHeight - FooterHeight - (RowMax-ListerCount+1)*FooterHeight - PadY),
+									   .P = V2(PadX, PlatformAPI->WindowDimensions.Y - MaybeInsertHeight - FooterHeight - (RowMax-ListerCount+1)*FooterHeight - PadY),
 									   .Span = V2(PlatformAPI->WindowDimensions.X-2*PadX, FooterHeight)
 								   },
 								   .BackgroundColour = (L == VimContext->ListerState.Cursor) ? WidgetColour_Secondary : WidgetColour_Primary,
 								   .BackgroundColourFlags = WidgetColourFlags_Focus,
-							   })) {
+								   })) {
+						DrawText("I do nothing!");
 					}
 					
 					H -= FooterHeight;
@@ -909,24 +901,29 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							 );
 		}
 		
-		Button(State->VimguiContext, (vimgui_button_desc) {
-					   .Title     = { 
-						   .Text = CursorInfo, 
-						   .Alignment = VimguiLabelAlignment_Left, 
-						   .Colour = TextColour_CursorInfo,
-						   .Pad = V2(8, 4),
-					   },
-					   .Secondary = { 
-						   .Text = Buffer,
-						   .Alignment = VimguiLabelAlignment_Left,
-						   .Pad = V2(0, 4),
-						   .Colour = TextColour_Prompt
-					   },
-					   .Rect = { 
-						   .P    = V2(PadX, Y + PlatformAPI->WindowDimensions.X + FooterHeight + FooterPad), 
-						   .Span = V2(PlatformAPI->WindowDimensions.X-2*PadX, FooterHeight + PadY-20)
-					   },
-		});
+		if (Button(State->VimguiContext, (vimgui_button_desc) {
+				   .Title     = { 
+					   .Text = CursorInfo, 
+					   .Alignment = VimguiLabelAlignment_Left, 
+					   .Colour = TextColour_CursorInfo,
+					   .Pad = V2(8, 8),
+				   },
+				   .Secondary = { 
+					   .Text = Buffer,
+					   .Alignment = VimguiLabelAlignment_Left,
+					   .Pad = V2(0, 8),
+					   .Colour = TextColour_Prompt
+				   },
+				   .Rect = { 
+					   .P    = V2(PadX, PlatformAPI->WindowDimensions.Y - FooterHeight + FooterPad), 
+					   .Span = V2(PlatformAPI->WindowDimensions.X-2*PadX, FooterHeight + PadY-20)
+				   },
+					   })) {
+			DoShowCommandList(State, GetCurrentTab(State), State->VimContext, Tab->FileContext, (vim_command) {
+								  .State = VimCommandState_Start,
+								  .Type = VimCommandType_ShowCommandList,
+							  });
+		}
 		
 		
 		if (!ExclusiveListerMode) {
@@ -951,7 +948,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 				if (Window(State->VimguiContext, (vimgui_window_desc) {
 							   .Title                 = Title,
 							   .Rect                  = {P, Span}, 
-							   .BackgroundColour      = WidgetColour_Primary,
+							   .BackgroundColour      = WidgetColour_Window,
 							   .BackgroundColourFlags = WindowColourFlags,
 						   })) {
 					u64 PageMax = (u64) Floor(H / FileRowHeight)-1;
@@ -962,7 +959,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 						Cursor = RowCursor->Cursor;
 						u64 Page = (u64) (Cursor / PageMax);
 						RowStart = Page*PageMax;
-						
 						
 						u64 RowsAfter = Min(Cursor+PageMax, Listing->Count);
 						RowEnd = Clamp(Cursor + RowsAfter, 0, Listing->Count);
@@ -1117,8 +1113,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 									} else {
 										Button(State->VimguiContext, (vimgui_button_desc) {
 													   .Rect = {
-														   .P = V2(0, H/2),
-														   .Span = V2(W, FontHeight*4),
+														   .P = V2(FontHeight, H/2),
+														   .Span = V2(W-2*FontHeight, FontHeight*4),
 													   },
 													   .Title = {
 														   .Text = "Could not load image.",
@@ -1169,16 +1165,16 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	}
 	
 	
+	
+	VimguiEnd(State->VimguiContext);
+	
 #if defined(PLORE_INTERNAL)
 	FlushText();
 #endif
 	
-	
-	VimguiEnd(State->VimguiContext);
-	
 	// NOTE(Evan): Right now, we copy this out. We may not want to in the future(tm), even if it is okay now.
 	return((plore_frame_result) { 
-			   .RenderList = *State->VimguiContext->RenderList,
+			   .RenderList = State->VimguiContext->RenderList,
 			   .ShouldQuit = State->ShouldQuit,
 		   });
 }
