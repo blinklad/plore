@@ -46,10 +46,7 @@ VimguiBegin(plore_vimgui_context *Context, keyboard_and_mouse Input, v2 WindowDi
 	Context->ThisFrame = (struct plore_vimgui_context_this_frame) {0};
 	
 	Context->ThisFrame.Input = Input;
-	Context->RenderList->QuadCount = 0;
-	Context->RenderList->TextCount = 0;
-	Context->RenderList->LineCount = 0;
-	Context->RenderList->QuarterCircleCount = 0;
+	Context->RenderList->CommandCount = 0;
 	
 	Context->WindowDimensions = WindowDimensions;
 	
@@ -677,8 +674,7 @@ PushWidget(plore_vimgui_context *Context, vimgui_window *Parent, vimgui_widget W
 
 internal void
 PushRenderText(plore_render_list *RenderList, vimgui_render_text_desc Desc) {
-	Assert(RenderList && RenderList->TextCount < ArrayCount(RenderList->Text));
-	render_text *T = RenderList->Text + RenderList->TextCount++;
+	Assert(RenderList && RenderList->CommandCount < ArrayCount(RenderList->Commands));
 	
 	f32 FontHeight = GetCurrentFontHeight(RenderList->Font);
 	f32 FontWidth = GetCurrentFontWidth(RenderList->Font);
@@ -719,52 +715,79 @@ PushRenderText(plore_render_list *RenderList, vimgui_render_text_desc Desc) {
 		
 	} 
 	
-	*T = (render_text) {
-		.Rect = {
-			.P = TextP,
-			.Span = Desc.Rect.Span,
+	render_command *C = RenderList->Commands + RenderList->CommandCount++;
+	*C = (render_command) {
+		.Type = RenderCommandType_Text,
+		.Text = (render_text) {
+			.Rect = {
+				.P = TextP,
+				.Span = Desc.Rect.Span,
+			},
+			.Colour = ColourU32ToV4(GetTextColour(Desc.Text.Colour, Desc.Text.ColourFlags)),
+			.Texture = RenderList->Font->Handles[Desc.FontID],
+			.Data = RenderList->Font->Data[Desc.FontID],
 		},
-		.Colour = ColourU32ToV4(GetTextColour(Desc.Text.Colour, Desc.Text.ColourFlags)),
-		.Texture = RenderList->Font->Handles[Desc.FontID],
-		.Data = RenderList->Font->Data[Desc.FontID],
 	};
 	
 	if (Desc.Text.Text && *Desc.Text.Text) {
-		StringPrintSized(T->Text, ArrayCount(T->Text), "%s", Desc.Text.Text);
+		StringPrintSized(C->Text.Text, ArrayCount(C->Text.Text), "%s", Desc.Text.Text);
 	}
 }
 
 internal void
 PushRenderQuad(plore_render_list *RenderList, vimgui_render_quad_desc Desc) {
-	Assert(RenderList && RenderList->QuadCount < ArrayCount(RenderList->Quads));
+	Assert(RenderList && RenderList->CommandCount < ArrayCount(RenderList->Commands));
 	
-	RenderList->Quads[RenderList->QuadCount++] = (render_quad) {
-		.Rect = Desc.Rect,
-		.Colour = ColourU32ToV4(Desc.Colour),
-		.Texture = Desc.Texture,
+	RenderList->Commands[RenderList->CommandCount++] = (render_command) {
+		.Type = RenderCommandType_PrimitiveQuad,
+		.Quad = {
+			.Rect = Desc.Rect,
+			.Colour = ColourU32ToV4(Desc.Colour),
+			.Texture = Desc.Texture,
+		},
 	};
 }
 
 internal void
 PushRenderLine(plore_render_list *RenderList, vimgui_render_line_desc Desc) {
-	Assert(RenderList && RenderList->LineCount < ArrayCount(RenderList->Lines));
+	Assert(RenderList && RenderList->CommandCount < ArrayCount(RenderList->Commands));
 	
-	RenderList->Lines[RenderList->LineCount++] = (render_line) {
-		.P0 = Desc.P0,
-		.P1 = Desc.P1,
-		.Colour = ColourU32ToV4(Desc.Colour),
+	RenderList->Commands[RenderList->CommandCount++] = (render_command) {
+		.Type = RenderCommandType_PrimitiveLine,
+		.Line = {
+			.P0 = Desc.P0,
+			.P1 = Desc.P1,
+			.Colour = ColourU32ToV4(Desc.Colour),
+		},
 	};
 }
 
 internal void
 PushRenderQuarterCircle(plore_render_list *RenderList, vimgui_render_quarter_circle_desc Desc) {
-	Assert(RenderList && RenderList->QuarterCircleCount < ArrayCount(RenderList->QuarterCircles));
+	Assert(RenderList && RenderList->CommandCount < ArrayCount(RenderList->Commands));
 	
-	RenderList->QuarterCircles[RenderList->QuarterCircleCount++] = (render_quarter_circle) {
-		.P = Desc.P,
-		.R = Desc.R,
-		.Colour = ColourU32ToV4(Desc.Colour),
-		.Quadrant = Desc.Quadrant,
+	RenderList->Commands[RenderList->CommandCount++] = (render_command) {
+		.Type = RenderCommandType_PrimitiveQuarterCircle,
+		.QuarterCircle = {
+			.P = Desc.P,
+			.R = Desc.R,
+			.Colour = ColourU32ToV4(Desc.Colour),
+			.Quadrant = Desc.Quadrant,
+			.DrawOutline = Desc.DrawOutline,
+		},
 	};
 }
 
+
+internal void
+PushRenderScissor(plore_render_list *RenderList, vimgui_render_scissor_desc Desc) {
+	Assert(RenderList && RenderList->CommandCount < ArrayCount(RenderList->Commands));
+	
+	RenderList->Commands[RenderList->CommandCount++] = (render_command) {
+		.Type = RenderCommandType_Scissor,
+		.Scissor = {
+			.Rect = Desc.Rect,
+		},
+	};
+}
+	
