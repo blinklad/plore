@@ -64,8 +64,14 @@ VimguiEnd(plore_vimgui_context *Context) {
 	Assert(Context->GUIPassActive);
 	Context->GUIPassActive = false;
 	
+	f32 dX = Context->WindowDimensions.X;
+	f32 dY = Context->WindowDimensions.Y;
+	
 	vimgui_widget *Widgets = Context->ThisFrame.Widgets;
 	Assert(Context->ThisFrame.WidgetCount);
+	
+	f32 FontHeight = GetCurrentFontHeight(Context->Font);
+	f32 FontWidth = GetCurrentFontWidth(Context->Font);
 	
 #define PloreSortPredicate(A, B) A.Layer < B.Layer
 	PloreSort(Context->ThisFrame.Widgets, Context->ThisFrame.WidgetCount, vimgui_widget)
@@ -84,70 +90,167 @@ VimguiEnd(plore_vimgui_context *Context) {
 			if (!Widget->BackgroundColourFlags) Widget->BackgroundColourFlags = WidgetColourFlags_Hot;
 		}
 		
+		// @Cleanup this border business.
 		u32 BackgroundColour = GetWidgetColour(Widget->BackgroundColour, Widget->BackgroundColourFlags);
-		u32 Border = 0x25ffffff;
+		u32 BorderColour = 0x15ffffff;
 		rectangle bRect = Widget->Rect;
-		f32 GapPad = 0.0f;
 		
+		f32 R = 2.0f;
 		if (Widget->Type == WidgetType_Button) {
-			Border = 0x25ffffff;
+			BorderColour = 0x25ffffff;
+			if (Widget->BackgroundColourFlags == WidgetColourFlags_Focus) {
+				R = (48.0f/FontHeight)*2.0f + 4;
+			}
+		} else {
+			R = 8.0f;
+		}
+		if (Widget->Layer == 0) BorderColour = 0;
+		
+		rectangle P = Window->Rect;
+		rectangle S = {
+			.P = {
+				.X = P.P.X,
+				.Y = dY - (P.P.Y + P.Span.H)
+			},
+			.Span = P.Span,
+		};
+		
+		PushRenderScissor(Context->RenderList, (vimgui_render_scissor_desc) {
+							  .Rect = S,
+						  });
+		
+		
+		if (Widget->Type == WidgetType_Image) {
+			rectangle ThiccRect = Widget->Rect;
+			f32 BorderThickness = 6.0f;
+			ThiccRect.P.X -= BorderThickness;
+			ThiccRect.P.Y -= BorderThickness;
+			ThiccRect.Span.W += BorderThickness*2;
+			ThiccRect.Span.H += BorderThickness*2;
+			
+			PushRenderQuad(Context->RenderList, (vimgui_render_quad_desc) { 
+							   .Rect = ThiccRect, 
+							   .Colour = 0xff303030,
+						   });
+			PushRenderQuad(Context->RenderList, (vimgui_render_quad_desc) { 
+							   .Rect = Widget->Rect, 
+							   .Colour = BackgroundColour,
+							   .Texture = Widget->Texture,
+						   });
+		} else {
+			bRect.P.X += 1;
+			bRect.P.Y += 1;
+			bRect.Span.W -= 3;
+			bRect.Span.H -= 1;
+			
+			rectangle MiddleRect = Widget->Rect;
+			{
+				MiddleRect.P.X += R;
+				MiddleRect.Span.W -= 2*R;
+				PushRenderQuad(Context->RenderList, (vimgui_render_quad_desc) { 
+								   .Rect = MiddleRect, 
+								   .Colour = BackgroundColour,
+							   });
+					
+			}
+			rectangle LeftRect = Widget->Rect;
+			{
+				LeftRect.Span.W = R;
+				LeftRect.P.Y += R;
+				LeftRect.Span.H -= 2*R;
+				
+				PushRenderQuad(Context->RenderList, (vimgui_render_quad_desc) { 
+								   .Rect = LeftRect, 
+								   .Colour = BackgroundColour, 
+								   });
+			}
+			
+			rectangle RightRect = Widget->Rect;
+			{
+				RightRect.P.X += RightRect.Span.W-R;
+				RightRect.Span.W = R;
+				RightRect.P.Y += R;
+				RightRect.Span.H -= 2*R;
+				
+				PushRenderQuad(Context->RenderList, (vimgui_render_quad_desc) { 
+								   .Rect = RightRect, 
+								   .Colour = BackgroundColour, 
+							   });
+			}
+			
+			
+			typedef struct arc_bits {
+				v2 P;
+				quarter_circle_quadrant Quadrant;
+			} arc_bits;
+			arc_bits ArcBits[4] = {
+				[0] = {
+					.P = V2(bRect.P.X+R, bRect.P.Y+R), 
+					.Quadrant = QuarterCircleQuadrant_TopLeft,
+				},
+				[1] = {
+					.P = V2(bRect.P.X+R, bRect.P.Y+bRect.Span.H-R), 
+					.Quadrant = QuarterCircleQuadrant_BottomLeft,
+				},
+				
+				
+				[2] = {
+					.P = V2(bRect.P.X+bRect.Span.W-R, bRect.P.Y+R), 
+					.Quadrant = QuarterCircleQuadrant_TopRight,
+				}, 
+				
+				
+				[3] = {
+					.P = V2(bRect.P.X+bRect.Span.W-R, bRect.P.Y+bRect.Span.H-R), 
+					.Quadrant = QuarterCircleQuadrant_BottomRight,
+				},
+			};
+			
+			for (u64 A = 0; A < ArrayCount(ArcBits); A++) {
+				PushRenderQuarterCircle(Context->RenderList, (vimgui_render_quarter_circle_desc) {
+											.P = ArcBits[A].P,
+											.R = R,
+											.Colour = BackgroundColour,
+											.Quadrant = ArcBits[A].Quadrant,
+										});
+				
+				PushRenderQuarterCircle(Context->RenderList, (vimgui_render_quarter_circle_desc) {
+											.P = ArcBits[A].P,
+											.R = R,
+											.Colour = BorderColour,
+											.Quadrant = ArcBits[A].Quadrant,
+											.DrawOutline = true,
+										});
+			}
+			
 		}
 		
-		if (Widget->Layer == 0) {
-			Border = 0;
-		}
-		
-		
-		bRect.Span.W += GapPad;
-		bRect.Span.H += GapPad;
-		Widget->Rect.Span.W -= GapPad;
-		Widget->Rect.Span.H -= GapPad;
-		Widget->Rect.P.X += GapPad;
-		Widget->Rect.P.Y += GapPad;
-		
-		f32 R = 10.0f;
-		
+		// NOTE(Evan): Lines lie within the rect as scissor is not inclusive.
 		PushRenderLine(Context->RenderList, (vimgui_render_line_desc) { 
 						   .P0 = V2(bRect.P.X+R, bRect.P.Y), 
 						   .P1 = V2(bRect.P.X+bRect.Span.W-R, bRect.P.Y),
-						   .Colour = Border,
+						   .Colour = BorderColour,
 					   });
 		
 		PushRenderLine(Context->RenderList, (vimgui_render_line_desc) { 
 						   .P0 = V2(bRect.P.X, bRect.P.Y+R), 
 						   .P1 = V2(bRect.P.X, bRect.P.Y+bRect.Span.H-R),
-						   .Colour = Border,
+						   .Colour = BorderColour,
 					   });
 		
 		PushRenderLine(Context->RenderList, (vimgui_render_line_desc) { 
 						   .P0 = V2(bRect.P.X+bRect.Span.W, bRect.P.Y+R), 
 						   .P1 = V2(bRect.P.X+bRect.Span.W, bRect.P.Y+bRect.Span.H-R),
-						   .Colour = Border,
+						   .Colour = BorderColour,
 					   });
 		
 		PushRenderLine(Context->RenderList, (vimgui_render_line_desc) { 
 						   .P0 = V2(bRect.P.X+R, bRect.P.Y+bRect.Span.H), 
 						   .P1 = V2(bRect.P.X+bRect.Span.W-R, bRect.P.Y+bRect.Span.H),
-						   .Colour = Border,
-					   });
-		
-		PushRenderQuarterCircle(Context->RenderList, (vimgui_render_quarter_circle_desc) {
-									.P = V2(bRect.P.X+R, bRect.P.Y+R), 
-									.R = R,
-									.Colour = Border,
-									.Quadrant = QuarterCircleQuadrant_TopLeft,
-								});
-		
-		
-		PushRenderQuad(Context->RenderList, (vimgui_render_quad_desc) { 
-						   .Rect = Widget->Rect, 
-						   .Colour = BackgroundColour, 
-						   .Texture = Widget->Texture,
+						   .Colour = BorderColour,
 					   });
 		
 		
-		f32 FontHeight = GetCurrentFontHeight(Context->Font);
-		f32 FontWidth = GetCurrentFontWidth(Context->Font);
 		u64 MaxTextCols = Widget->Rect.Span.W / FontWidth;
 		u64 MaxTextRows = Widget->Rect.Span.H / FontHeight;
 		
@@ -157,7 +260,62 @@ VimguiEnd(plore_vimgui_context *Context) {
 		// Text length truncation within a single widget works for these combinations: { 1. title: left, 2. title: right, 3. title: left, secondary: right }
 		//
 		u64 TextCount = 0;
+		if (Widget->Title.Text) {
+			// NOTE(Evan): Grab a bigger font for the title.
+			rectangle TitleRect = Widget->Rect;
+			TitleRect.P.X += 1.0f;
+			TitleRect.Span.W -= 2.0f;
+			
+			u64 TitleFontID = Context->Font->CurrentFont;
+			if (Widget->Type == WidgetType_Window) {
+				TitleFontID = Min(PloreBakedFont_Count-1, Context->Font->CurrentFont+5);
+				TitleRect.P.Y += 4.0f;
+			}
+			
+			vimgui_label_alignment Alignment = 0;
+			if (Widget->Title.Alignment) Alignment = Widget->Title.Alignment;
+			else if (Widget->Alignment) Alignment = Widget->Alignment;
+			
+			//
+			// @Cleanup
+			//
+			PushRenderText(Context->RenderList, 
+						   (vimgui_render_text_desc) {
+						       .Rect = TitleRect,
+						       .Text = {
+								   .Text = Widget->Title.Text,
+								   .Alignment = Alignment,
+								   .Colour = Widget->Title.Colour,
+								   .Pad = Widget->Title.Pad,
+								   .ColourFlags = Widget->Title.ColourFlags,
+							   },
+							   .FontID = TitleFontID,
+							   .TextCount = TextCount,
+						   });
+			
+		}
 		if (Widget->Secondary.Text) {
+			// NOTE(Evan): Clip the secondary text against the title, only if the title is left aligned.
+			if (Widget->Title.Text && Widget->Title.Alignment == VimguiLabelAlignment_Left) {
+				u64 TitleLength = StringLength(Widget->Title.Text)+1;
+				
+				rectangle P = Window->Rect;
+				P.Span.W = P.Span.W - TitleLength*FontWidth;
+				P.P.X += TitleLength*FontWidth;
+				
+				rectangle S = {
+					.P = {
+						.X = P.P.X,
+						.Y = dY - (P.P.Y + P.Span.H)
+					},
+					.Span = P.Span,
+				};
+				
+				PushRenderScissor(Context->RenderList, (vimgui_render_scissor_desc) {
+									  .Rect = S,
+								  });
+			}
+			
 			u64 PotentialTextCount = StringLength(Widget->Secondary.Text);
 			u64 MaxTextCount = MaxTextCols - TextCount;
 			
@@ -190,42 +348,26 @@ VimguiEnd(plore_vimgui_context *Context) {
 								   });
 			}
 		}
-		if (Widget->Title.Text) {
-			// NOTE(Evan): Grab a bigger font for the title.
-			u64 TitleFontID = Context->Font->CurrentFont;
-			if (Widget->Type == WidgetType_Window) {
-				TitleFontID = Min(PloreBakedFont_Count-1, Context->Font->CurrentFont+5);
-			}
-				
-			vimgui_label_alignment Alignment = 0;
-			if (Widget->Title.Alignment) Alignment = Widget->Title.Alignment;
-			else if (Widget->Alignment) Alignment = Widget->Alignment;
-			
-			//
-			// @Cleanup
-			//
-			PushRenderText(Context->RenderList, 
-						   (vimgui_render_text_desc) {
-						       .Rect = Widget->Rect,
-						       .Text = {
-								   .Text = Widget->Title.Text,
-								   .Alignment = Alignment,
-								   .Colour = Widget->Title.Colour,
-								   .Pad = Widget->Title.Pad,
-								   .ColourFlags = Widget->Title.ColourFlags,
-							   },
-							   .FontID = TitleFontID,
-							   .TextCount = TextCount,
-						   });
-			
-		}
 		
 		if (Widget->Type == WidgetType_TextBox) {
+			rectangle TextPad = Widget->Rect;
+			
+			f32 xPadFactor = 16.0f;
+			TextPad.P.X += xPadFactor/2.0f;
+			TextPad.Span.W -= xPadFactor;
+			
+			f32 yPadFactor = 4.0f;
+			TextPad.P.Y += yPadFactor/2.0f;
+			TextPad.Span.H -= yPadFactor;
+			
+			
+				
 			char *Lines = Widget->Text;
 			if (Lines) {
 				vimgui_widget_state *WidgetState = GetOrCreateWidgetState(Context, Widget->ID);
 				u64 StartLine = WidgetState->TextBoxScroll;
 				
+				// NOTE(Evan): We can scroll "forward" through the file infinitely, but we never allow toroidal behaviour.
 				if (Widget->ID == Context->HotWidgetID) {
 					i64 ScrollDir = Context->ThisFrame.Input.ScrollDirection;
 					if (!(ScrollDir < 0 && WidgetState->TextBoxScroll == 0)) {
@@ -256,10 +398,10 @@ VimguiEnd(plore_vimgui_context *Context) {
 								   (vimgui_render_text_desc) {
 									   .Rect = {
 										   .P = {
-											   Widget->Rect.P.X,
-											   Widget->Rect.P.Y + RenderedLines++*FontHeight,
+											   TextPad.P.X,
+											   TextPad.P.Y + RenderedLines++*FontHeight,
 										   },
-										   .Span = Widget->Rect.Span,
+										   .Span = TextPad.Span,
 									   },
 									   .Text = {
 										   .Text = ThisLine,
@@ -503,19 +645,19 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	
 	if (Desc.FillWidth) {
 		f32 FontHeight = GetCurrentFontHeight(Context->Font);
-		f32 TitlePad = FontHeight+4.0f;
+		f32 TitlePad = FontHeight+8.0f;
 		f32 ButtonStartY = Window->Rect.P.Y + TitlePad;
 		f32 RowPad = 4.0f;
 		f32 RowHeight = Desc.Rect.Span.H;
 		
 		
 		Desc.Rect.Span = (v2) {
-			.W = Window->Rect.Span.X,
+			.W = Window->Rect.Span.X-8.0f,
 			.H = RowHeight - RowPad,
 		};
 		
 		Desc.Rect.P = (v2) {
-			.X = Window->Rect.P.X,
+			.X = Window->Rect.P.X+4.0f,
 			.Y = ButtonStartY + Window->RowCountThisFrame*RowHeight+1,
 		};
 		Window->RowCountThisFrame++;
@@ -615,7 +757,8 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 		}
 		MaybeWindow->Rect = Desc.Rect;
 		
-		MaybeWindow->RowMax = (Desc.Rect.Span.Y) / (GetCurrentFontHeight(Context->Font) + 4.0f) - 1; // @Hardcode
+		f32 FontHeight = GetCurrentFontHeight(Context->Font);
+		MaybeWindow->RowMax = (Desc.Rect.Span.Y-4.0f) / FontHeight - 1; // @Hardcode
 		MaybeWindow->BackgroundColour = Desc.BackgroundColour;
 		Context->ThisFrame.WindowWeAreLayingOut = MyID;
 		
