@@ -717,7 +717,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							   },
 							   
 							   .Rect = { 
-								   .P    = V2(PadX, SplitDimensions.Y - 2*FooterHeight - 2*PadY), 
+								   .P    = V2(0, SplitDimensions.Y - 2*FooterHeight - 2*PadY), 
 								   .Span = V2(SplitDimensions.X-2*PadX, FooterHeight + PadY)
 							   },
 							   .BackgroundColourFlags = WidgetColourFlags_Focus,
@@ -768,6 +768,13 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 							if (SubstringNoCase(Title, ListerFilter).IsContained) TextColour = TextColour_PromptCursor;
 						}
 						
+						
+						// @Broken
+						v2 RowP = V2(0, SplitDimensions.Y - MaybeInsertHeight - FooterHeight - (RowMax-ListerCount+1)*FooterHeight - PadY);
+						if (!ExclusiveListerMode) {
+							RowP.Y = SplitDimensions.Y - FooterHeight - ListerCount*FooterHeight; 
+						}
+						
 						if (Button(State->VimguiContext, (vimgui_button_desc) {
 									   .ID = ID,
 									   .Title = {
@@ -783,7 +790,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 										   .Colour = TextColour_PromptCursor,
 									   },
 									   .Rect = {
-										   .P = V2(PadX, SplitDimensions.Y - MaybeInsertHeight - FooterHeight - (RowMax-ListerCount+1)*FooterHeight - PadY),
+										   .P = RowP,
 										   .Span = V2(SplitDimensions.X-2*PadX, FooterHeight)
 									   },
 									   .BackgroundColour = (L == VimContext->ListerState.Cursor) ? WidgetColour_Secondary : WidgetColour_Primary,
@@ -845,7 +852,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 										   .Colour = TextColour_PromptCursor,
 									   },
 									   .Rect = {
-										   .P = V2(PadX, SplitDimensions.Y - FooterHeight - CandidateCount*(FooterHeight + PadY) + PadY - 20),
+										   .P = V2(0, SplitDimensions.Y - FooterHeight - CandidateCount*(FooterHeight + PadY) + PadY - 20),
 										   .Span = V2(SplitDimensions.X-2*PadX, FooterHeight + PadY)
 									   },
 									   .BackgroundColour =  WidgetColour_Primary,
@@ -1159,7 +1166,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 														.ID = TextBoxID,
 														.Text = Text,
 														.Rect = {
-															.P = V2(PadX, FontHeight+4),
+															.P = V2(0, FontHeight+4),
 															.Span = V2(W-2*PadX, H-FooterHeight-PadY),
 														},
 											});
