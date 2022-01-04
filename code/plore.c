@@ -1172,7 +1172,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	FlushText();
 #endif
 	
-	// NOTE(Evan): Right now, we copy this out. We may not want to in the future(tm), even if it is okay now.
 	return((plore_frame_result) { 
 			   .RenderList = State->VimguiContext->RenderList,
 			   .ShouldQuit = State->ShouldQuit,
