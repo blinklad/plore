@@ -36,6 +36,9 @@ ImmediateBegin(u64 WindowWidth, u64 WindowHeight) {
 		
 		glBindTexture(GL_TEXTURE_2D, 0);
 		
+		glEnable(GL_SCISSOR_TEST);
+		glScissor(0, 0, GLWindowWidth, GLWindowHeight);
+		
 		glDisable(GL_DEPTH_TEST);
 		glEnable(GL_ALPHA_TEST);
 		glAlphaFunc(GL_NOTEQUAL, 0);
@@ -43,14 +46,22 @@ ImmediateBegin(u64 WindowWidth, u64 WindowHeight) {
 		glClearColor(0.01f, 0.01f, 0.01f, 1);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		
+		
 		glViewport(0, 0, GLWindowWidth, GLWindowHeight);
 		glOrtho(0,
 				GLWindowWidth,
 				GLWindowHeight,
 				0,
-				-1.0f,
+				0.0f,
 				10.0f);
 	}
+}
+
+
+internal void
+SetBlendState() {
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
 internal void 
@@ -119,15 +130,15 @@ DrawSquare(render_quad Quad) {
 	f32 H = Quad.Rect.Span.H;
 	f32 X = Quad.Rect.P.X;
 	f32 Y = Quad.Rect.P.Y;
-	f32 Z = 0; // NOTE(Evan): Unused!
+	
+	f32 Z = 1.0; // NOTE(Evan): Unused!
 	
     f32 LeftX   = X;
     f32 RightX  = X + W;
     f32 BottomY = Y;
     f32 TopY    = Y + H;
 	
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	SetBlendState();
 	if (Quad.Texture.Opaque) {
 		glEnable(GL_TEXTURE_2D);
 		glBindTexture(GL_TEXTURE_2D, Quad.Texture.Opaque);
@@ -145,32 +156,32 @@ DrawSquare(render_quad Quad) {
     if (Quad.DrawOutline) {
         glBegin(GL_LINES); 
 		{
-            glVertex3f(LeftX, BottomY, Z);
-            glVertex3f(RightX, BottomY, Z);
-            glVertex3f(LeftX, TopY, Z);
-            glVertex3f(RightX, TopY, Z);
-            glVertex3f(LeftX, BottomY, Z);
-            glVertex3f(LeftX, TopY, Z);
-            glVertex3f(RightX, BottomY, Z);
-            glVertex3f(RightX, TopY, Z);
+            glVertex2f(LeftX, BottomY);
+            glVertex2f(RightX, BottomY);
+            glVertex2f(LeftX, TopY);
+            glVertex2f(RightX, TopY);
+            glVertex2f(LeftX, BottomY);
+            glVertex2f(LeftX, TopY);
+            glVertex2f(RightX, BottomY);
+            glVertex2f(RightX, TopY);
 		}
         glEnd();
     } else {
         glBegin(GL_TRIANGLES);
 		{
 			glTexCoord2f(0, 0);
-            glVertex3f(LeftX, BottomY, Z);
+            glVertex2f(LeftX, BottomY);
 			glTexCoord2f(1, 0);
-            glVertex3f(RightX, BottomY, Z);
+            glVertex2f(RightX, BottomY);
 			glTexCoord2f(1, 1);
-            glVertex3f(RightX, TopY, Z);
+            glVertex2f(RightX, TopY);
 			
 			glTexCoord2f(0, 0);
-            glVertex3f(LeftX, BottomY, Z);
+            glVertex2f(LeftX, BottomY);
 			glTexCoord2f(1, 1);
-            glVertex3f(RightX, TopY, Z);
+            glVertex2f(RightX, TopY);
 			glTexCoord2f(0, 1);
-            glVertex3f(LeftX, TopY, Z);
+            glVertex2f(LeftX, TopY);
 		}
         glEnd();
     }
@@ -178,11 +189,12 @@ DrawSquare(render_quad Quad) {
 
 internal void
 DrawLine(render_line Line) {
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glMatrixMode(GL_PROJECTION);
+	SetBlendState();
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glColor4f(Line.Colour.R, Line.Colour.G, Line.Colour.B, Line.Colour.A);
 	
 	glBegin(GL_LINES);
-		glColor4fv((const GLfloat *)&Line.Colour);
 		glVertex2f(Line.P0.X, Line.P0.Y);
 		glVertex2f(Line.P1.X, Line.P1.Y);
 	glEnd();

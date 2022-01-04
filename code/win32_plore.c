@@ -912,7 +912,6 @@ WindowsCreateAndShowOpenGLWindow(HINSTANCE Instance) {
 internal void
 WindowsPushTextInput(keyboard_and_mouse *ThisFrame, MSG Message) {
 	char C = Message.wParam;
-	WindowsDebugPrintLine("Character is %c", C);
 	
 	CheckedPush(ThisFrame->TextInput, ThisFrame->TextInputCount, C); 
 	StaticAssert(PloreKey_A == 1, "Assuming PloreKey_A-Z|0-9 follow contiguously.");
@@ -950,9 +949,6 @@ WindowsPushTextInput(keyboard_and_mouse *ThisFrame, MSG Message) {
 		ThisFrame->pKeys[Key] = IsPressed;
 		ThisFrame->sKeys[Key] = ThisFrame->pKeys[Key] && GetAsyncKeyState(VK_SHIFT); // @Cleanup
 		ThisFrame->cKeys[Key] = ThisFrame->dKeys[PloreKey_Ctrl];
-		if (ThisFrame->sKeys[Key]) {
-			WindowsDebugPrintLine("Shift is down for %c", C);
-		}
 	}
 }
 
@@ -995,7 +991,6 @@ WindowsProcessMessages(windows_context *Context, keyboard_and_mouse *ThisFrame) 
 			
 			case WM_MOUSEWHEEL: {
 				ThisFrame->ScrollDirection = SignOf(GET_WHEEL_DELTA_WPARAM(Message.wParam));
-				WindowsDebugPrintLine("SCROLL! %d", ThisFrame->ScrollDirection);
 			} break;
 			
 			case WM_CHAR: {
@@ -1285,20 +1280,32 @@ int WinMain (
 			f64 FileCopyTimeInSeconds = ((f64) ((f64)FileCopyEndTimer.TicksNow - (f64)FileCopyBeginTimer.TicksNow) / (f64)FileCopyBeginTimer.Frequency);
 			
 			ImmediateBegin(WindowsContext.Width, WindowsContext.Height);
-			for (u64 I = 0; I < FrameResult.RenderList.QuadCount; I++) {
-				DrawSquare(FrameResult.RenderList.Quads[I]);
-			}
-			
-			for (u64 I = 0; I < FrameResult.RenderList.LineCount; I++) {
-				DrawLine(FrameResult.RenderList.Lines[I]);
-			}
-			
-			for (u64 I = 0; I < FrameResult.RenderList.QuarterCircleCount; I++) {
-				DrawQuarterCircle(FrameResult.RenderList.QuarterCircles[I]);
-			}
-			
-			for (u64 I = 0; I < FrameResult.RenderList.TextCount; I++) {
-				WriteText(FrameResult.RenderList.Font, FrameResult.RenderList.Text[I]);
+			for (u64 I = 0; I < FrameResult.RenderList->CommandCount; I++) {
+				render_command *C = FrameResult.RenderList->Commands + I;
+				switch (C->Type) {
+					case RenderCommandType_PrimitiveQuad: {
+						DrawSquare(C->Quad);
+					} break;
+					
+					case RenderCommandType_PrimitiveLine: {
+						DrawLine(C->Line);
+					} break;
+					
+					case RenderCommandType_PrimitiveQuarterCircle: {
+						DrawQuarterCircle(C->QuarterCircle);
+					} break;
+					
+					case RenderCommandType_Text: {
+						WriteText(FrameResult.RenderList->Font, C->Text);
+					} break;
+					
+					case RenderCommandType_Scissor: {
+						rectangle R = C->Scissor.Rect;
+						glScissor(R.P.X-0, R.P.Y-0, R.Span.W+0, R.Span.H+0);
+					} break;
+					
+					InvalidDefaultCase;
+				}
 			}
 			
 			
