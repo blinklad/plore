@@ -1,6 +1,6 @@
 # plore
 ## Handmade, simple file explorer
-![plore 0.1.8](docs/plore-v-0-1-8.png)
+![plore 0.1.9](docs/plore-v-0-1-9.png)
 
 Graphical file manager written in C99, with first-class vim bindings. 
 
@@ -45,6 +45,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 - Multiple tabs, each with their own state (selection, filter, etc)
 - Searching, sorting, filtering
 - Basic global font scaling.
+- Split tabs.
 
 ### TODOS
 * Linux porting.
@@ -68,7 +69,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
    - ~~Interactive make file~~
    - ISearch: ~~Jump to result on return~~, ~~navigate between results~~
    - ~~Open file, from list of candidate extension handlers~~
-   - Tabs: ~~create tab~~, ~~close tab~~, create tab in specified directory
+   - Tabs: ~~create tab~~, ~~close tab~~, create tab in specified directory, ~~split tabs~~
    - ~~Toggle hidden file display~~
    - ~~Sorting by various file metadata~~
    - ~~Filter any files matching substring~~
@@ -79,7 +80,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
    - ~~Command lister.~~
    - ~~Font scaling.~~
    - Fullscreen listing views.
-   - Toggle file metadata (date, size, etc). Possible expanded forms of these in fullscreen listing?
+   - ~~Toggle file metadata (date, size, etc).~~ Possible expanded forms of these in fullscreen listing?
 
 
 ### File Management TODOs:
@@ -92,7 +93,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 - Smooth scrolling - maybe.
 - Robust photo preview - BMP doesn't handle top-to-bottom, stb_image doesn't handle DEFLATE. _Probably_ `libpng` and/or `libjpg`.
 - ~~Text-like ASCII file preview~~
-- Split tabs.
+- ~~Split tabs.~~
 - Clipboard handling.
 - Undo for: Rename, Paste, Delete (PLORE_TRASH/Recycle Bin only). 
 - Persistent: Undo, command history, marked files/directories, bookmarks. Requires plore.history.
@@ -103,12 +104,12 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 
 ### VIMGUI TODOs:
    - ~~Actual alpha blending~~
-   - Scissor rects.
+   - ~~Scissor rects.~~
    - ~~Z-order~~ Implicit z-ordering using the parent window stack will work ok!
    - Animation.
    - ~Focus~
    - ~~Borders~~
-   - Better primitive lists (curves, stroked lines, bitmaps)
+   - Better primitive lists (~~curves~~, stroked lines, bitmaps)
    - ~~Floating windows~~ God is not the author of such confusion.
    - More widgets: ~~labels~~ just using buttons is okay, ~~textboxes~~.
    - ~~Bake font into executable.~~
