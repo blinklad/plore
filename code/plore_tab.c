@@ -40,6 +40,7 @@ ClearTab(plore_state *State, u64 TabIndex) {
 	*Tab = ClearStruct(plore_tab);
 	Tab->Arena = Arena;
 }
+
 internal b64
 SetCurrentTab(plore_state *State, u64 NewTab) {
 	b64 Result = false;

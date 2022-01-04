@@ -218,7 +218,7 @@ typedef struct plore_file_context {
 } plore_file_context;
 
 typedef struct plore_render_list {
-	render_command Commands[1024];
+	render_command Commands[4096];
 	u64 CommandCount;
 	plore_font *Font;
 } plore_render_list;

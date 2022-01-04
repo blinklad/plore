@@ -781,23 +781,6 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 	return(!!MaybeWindow);
 }
 
-// NOTE(Evan): Clips A into B's bounds, inclusive.
-plore_inline rectangle
-ClipRect(rectangle A, rectangle B) {
-	rectangle Result = {
-		.P = {
-			.X = Clamp(A.P.X, B.P.X, B.P.X + B.Span.X), 
-			.Y = Clamp(A.P.Y, B.P.Y, B.P.Y + B.Span.Y), 
-		},
-		.Span = {
-			.W = Clamp(A.Span.X, 0, B.Span.X),
-			.H = Clamp(A.Span.Y, 0, B.Span.Y),
-		}
-	};
-	
-	return(Result);
-}
-
 internal void
 WindowEnd(plore_vimgui_context *Context) {
 	if (Context->ThisFrame.ParentStackCount) {
@@ -809,9 +792,6 @@ WindowEnd(plore_vimgui_context *Context) {
 internal void
 PushWidget(plore_vimgui_context *Context, vimgui_window *Parent, vimgui_widget Widget) {
 	Assert(Context->ThisFrame.WidgetCount < ArrayCount(Context->ThisFrame.Widgets));
-	rectangle ParentRect = { .Span = Context->WindowDimensions };
-	if (Parent) ParentRect = Parent->Rect;
-	Widget.Rect = ClipRect(Widget.Rect, ParentRect);
 	Context->ThisFrame.Widgets[Context->ThisFrame.WidgetCount++] = Widget;
 }
 

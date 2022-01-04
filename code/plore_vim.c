@@ -1118,6 +1118,15 @@ PLORE_VIM_COMMAND(VerticalSplit) {
 
 PLORE_VIM_COMMAND(HorizontalSplit) {
 	DrawText("HSplit");
+	if (State->TabCount < PloreTab_Count) {
+		u64 NewTab = State->TabCount; 
+		State->SplitTabs[State->SplitTabCount++] = NewTab;
+		
+		plore_tab *TabToInit = State->Tabs + NewTab;
+		InitTab(State, TabToInit);
+		SynchronizeCurrentDirectory(&State->FrameArena, TabToInit);
+		SynchronizeCurrentDirectory(&State->FrameArena, Tab);
+	}
 }
 
 #define PLORE_X(Name, Ignored1, _Ignored2, _Ignored3) Do##Name,
