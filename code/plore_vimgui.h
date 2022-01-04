@@ -4,15 +4,16 @@
 #define PLORE_VIMGUI_H
 
 #define PLORE_WIDGET_COLOURS \
-PLORE_X(Default,     0xff111111, 0xff161616, 0xff1c1c1c) \
-PLORE_X(Primary,     0xff111111, 0xff131313, 0xff181818) \
-PLORE_X(Secondary,   0xff191933, 0xff191933, 0xff26263f) \
-PLORE_X(Tertiary,    0xff66667f, 0xff000000, 0xffffffff) \
-PLORE_X(Quaternary,  0xff667f66, 0xff000000, 0xffffffff) \
-PLORE_X(RowPrimary,  0xff242424, 0xff3f3f3f, 0xff4c4c4c) \
-PLORE_X(RowSecondary,0xff191933, 0xff19194c, 0xff191966) \
-PLORE_X(RowTertiary, 0xff193319, 0xff194c19, 0xff194c19) \
-PLORE_X(Window,      0xff000000, 0xff0c0c0c, 0xff232323)
+PLORE_X(Default,      0xff111111, 0xff161616, 0xff1c1c1c) \
+PLORE_X(Primary,      0xff111111, 0xff131313, 0xff181818) \
+PLORE_X(Secondary,    0xff191933, 0xff191933, 0xff26263f) \
+PLORE_X(Tertiary,     0xff66667f, 0xff000000, 0xffffffff) \
+PLORE_X(Quaternary,   0xff667f66, 0xff000000, 0xffffffff) \
+PLORE_X(RowPrimary,   0xff242424, 0xff3f3f3f, 0xff4c4c4c) \
+PLORE_X(RowSecondary, 0xff191933, 0xff19194c, 0xff191966) \
+PLORE_X(RowTertiary,  0xff193319, 0xff194c19, 0xff194c19) \
+PLORE_X(Window,       0xff0e0e0e, 0xff121212, 0xff181818) \
+PLORE_X(Black,        0x00000000, 0x00000000, 0x00000000)
 
 #define PLORE_X(Name, _Ignored1, _Ignored2, _Ignored3) WidgetColour_##Name,
 typedef enum widget_colour {
@@ -143,6 +144,10 @@ typedef struct vimgui_widget {
 	rectangle Rect;
 	widget_colour BackgroundColour;
 	widget_colour_flags BackgroundColourFlags;
+	
+	widget_colour BorderColour;
+	widget_colour_flags BorderColourFlags;
+	
 	vimgui_label_desc Title;
 	vimgui_label_desc Secondary;
 	vimgui_label_alignment Alignment;
@@ -236,9 +241,16 @@ typedef struct vimgui_render_quarter_circle_desc {
 	f32 R;
 	u32 Colour;
 	quarter_circle_quadrant Quadrant;
+	b64 DrawOutline;
 } vimgui_render_quarter_circle_desc;
 internal void
 PushRenderQuarterCircle(plore_render_list *RenderList, vimgui_render_quarter_circle_desc Desc);
+
+typedef struct vimgui_render_scissor_desc {
+	rectangle Rect;
+} vimgui_render_scissor_desc;
+internal void
+PushRenderScissor(plore_render_list *RenderList, vimgui_render_scissor_desc Desc);
 	
 typedef struct vimgui_window_search_result {
 	u64 ID;

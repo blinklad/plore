@@ -218,24 +218,14 @@ typedef struct plore_file_context {
 } plore_file_context;
 
 typedef struct plore_render_list {
-	render_quad Quads[256];
-	u64 QuadCount;
-	
-	render_quarter_circle QuarterCircles[128];
-	u64 QuarterCircleCount;
-	
-	render_line Lines[256];
-	u64 LineCount;
-	
-	render_text Text[256];
-	u64 TextCount;
-	
+	render_command Commands[1024];
+	u64 CommandCount;
 	plore_font *Font;
 } plore_render_list;
 
 // TODO(Evan): Asynchronous commands could be input/ouput here.
 typedef struct plore_frame_result {
-	plore_render_list RenderList;
+	plore_render_list *RenderList;
 	b64 ShouldQuit;
 } plore_frame_result;
 
