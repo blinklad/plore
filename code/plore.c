@@ -1223,15 +1223,15 @@ ToggleSelected(plore_file_context *Context, plore_path *Selectee) {
 	Assert(Selectee);
 	plore_map_get_result Result = MapGet(&Context->Selected, Selectee);
 	if (Result.Exists) MapRemove(&Context->Selected, Selectee);
-	else               MapInsert(&Context->Selected, Selectee, 0);
+	else               SetInsert(&Context->Selected, Selectee, 0);
 }
 
 internal void
 ToggleYanked(plore_file_context *Context, plore_path *Yankee) {
 	Assert(Yankee);
-	plore_map_get_result Result = MapGet(&Context->Yanked, Yankee);
+	plore_map_get_result Result = MapGet(&Context->Yanked, Yankee->Absolute);
 	if (Result.Exists) MapRemove(&Context->Yanked, Yankee);
-	else               MapInsert(&Context->Yanked, Yankee, 0);
+	else               SetInsert(&Context->Yanked, Yankee, 0);
 }
 
 

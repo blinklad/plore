@@ -5,7 +5,6 @@ _GetKey(plore_map *Map, u64 Index) {
 	return(Result);
 }
 
-
 plore_inline void *
 _GetValue(plore_map *Map, u64 Index) {
 	Assert(Map->ValueSize);
@@ -39,18 +38,24 @@ MapInit(memory_arena *Arena, u64 KeySize, u64 ValueSize, u64 Capacity) {
 	return(Result);
 }
 
-typedef struct plore_map_insert_result {
-	b64 DidAlreadyExist;
-	u64 Index;
-} plore_map_insert_result;
+#define MapInsert(Map, K, V) _MapInsert(Map, K, V, sizeof(*K), sizeof(*V))
+#define SetInsert(Map, K, V) _MapInsert(Map, K, V, sizeof(*K), 0)
 
-internal plore_map_insert_result 
-MapInsert(plore_map *Map, void *Key, void *Value) {
+internal void 
+_MapInsert(plore_map *Map, void *Key, void *Value, u64 DEBUGKeySize, u64 DEBUGValueSize) {
 	Assert(Map);
 	Assert(Map->Keys && Map->Lookup);
 	Assert(Map->Count < Map->Capacity);
 	
-	plore_map_insert_result Result = {0};
+#if defined(PLORE_INTERNAL)
+	Assert(DEBUGKeySize == Map->KeySize);
+	Assert(DEBUGValueSize == Map->ValueSize);
+#else
+	(void)DEBUGKeySize;
+	(void)DEBUGValueSize;
+#endif
+	
+	b64 DidAlreadyExist = false;
 	u64 Index = HashBytes(Key, Map->KeySize) % Map->Capacity;
 	plore_map_key_lookup *Lookup = Map->Lookup+Index;
 	
@@ -63,13 +68,13 @@ MapInsert(plore_map *Map, void *Key, void *Value) {
 				Lookup->Allocated = true;
 				break;
 			} else if (BytesMatch(Key, _GetKey(Map, Index), Map->KeySize)) {
-				Result.DidAlreadyExist = true;
+				DidAlreadyExist = true;
 				break;
 			}
 		}
 	}
 	
-	if (!Result.DidAlreadyExist) {
+	if (!DidAlreadyExist) {
 		Lookup->Allocated = true;
 		Map->Count++;
 		
@@ -77,19 +82,22 @@ MapInsert(plore_map *Map, void *Key, void *Value) {
 		if (Map->ValueSize) MemoryCopy(Value, _GetValue(Map, Index), Map->ValueSize);
 	}
 	
-	Result.Index = Index;
-	
-	return(Result);
-	
 }
 
 typedef struct plore_map_remove_result {
 	b64 KeyDidNotExist;
 } plore_map_remove_result;
 
+#define MapRemove(Map, K) _MapRemove(Map, K, sizeof(*K))
 internal plore_map_remove_result
-MapRemove(plore_map *Map, void *Key) {
+_MapRemove(plore_map *Map, void *Key, u64 DEBUGKeySize) {
 	plore_map_remove_result Result = {0};
+	
+#if defined(PLORE_INTERNAL)
+	Assert(Map->KeySize == DEBUGKeySize);
+#else
+	(void)DEBUGKeySize;
+#endif
 	
 	u64 Index = HashBytes(Key, Map->KeySize) % Map->Capacity;
 	plore_map_key_lookup *Lookup = Map->Lookup+Index;
@@ -128,9 +136,16 @@ typedef struct plore_map_get_result {
 	b64 Exists; // NOTE(Evan): Seems redundant, but required for 0-sized values, i.e., testing set membership.
 } plore_map_get_result;
 
+#define MapGet(Map, K) _MapGet(Map, K, sizeof(*K))
 internal plore_map_get_result
-MapGet(plore_map *Map, void *Key) {
+_MapGet(plore_map *Map, void *Key, u64 DEBUGKeySize) {
 	plore_map_get_result Result = {0};
+	
+#if defined(PLORE_INTERNAL)
+	Assert(Map->KeySize == DEBUGKeySize);
+#else
+	(void)DEBUGKeySize;
+#endif
 	
 	u64 Index = HashBytes(Key, Map->KeySize) % Map->Capacity;
 	plore_map_key_lookup *Lookup = Map->Lookup+Index;

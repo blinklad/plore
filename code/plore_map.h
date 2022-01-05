@@ -31,6 +31,21 @@ MapCopy(plore_map *Source, plore_map *Destination);
 internal void
 MapReset(plore_map *Map);
 
+//
+// NOTE(Evan): 
+// These macros are used for rudimentary *runtime* checking that pointer arguments can be of the same type, as using void * removes
+// all type information.
+// Obviously, checking pointer sizes does not work for different types of the same size, nor does it work at all in release builds.
+// However, these macros are entirely transparent for the caller, except for when they want to insert non-lvalues,
+// such as for using a map to test set membership.
+//
+// Every alternative to this has different tradeoffs in complexity, usability and performance, so let's just see how this goes.
+//
+#define MapInsert(Map, K, V) _MapInsert(Map, K, V, sizeof(*K), sizeof(*V))
+#define SetInsert(Map, K, V) _MapInsert(Map, K, V, sizeof(*K), 0)
+#define MapRemove(Map, K)    _MapRemove(Map, K, sizeof(*K))
+#define MapGet(Map, K)       _MapGet(Map,    K, sizeof(*K))
+
 typedef struct plore_map_iterator {
 	b64 Finished;
 	u64 _Index;
