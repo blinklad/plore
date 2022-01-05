@@ -845,10 +845,12 @@ PLORE_VIM_COMMAND(RenameFile) {
 				StringCopy(Selected->Absolute, Buffer, ArrayCount(Buffer));
 				Platform->PopPathNode(Buffer, ArrayCount(Buffer), true);
 				char *NewAbsolute = StringConcatenate(Buffer, ArrayCount(Buffer), Command.Shell);
-				if (Platform->RenameFile(Selected->Absolute, NewAbsolute)) {
-					FileContext->SelectedCount = 0;
-				}
+				if (Platform->RenameFile(Selected->Absolute, NewAbsolute)) MapReset(&FileContext->Selected);
 			}
+		} break;
+		
+		case VimCommandState_Cancel: {
+			DrawText("FIXME!");
 		} break;
 		
 		InvalidDefaultCase;
