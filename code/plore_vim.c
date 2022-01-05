@@ -1019,11 +1019,9 @@ PLORE_VIM_COMMAND(ShowHiddenFiles) {
 
 internal void
 PloreSortHelper(plore_tab *Tab, file_sort_mask SortMask) {
-	if (Tab->FilterState->SortMask != SortMask) {
-		Tab->FilterState->SortAscending = false;
-	} else {
-		Tab->FilterState->SortAscending = !Tab->FilterState->SortAscending;
-	}
+	if (Tab->FilterState->SortMask != SortMask) Tab->FilterState->SortAscending = false;
+	else                                        Tab->FilterState->SortAscending = !Tab->FilterState->SortAscending;
+	
 	Tab->FilterState->SortMask = SortMask;
 }
 
