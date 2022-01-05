@@ -1167,8 +1167,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 														.ID = TextBoxID,
 														.Text = Text,
 														.Rect = {
-															.P = V2(0, FontHeight+4),
-															.Span = V2(W-2*PadX, H-FooterHeight-PadY),
+															.P = V2(2*PadX, FontHeight+4),
+															.Span = V2(W-4*PadX, H-FooterHeight-2*PadY),
 														},
 											});
 											
@@ -1229,7 +1229,7 @@ ToggleSelected(plore_file_context *Context, plore_path *Selectee) {
 internal void
 ToggleYanked(plore_file_context *Context, plore_path *Yankee) {
 	Assert(Yankee);
-	plore_map_get_result Result = MapGet(&Context->Yanked, Yankee->Absolute);
+	plore_map_get_result Result = MapGet(&Context->Yanked, Yankee);
 	if (Result.Exists) MapRemove(&Context->Yanked, Yankee);
 	else               SetInsert(&Context->Yanked, Yankee, 0);
 }
