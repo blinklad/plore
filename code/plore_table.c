@@ -86,9 +86,8 @@ RemoveFileInfo(plore_file_context *Context, plore_file_listing_info *Info) {
 	u64 Index = Hash % ArrayCount(Context->InfoSlots);
 	plore_file_listing_info_slot *Slot = Context->InfoSlots[Index];
 	
-	u64 SlotsChecked = 0;
+	u64 SlotsChecked = 1;
 	if (Slot->Allocated && !StringsAreEqual(Slot->Info.Path.Absolute, Info->Path.Absolute)) {
-		Assert(Context->FileCount < ArrayCount(Context->InfoSlots));
 		for (;;) {
 			Index = (Index + 1) % ArrayCount(Context->InfoSlots);
 			Slot = Context->InfoSlots[Index];

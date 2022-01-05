@@ -7,6 +7,8 @@
 #include "plore_platform.h"
 #include "plore_gl.h"
 
+#include "plore_map.h"
+
 #if defined(PLORE_WINDOWS)
 #define PLORE_EXPORT __declspec(dllexport)
 #elif defined(PLORE_LINUX)
@@ -205,11 +207,8 @@ typedef struct plore_file_listing_info_slot {
 } plore_file_listing_info_slot;
 
 typedef struct plore_file_context {
-	plore_path Selected[256];
-	u64 SelectedCount;
-	
-	plore_path Yanked[256];
-	u64 YankedCount;
+	plore_map Selected;
+	plore_map Yanked;
 	
 	plore_file_listing_info_slot *InfoSlots[512];
 	u64 FileCount;

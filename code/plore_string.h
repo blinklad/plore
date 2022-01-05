@@ -270,5 +270,22 @@ HashString(char *String) {
 	return Hash+Seed;
 }
 
+plore_inline u64 
+HashBytes(u8 *Bytes, u64 Count) {
+	u64 Seed = 0x31415926;
+	u64 Hash = Seed;
+	while (Count--) Hash = ROTATE_LEFT(Hash, 9) + *Bytes++;
+	
+	// Thomas Wang 64-to-32 bit mix function, hopefully also works in 32 bits
+	Hash ^= Seed;
+	Hash = (~Hash) + (Hash << 18);
+	Hash ^= Hash ^ ROTATE_RIGHT(Hash, 31);
+	Hash = Hash * 21;
+	Hash ^= Hash ^ ROTATE_RIGHT(Hash, 11);
+	Hash += (Hash << 6);
+	Hash ^= ROTATE_RIGHT(Hash, 22);
+	return Hash+Seed;
+}
+
 
 #endif //PLORE_STRING_H

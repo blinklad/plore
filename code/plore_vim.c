@@ -600,9 +600,8 @@ PLORE_VIM_COMMAND(MoveDown)  {
 }
 
 PLORE_VIM_COMMAND(Yank)  {
-	if (FileContext->SelectedCount > 1) { // Yank selection if there is any.
-		MemoryCopy(FileContext->Selected, FileContext->Yanked, sizeof(FileContext->Yanked));
-		FileContext->YankedCount = FileContext->SelectedCount;
+	if (FileContext->Selected.Count > 0) { // Yank selection if there is any.
+		MapCopy(&FileContext->Selected, &FileContext->Yanked);
 	} else { 
 		if (Command.Scalar > 1) {
 			plore_file_listing *CurrentDirectory = &Tab->DirectoryState->Current;
@@ -623,19 +622,19 @@ PLORE_VIM_COMMAND(Yank)  {
 }
 
 PLORE_VIM_COMMAND(ClearYank)  {
-	if (FileContext->YankedCount) {
-		FileContext->YankedCount = 0;
-		FileContext->SelectedCount = 0;
-	}
+	if (FileContext->Yanked.Count) MapReset(&FileContext->Yanked);
 }
 
 PLORE_VIM_COMMAND(Paste)  {
-	if (FileContext->YankedCount) { // @Cleanup
+	if (FileContext->Yanked.Count) { // @Cleanup
 		u64 PastedCount = 0;
 		plore_file_listing *Current = &Tab->DirectoryState->Current;
 		u64 WeAreTopLevel = Platform->IsPathTopLevel(Current->File.Path.Absolute, PLORE_MAX_PATH);
-		for (u64 M = 0; M < FileContext->YankedCount; M++) {
-			plore_path *Movee = FileContext->Yanked + M;
+		for (plore_map_iterator It = MapIter(&FileContext->Yanked);
+			 !It.Finished;
+			 MapIterNext(&FileContext->Yanked, &It)) {
+			
+			plore_path *Movee = It.Key;
 			
 			char NewPath[PLORE_MAX_PATH] = {0};
 			u64 BytesWritten = StringCopy(Current->File.Path.Absolute, NewPath, PLORE_MAX_PATH);
@@ -653,11 +652,8 @@ PLORE_VIM_COMMAND(Paste)  {
 			}
 		}
 		
-		FileContext->YankedCount = 0;
-		MemoryClear(FileContext->Yanked, sizeof(FileContext->Yanked));
-		
-		FileContext->SelectedCount = 0;
-		MemoryClear(FileContext->Selected, sizeof(FileContext->Selected));
+		MapReset(&FileContext->Yanked);
+		MapReset(&FileContext->Selected);
 	}
 }
 
@@ -974,15 +970,17 @@ PLORE_VIM_COMMAND(DeleteFile) {
 											  .Recursive = false,
 											  .PermanentDelete = false,
 										  });
-			} else if (FileContext->SelectedCount) {
-				for (u64 S = 0; S < FileContext->SelectedCount; S++) {
-					plore_path *Selection = FileContext->Selected + S;
-					Platform->DeleteFile(Selection->Absolute, (platform_delete_file_desc) { 
-														  .Recursive = false,
-														  .PermanentDelete = false,
-													  });
+			} else if (FileContext->Selected.Count) {
+				for (plore_map_iterator It = {0}; !It.Finished; MapIterNext(&FileContext->Selected, &It)) {
+					
+					plore_path *Selectee = It.Key;
+					Platform->DeleteFile(Selectee->Absolute, (platform_delete_file_desc) { 
+											 .Recursive = false,
+											 .PermanentDelete = false,
+										 });
 				}
-				FileContext->SelectedCount = 0;
+				
+				MapReset(&FileContext->Selected);
 			}
 		}
 	} else {
@@ -1028,7 +1026,7 @@ PloreSortHelper(plore_tab *Tab, file_sort_mask SortMask) {
 }
 
 PLORE_VIM_COMMAND(ClearSelect) {
-	FileContext->SelectedCount = 0;
+	MapReset(&FileContext->Selected);
 }
 
 PLORE_VIM_COMMAND(ToggleSortName) {

@@ -131,6 +131,8 @@ MemoryCompare(void *_A, void *_B, u64 ByteCount) {
 #define StructArrayMatch(A, B, Count, type) (MemoryCompare(A, B, Count*sizeof(type)) == 0)
 #define StructMatch(A, B, type)             (MemoryCompare(A, B, sizeof(type)) == 0)
 
+#define BytesMatch(A, B, Count)             (MemoryCompare(A, B, Count) == 0)
+
 
 
 #define PloreSort(Items, Count, type)                          \

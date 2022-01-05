@@ -235,6 +235,7 @@ GetKey(char C) {
 
 #include "plore_memory.c"
 #include "plore_table.c"
+#include "plore_map.c"
 #include "plore_vim.c"
 #include "plore_vimgui.c"
 #include "plore_time.c"
@@ -258,9 +259,9 @@ GetImpliedSelection(plore_state *State) {
 	plore_tab *Tab = GetCurrentTab(State);
 	plore_file_context *FileContext = Tab->FileContext;
 	
-	if (FileContext->SelectedCount == 1) {
-		Result = &FileContext->Selected[0];
-	} else if (!FileContext->SelectedCount) {
+	if (FileContext->Selected.Count == 1) {
+		Result = MapIterNext(&FileContext->Selected, &(plore_map_iterator) {0}).Key;
+	} else if (!FileContext->Selected.Count) {
 		plore_file_listing *Cursor = &Tab->DirectoryState->Cursor;
 		if (Cursor->Valid) {
 			Result = &GetOrCreateFileInfo(FileContext, &Cursor->File.Path).Info->Path;
@@ -1207,51 +1208,30 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 
 plore_inline b64
 IsYanked(plore_file_context *Context, plore_path *Yankee) {
-	for (u64 Y = 0; Y < Context->YankedCount; Y++) {
-		plore_path *It = Context->Yanked + Y;
-		if (StringsAreEqual(It->Absolute, Yankee->Absolute)) return(true);
-	}
-	
-	return(false);
+	b64 Result = MapGet(&Context->Yanked, Yankee).Exists;
+	return(Result);
 }
 
 plore_inline b64
 IsSelected(plore_file_context *Context, plore_path *Selectee) {
-	for (u64 S = 0; S < Context->SelectedCount; S++) {
-		plore_path *It = Context->Selected + S;
-		if (StringsAreEqual(It->Absolute, Selectee->Absolute)) return(true);
-	}
-	
-	return(false);
-}
-
-internal void
-ToggleHelper(plore_file_context *Context, plore_path *Togglee, plore_path *List, u64 ListMax, u64 *ListCount) {
-	// NOTE(Evan): Toggle and exit if its in the list.
-	for (u64 S = 0; S < *ListCount; S++) {
-		plore_path *It = List + S;
-		if (StringsAreEqual(It->Absolute, Togglee->Absolute)) {
-			List[S] = List[--(*ListCount)];
-			return;
-		}
-	}
-	
-	if (*ListCount == ListMax-1) return;
-	
-	// NOTE(Evan): Otherwise, add it to the list.
-	List[(*ListCount)++] = *Togglee;
+	b64 Result = MapGet(&Context->Selected, Selectee).Exists;
+	return(Result);
 }
 
 internal void
 ToggleSelected(plore_file_context *Context, plore_path *Selectee) {
 	Assert(Selectee);
-	ToggleHelper(Context, Selectee, Context->Selected, ArrayCount(Context->Selected), &Context->SelectedCount);
+	plore_map_get_result Result = MapGet(&Context->Selected, Selectee);
+	if (Result.Exists) MapRemove(&Context->Selected, Selectee);
+	else               MapInsert(&Context->Selected, Selectee, 0);
 }
 
 internal void
 ToggleYanked(plore_file_context *Context, plore_path *Yankee) {
 	Assert(Yankee);
-	ToggleHelper(Context, Yankee, Context->Yanked, ArrayCount(Context->Yanked), &Context->YankedCount);
+	plore_map_get_result Result = MapGet(&Context->Yanked, Yankee);
+	if (Result.Exists) MapRemove(&Context->Yanked, Yankee);
+	else               MapInsert(&Context->Yanked, Yankee, 0);
 }
 
 
