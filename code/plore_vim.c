@@ -973,7 +973,7 @@ PLORE_VIM_COMMAND(DeleteFile) {
 											  .PermanentDelete = false,
 										  });
 			} else if (FileContext->Selected.Count) {
-				for (plore_map_iterator It = {0}; !It.Finished; MapIterNext(&FileContext->Selected, &It)) {
+				for (plore_map_iterator It = MapIter(&FileContext->Selected); !It.Finished; MapIterNext(&FileContext->Selected, &It)) {
 					
 					plore_path *Selectee = It.Key;
 					Platform->DeleteFile(Selectee->Absolute, (platform_delete_file_desc) { 
