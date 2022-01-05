@@ -53,6 +53,7 @@ PLORE_X(ShowCommandList,         "show_command_list",            "Show list of a
 PLORE_X(ExitPlore,               "exit_plore",                   "Exit Plore",                                                                      0)                                  \
 PLORE_X(FontScaleIncrease,       "font_scale_increase",          "Increase current font scale",                                                     0)                                  \
 PLORE_X(FontScaleDecrease,       "font_scale_decrease",          "Decrease current font scale",                                                     0)                                  \
+PLORE_X(ToggleFileMetadata,      "toggle_file_metadata",         "Toggle display of file metadata (size, date, etc)",                               0)                                  \
 PLORE_X(VerticalSplit,           "vertical_split",               "Vertical split a new tab, or already existing tab, with provided number",         0)                                  \
 PLORE_X(HorizontalSplit,         "horizontal_split",             "Horizontal split a new tab, or already existing tab, with provided number",       0)
 
@@ -662,6 +663,17 @@ global vim_binding VimBindings[] = {
 			{
 				.Input = PloreKey_N,
 				.Modifier = PloreKey_Shift,
+			},
+		},
+	},
+	{
+		.Type = VimCommandType_ToggleFileMetadata,
+		.Keys = {
+			{
+				.Input = PloreKey_M,
+			},
+			{
+				.Input = PloreKey_T,
 			},
 		},
 	},
