@@ -1,10 +1,10 @@
 # plore
 ## Handmade, simple file explorer
-![plore 0.1.9](docs/plore-v-0-1-9.png)
+![plore 0.1.9](docs/plore-v-0-1-10.gif)
 
-Graphical file manager written in C99, with first-class vim bindings. 
+Graphical, vim-binding based file manager written in C99.
 
-Inspired by Ranger and LF, with a design and implementation philosophy focusing on minimizing the number of dependencies, whether they are libraries, programming languages/versions, file encodings, OS-specific logic or otherwise.
+Inspired by ranger and lf, with a design and implementation philosophy focusing on minimizing the number of dependencies, whether they are libraries, programming languages/versions, file encodings, OS-specific logic or otherwise.
 
 ## Design Goals
 * As simple and minimalistic of an implementation as possible. 
