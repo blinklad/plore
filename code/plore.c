@@ -139,7 +139,7 @@ typedef struct plore_state {
 	
 	plore_memory *Memory;
 	plore_vim_context *VimContext;
-	plore_vimgui_context *VimguiContext;
+	plore_vimgui_context *VimguiContext; // TODO(Evan): Move this so it's a per-tab thing.
 	plore_render_list *RenderList;
 	
 	memory_arena Arena;      // NOTE(Evan): Never freed.
