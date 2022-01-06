@@ -34,6 +34,7 @@ typedef struct plore_handler {
 #define PLORE_BASIC_PHOTO_EDITOR       { .Name = "GIMP",                 .Shell = "C:\\Program Files\\GIMP 2\\bin\\gimp-2.10.exe" }
 #define PLORE_ADVANCED_PHOTO_EDITOR    { .Name = "Paint",                .Shell = "C:\\Windows\\System32\\mspaint.exe" }
 #define PLORE_TEXT_HANDLER             { .Name = "4Coder",               .Shell = PLORE_EDITOR  }
+#define PLORE_VIDEO_HANDLER            { .Name = "Media Player",         .Shell = "C:\\Program Files (x86)\\VideoLAN\\VLC\\vlc.exe"  }
 
 
 #elif defined(PLORE_LINUX)
@@ -46,7 +47,6 @@ typedef struct plore_handler {
 #define PLORE_PHOTO_HANDLER   { .Name = "Feh",    .Shell = "feh --fullscreen" }
 #define PLORE_TEXT_HANDLER    { .Name = "Neovim", .Shell = PLORE_EDITOR } 
 #define PLORE_PHOTO_EDITOR    { .Name = "GIMP",   .Shell = "gimp" }
-
 
 #else
 #error Unsupported platform.
@@ -61,6 +61,7 @@ PLORE_X(JPG, "jpg", "jpeg",     { PLORE_PHOTO_HANDLER, PLORE_BASIC_PHOTO_EDITOR,
 PLORE_X(TXT, "txt", "text",     { PLORE_TEXT_HANDLER                                                          } ) \
 PLORE_X(C, "c", "c",            { PLORE_TEXT_HANDLER                                                          } ) \
 PLORE_X(H, "h", "h",            { PLORE_TEXT_HANDLER                                                          } ) \
+PLORE_X(MP4, "mp4", "mp4",      { PLORE_VIDEO_HANDLER,                                                        } ) \
 PLORE_X(BAT, "bat", "batch",    { PLORE_TEXT_HANDLER                                                          } )  
 
 typedef enum plore_file_extension {
