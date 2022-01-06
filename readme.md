@@ -101,6 +101,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 - Recursive ISearch.
 - Track/calculate: Directory cumulative size.
 - CursorInfo: Display cumulative size and number of files
+- Windows file handler: We can read registry entries to find out what programs are used to open an extension. This allows previewing the paths in a lister. Or, we can use `ShellExecute` with the `open` 'verb', which would be harder to provide feedback with, but require less registry reading nonsense.
 
 ### VIMGUI TODOs:
    - ~~Actual alpha blending~~
@@ -118,6 +119,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 
 ### Robustness TODOs:
 * Changing assertions to error codes to prevent crashing when a stabler version is made.
+* `temp_string` bits.
 * ... Many more ...
 
 ## Building
