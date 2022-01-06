@@ -14,7 +14,7 @@ _GetValue(plore_map *Map, u64 Index) {
 }
 
 internal plore_map
-MapInit(memory_arena *Arena, u64 KeySize, u64 ValueSize, u64 Capacity) {
+_MapInit(memory_arena *Arena, u64 KeySize, u64 ValueSize, u64 Capacity) {
 	Assert(Capacity);
 	
 	plore_map Result = {
@@ -37,9 +37,6 @@ MapInit(memory_arena *Arena, u64 KeySize, u64 ValueSize, u64 Capacity) {
 	
 	return(Result);
 }
-
-#define MapInsert(Map, K, V) _MapInsert(Map, K, V, sizeof(*K), sizeof(*V))
-#define SetInsert(Map, K, V) _MapInsert(Map, K, V, sizeof(*K), 0)
 
 internal void 
 _MapInsert(plore_map *Map, void *Key, void *Value, u64 DEBUGKeySize, u64 DEBUGValueSize) {
@@ -88,7 +85,6 @@ typedef struct plore_map_remove_result {
 	b64 KeyDidNotExist;
 } plore_map_remove_result;
 
-#define MapRemove(Map, K) _MapRemove(Map, K, sizeof(*K))
 internal plore_map_remove_result
 _MapRemove(plore_map *Map, void *Key, u64 DEBUGKeySize) {
 	plore_map_remove_result Result = {0};
@@ -136,7 +132,6 @@ typedef struct plore_map_get_result {
 	b64 Exists; // NOTE(Evan): Seems redundant, but required for 0-sized values, i.e., testing set membership.
 } plore_map_get_result;
 
-#define MapGet(Map, K) _MapGet(Map, K, sizeof(*K))
 internal plore_map_get_result
 _MapGet(plore_map *Map, void *Key, u64 DEBUGKeySize) {
 	plore_map_get_result Result = {0};
