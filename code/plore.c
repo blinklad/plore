@@ -260,7 +260,7 @@ GetImpliedSelection(plore_state *State) {
 	plore_file_context *FileContext = Tab->FileContext;
 	
 	if (FileContext->Selected.Count == 1) {
-		Result = MapIterNext(&FileContext->Selected, &(plore_map_iterator) {0}).Key;
+		Result = MapIter(&FileContext->Selected).Key;
 	} else if (!FileContext->Selected.Count) {
 		plore_file_listing *Cursor = &Tab->DirectoryState->Cursor;
 		if (Cursor->Valid) {
