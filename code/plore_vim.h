@@ -645,6 +645,7 @@ global vim_binding VimBindings[] = {
 			},
 			{
 				.Input = PloreKey_Q,
+				.Modifier = PloreKey_Shift,
 			},
 		}
 	},
