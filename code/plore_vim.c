@@ -455,7 +455,7 @@ PLORE_VIM_COMMAND(OpenFile) {
 				if (MaybeCount) {
 					
 					// NOTE(Evan): We copy the handler strings out because there's not an easy way to specify n-tuples withinin the PLORE_X macro
-					// that defines struct literals. ]
+					// that defines struct literals.
 					// Yet another reason for a small metaprogram!
 					char *TitleBuffer[VimListing_ListSize] = {0};
 					for (u64 L = 0; L < MaybeCount; L++) {
