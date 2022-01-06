@@ -46,6 +46,8 @@ PLATFORM_DEBUG_PRINT(WindowsDebugPrint);
 #define Print WindowsDebugPrint
 
 #include "plore_string.h"
+
+#include "plore_memory.c"
 #include "plore_gl.c"
 
 internal plore_time
