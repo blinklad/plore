@@ -3,8 +3,9 @@
 #ifndef PLORE_MAP_H
 #define PLORE_MAP_H
 
+// NOTE(Evan): If Lookup[Index].Allocated, then the contiguous arrays Keys[Index]/Values[Index] are valid.
 typedef struct plore_map_key_lookup {
-	b32 Allocated;
+	b8 Allocated;
 } plore_map_key_lookup;
 
 typedef struct plore_map {
