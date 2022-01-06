@@ -632,7 +632,7 @@ PLORE_VIM_COMMAND(Paste)  {
 		u64 WeAreTopLevel = Platform->IsPathTopLevel(Current->File.Path.Absolute, PLORE_MAX_PATH);
 		for (plore_map_iterator It = MapIter(&FileContext->Yanked);
 			 !It.Finished;
-			 MapIterNext(&FileContext->Yanked, &It)) {
+			 It = MapIterNext(&FileContext->Yanked, It)) {
 			
 			plore_path *Movee = It.Key;
 			
@@ -973,7 +973,7 @@ PLORE_VIM_COMMAND(DeleteFile) {
 											  .PermanentDelete = false,
 										  });
 			} else if (FileContext->Selected.Count) {
-				for (plore_map_iterator It = MapIter(&FileContext->Selected); !It.Finished; MapIterNext(&FileContext->Selected, &It)) {
+				for (plore_map_iterator It = MapIter(&FileContext->Selected); !It.Finished; It = MapIterNext(&FileContext->Selected, It)) {
 					
 					plore_path *Selectee = It.Key;
 					Platform->DeleteFile(Selectee->Absolute, (platform_delete_file_desc) { 
@@ -1051,7 +1051,7 @@ extern vim_command_function *VimCommands[VimCommandType_Count];
 PLORE_VIM_COMMAND(ShowCommandList) {
 	switch (Command.State) {
 		case VimCommandState_Start: {
-			// @Cutnpaste from OpenFile; 
+			// CUTNPASTE(Evan): From OpenFile; 
 			// Not worth making a utility function for 2-dimensional strcpy() swizzling, which should frankly be done at compile-time.
 			
 			// NOTE(Evan): Don't copy VimCommandType_None!

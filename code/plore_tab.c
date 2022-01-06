@@ -26,8 +26,8 @@ InitTab(plore_state *State, plore_tab *Tab) {
 		Tab->FileContext->InfoSlots[Dir] = PushStruct(&Tab->Arena, plore_file_listing_info);
 	}
 	
-	Tab->FileContext->Selected = MapInit(&Tab->Arena, sizeof(plore_path), 0, 256);
-	Tab->FileContext->Yanked = MapInit(&Tab->Arena, sizeof(plore_path), 0, 256);
+	Tab->FileContext->Selected = MapInit(&Tab->Arena, plore_path, void, 256);
+	Tab->FileContext->Yanked = MapInit(&Tab->Arena, plore_path, void, 256);
 }
 
 internal void
