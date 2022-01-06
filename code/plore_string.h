@@ -237,8 +237,10 @@ StringCopy(char *Source, char *Destination, u64 BufferSize) {
 		if (!*Source) {
 			break;
 		}
+		
 	}
 	
+	if (Destination == Source) Assert(0);
 	// NOTE(Evan): Truncate the string.
 	if (BytesWritten >= BufferSize) {
 		Destination[BufferSize-1] = '\0';
