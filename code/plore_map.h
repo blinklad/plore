@@ -21,7 +21,7 @@ typedef struct plore_map {
 } plore_map;
 
 internal plore_map
-MapInit(memory_arena *Arena, u64 KeySize, u64 DataSize, u64 Count);
+_MapInit(memory_arena *Arena, u64 KeySize, u64 DataSize, u64 Count);
 
 internal void
 MapClearMemory(plore_map *Map);
@@ -42,10 +42,14 @@ MapReset(plore_map *Map);
 //
 // Every alternative to this has different tradeoffs in complexity, usability and performance, so let's just see how this goes.
 //
-#define MapInsert(Map, K, V) _MapInsert(Map, K, V, sizeof(*K), sizeof(*V))
-#define SetInsert(Map, K, V) _MapInsert(Map, K, V, sizeof(*K), 0)
-#define MapRemove(Map, K)    _MapRemove(Map, K, sizeof(*K))
-#define MapGet(Map, K)       _MapGet(Map,    K, sizeof(*K))
+#pragma warning(disable: 4034)
+
+#define MapInit(Arena, key_type, value_type, Count) _MapInit(Arena, sizeof(key_type), sizeof(value_type), Count)
+
+#define MapInsert(Map, K, V)                        _MapInsert(Map, K, V, sizeof(*K), sizeof(*V))
+#define SetInsert(Map, K, V)                        _MapInsert(Map, K, V, sizeof(*K), 0)
+#define MapRemove(Map, K)                           _MapRemove(Map, K, sizeof(*K))
+#define MapGet(Map, K)                              _MapGet(Map,    K, sizeof(*K))
 
 typedef struct plore_map_iterator {
 	b64 Finished;
@@ -58,7 +62,7 @@ internal plore_map_iterator
 MapIter(plore_map *Map);
 
 internal plore_map_iterator
-MapIterNext(plore_map *Map, plore_map_iterator *It);
+MapIterNext(plore_map *Map, plore_map_iterator It);
 	
 #endif //PLORE_MAP_H
 	
