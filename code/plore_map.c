@@ -181,30 +181,29 @@ MapReset(plore_map *Map) {
 
 internal plore_map_iterator
 MapIter(plore_map *Map) {
-	plore_map_iterator Result = MapIterNext(Map, &(plore_map_iterator){0});
+	plore_map_iterator Result = MapIterNext(Map, (plore_map_iterator){0});
 	return(Result);
 }
 
 internal plore_map_iterator
-MapIterNext(plore_map *Map, plore_map_iterator *It) {
-	plore_map_iterator Result = *It;
-	if (It->_Index > Map->Capacity-1) {
+MapIterNext(plore_map *Map, plore_map_iterator It) {
+	plore_map_iterator Result = It;
+	if (It._Index > Map->Capacity-1) {
+		Result.Finished = true;
 		return(Result);
 	}
 	
-	for (u64 L = It->_Index; L < Map->Capacity; L++) {
+	for (u64 L = It._Index; L < Map->Capacity; L++) {
 		if (Map->Lookup[L].Allocated) {
-			It->_Index = L;
-			It->Key = _GetKey(Map, It->_Index);
-			if (Map->ValueSize) It->Value = _GetValue(Map, It->_Index);
-			It->_Index++;
+			Result._Index = L;
+			Result.Key = _GetKey(Map, Result._Index);
+			if (Map->ValueSize) Result.Value = _GetValue(Map, Result._Index);
+			Result._Index++;
 			
-			Result = *It;
 			return (Result);
 		}
 	}
 	
-	It->Finished = true;
 	Result.Finished = true;
 	return(Result);
 }
