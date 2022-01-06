@@ -289,5 +289,28 @@ HashBytes(u8 *Bytes, u64 Count) {
 	return Hash+Seed;
 }
 
+#include "plore_memory.h"
+
+typedef struct temp_string {
+	memory_arena *Arena; // NOTE(Evan): Owning arena.
+	char *Buffer;
+	u64 Count;
+	u64 Capacity;
+} temp_string;
+
+plore_inline temp_string
+TempString(memory_arena *Arena, u64 Capacity) {
+	temp_string Result = {
+		.Arena = Arena,
+		.Buffer = PushBytes(Arena, Capacity),
+		.Capacity = Capacity,
+	};
+	
+	return(Result);
+}
+
+#define TempCat(S, Format, ...)   S.Count += StringPrintSized(S.Buffer+S.Count, S.Capacity, Format, __VA_ARGS__)
+#define TempPrint(S, Format, ...) S.Count = StringPrintSized(S.Buffer, S.Capacity, Format, __VA_ARGS__)
+
 
 #endif //PLORE_STRING_H
