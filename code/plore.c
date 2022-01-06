@@ -540,7 +540,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	SynchronizeCurrentDirectory(&State->FrameArena, GetCurrentTab(State));
 	
 	for (u64 Split = 0; Split < State->SplitTabCount; Split++) {
-		Tab = State->Tabs + State->SplitTabs[Split];
+		Tab = GetCurrentTab(State);
 		
 		//
 		// NOTE(Evan): GUI stuff.
