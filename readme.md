@@ -63,7 +63,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
    - ~~Interactive rename~~
    - ~~Select file/s~~, ~~Select entire directory~~, Scalar select, Clear selection
    - ~~Yank~~, ~~Yank entire directory~~, ~~Yank selection~~, ~~Clear Yank~~, ~~Scalar yank~~
-   - ~~Paste~~
+   - ~~Paste~~, Pasting between tabs should be allowed somehow too
    - ~~Interactive make directory~~
    - ~~Interactive make file~~
    - ISearch: ~~Jump to result on return~~, ~~navigate between results~~
@@ -80,6 +80,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
    - ~~Font scaling.~~
    - Fullscreen listing views.
    - ~~Toggle file metadata (date, size, etc).~~ Possible expanded forms of these in fullscreen listing?
+   - Open executable. Could choose between forking a shell or not.
 
 
 ### File Management TODOs:
