@@ -797,7 +797,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 									   .BackgroundColour = (L == VimContext->ListerState.Cursor) ? WidgetColour_Secondary : WidgetColour_Primary,
 									   .BackgroundColourFlags = WidgetColourFlags_Focus,
 									   })) {
-							DrawText("I do nothing!");
+							ListerEnd(State, L);
 						}
 						
 						H -= FooterHeight;

@@ -48,45 +48,6 @@ InsertBegin(plore_vim_context *VimContext, vim_command Command) {
 	SetActiveCommand(VimContext, Command);
 }
 
-typedef struct vim_lister_begin_desc {
-	vim_command Command;
-	char **Titles;
-	char **Secondaries;
-	u64 Count;
-	b64 HideFiles;
-} vim_lister_begin_desc;
-
-internal void
-ListerBegin(plore_vim_context *VimContext, vim_lister_begin_desc Desc) {
-	Assert(!VimContext->ListerState.Count);
-	Assert(Desc.Titles || Desc.Secondaries);
-	
-	VimContext->Mode = VimMode_Lister;
-	SetActiveCommand(VimContext, Desc.Command);
-	ClearCommands(VimContext);
-	
-	if (Desc.Titles) {
-		u64 BytesCopied = 0;
-		for (u64 L = 0; L < Desc.Count; L++) {
-			 StringCopy(Desc.Titles[L], 
-		                 VimContext->ListerState.Titles[L], 
-		                 ArrayCount(VimContext->ListerState.Titles[L]));
-		}
-	}
-	if (Desc.Secondaries) {
-		for (u64 L = 0; L < Desc.Count; L++) {
-			StringCopy(Desc.Secondaries[L], 
-						VimContext->ListerState.Secondaries[L], 
-						ArrayCount(VimContext->ListerState.Secondaries[L]));
-		}
-	}
-	
-	VimContext->ListerState.Count = Desc.Count;
-	VimContext->ListerState.HideFiles = Desc.HideFiles;
-	VimContext->ListerState.Cursor = 0;
-	VimContext->ListerState.Mode = 0;
-}
-
 internal b64
 Confirmation(char *S) {
 	b64 Result = false;
@@ -401,6 +362,63 @@ void Name(plore_state *State, plore_tab *Tab, plore_vim_context *VimContext, plo
 
 typedef PLORE_VIM_COMMAND_FUNCTION(vim_command_function);
 #define PLORE_VIM_COMMAND(CommandName) PLORE_VIM_COMMAND_FUNCTION(Do##CommandName)
+
+// NOTE(Evan): ListerEnd() and ShowCommandList use the dispatch table directly, so declare it here.
+extern vim_command_function *VimCommands[VimCommandType_Count];
+
+typedef struct vim_lister_begin_desc {
+	vim_command Command;
+	char **Titles;
+	char **Secondaries;
+	u64 Count;
+	b64 HideFiles;
+} vim_lister_begin_desc;
+internal void
+ListerBegin(plore_vim_context *VimContext, vim_lister_begin_desc Desc) {
+	Assert(!VimContext->ListerState.Count);
+	Assert(Desc.Titles || Desc.Secondaries);
+	
+	VimContext->Mode = VimMode_Lister;
+	SetActiveCommand(VimContext, Desc.Command);
+	ClearCommands(VimContext);
+	
+	if (Desc.Titles) {
+		u64 BytesCopied = 0;
+		for (u64 L = 0; L < Desc.Count; L++) {
+			StringCopy(Desc.Titles[L], 
+					   VimContext->ListerState.Titles[L], 
+					   ArrayCount(VimContext->ListerState.Titles[L]));
+		}
+	}
+	if (Desc.Secondaries) {
+		for (u64 L = 0; L < Desc.Count; L++) {
+			StringCopy(Desc.Secondaries[L], 
+					   VimContext->ListerState.Secondaries[L], 
+					   ArrayCount(VimContext->ListerState.Secondaries[L]));
+		}
+	}
+	
+	VimContext->ListerState.Count = Desc.Count;
+	VimContext->ListerState.HideFiles = Desc.HideFiles;
+	VimContext->ListerState.Cursor = 0;
+	VimContext->ListerState.Mode = 0;
+}
+
+internal void
+ListerEnd(plore_state *State, u64 Listee) {
+	plore_vim_context *VimContext = State->VimContext;
+	
+	Assert(VimContext->Mode == VimMode_Lister);
+	Assert(Listee < VimContext->ListerState.Count);
+	
+	VimContext->ListerState.Cursor = Listee;
+	vim_command Command = {
+		.Type = VimContext->ActiveCommand.Type,
+		.State = VimCommandState_Finish,
+	};
+	VimCommands[Command.Type](State, GetCurrentTab(State), VimContext, GetCurrentTab(State)->FileContext, Command);
+}
+
 
 
 PLORE_VIM_COMMAND(None) {
@@ -1045,9 +1063,6 @@ PLORE_VIM_COMMAND(ToggleSortExtension) {
 	PloreSortHelper(Tab, FileSort_Extension);
 }
 
-// NOTE(Evan): ShowCommandList looks up in the dispatch table directly.
-extern vim_command_function *VimCommands[VimCommandType_Count];
-
 PLORE_VIM_COMMAND(ShowCommandList) {
 	switch (Command.State) {
 		case VimCommandState_Start: {
@@ -1083,7 +1098,9 @@ PLORE_VIM_COMMAND(ShowCommandList) {
 				.Type = VimContext->ListerState.Cursor+1,
 			};
 			
-            PLORE_DO_VIM_COMMAND_ENUM(VimContext->ListerState.Cursor+1);
+			ResetVimState(VimContext);
+            PLORE_DO_VIM_COMMAND_ENUM(Command.Type);
+			
 		} break;
 	}
 	
