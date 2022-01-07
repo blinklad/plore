@@ -34,7 +34,7 @@ typedef struct plore_handler {
 #define PLORE_BASIC_PHOTO_EDITOR       { .Name = "GIMP",                 .Shell = "C:\\Program Files\\GIMP 2\\bin\\gimp-2.10.exe" }
 #define PLORE_ADVANCED_PHOTO_EDITOR    { .Name = "Paint",                .Shell = "C:\\Windows\\System32\\mspaint.exe" }
 #define PLORE_TEXT_HANDLER             { .Name = "4Coder",               .Shell = PLORE_EDITOR  }
-#define PLORE_VIDEO_HANDLER            { .Name = "Media Player",         .Shell = "C:\\Program Files (x86)\\VideoLAN\\VLC\\vlc.exe"  }
+#define PLORE_MEDIA_HANDLER            { .Name = "Media Player",         .Shell = "C:\\Program Files (x86)\\VideoLAN\\VLC\\vlc.exe"  }
 
 
 #elif defined(PLORE_LINUX)
@@ -53,16 +53,21 @@ typedef struct plore_handler {
 #endif
 
 
-#define PLORE_FILE_EXTENSIONS                                                                                     \
-PLORE_X(Unknown, "", "unknown", { { .Shell = "unknown"}                                                       } ) \
-PLORE_X(BMP, "bmp", "bitmap",   { PLORE_PHOTO_HANDLER, PLORE_BASIC_PHOTO_EDITOR, PLORE_ADVANCED_PHOTO_EDITOR, } ) \
-PLORE_X(PNG, "png", "png",      { PLORE_PHOTO_HANDLER, PLORE_BASIC_PHOTO_EDITOR, PLORE_ADVANCED_PHOTO_EDITOR, } ) \
-PLORE_X(JPG, "jpg", "jpeg",     { PLORE_PHOTO_HANDLER, PLORE_BASIC_PHOTO_EDITOR, PLORE_ADVANCED_PHOTO_EDITOR, } ) \
-PLORE_X(TXT, "txt", "text",     { PLORE_TEXT_HANDLER                                                          } ) \
-PLORE_X(C, "c", "c",            { PLORE_TEXT_HANDLER                                                          } ) \
-PLORE_X(H, "h", "h",            { PLORE_TEXT_HANDLER                                                          } ) \
-PLORE_X(MP4, "mp4", "mp4",      { PLORE_VIDEO_HANDLER,                                                        } ) \
-PLORE_X(BAT, "bat", "batch",    { PLORE_TEXT_HANDLER                                                          } )  
+#define PLORE_FILE_EXTENSIONS                                                                                               \
+PLORE_X(Unknown, "",     "unknown",       { { .Shell = "unknown"}                                                       } ) \
+PLORE_X(BMP,     "bmp",  "bitmap",        { PLORE_PHOTO_HANDLER, PLORE_BASIC_PHOTO_EDITOR, PLORE_ADVANCED_PHOTO_EDITOR, } ) \
+PLORE_X(PNG,     "png",  "png",           { PLORE_PHOTO_HANDLER, PLORE_BASIC_PHOTO_EDITOR, PLORE_ADVANCED_PHOTO_EDITOR, } ) \
+PLORE_X(JPG,     "jpg",  "jpeg",          { PLORE_PHOTO_HANDLER, PLORE_BASIC_PHOTO_EDITOR, PLORE_ADVANCED_PHOTO_EDITOR, } ) \
+PLORE_X(GIF,     "gif",  "gif",           { PLORE_PHOTO_HANDLER, PLORE_BASIC_PHOTO_EDITOR, PLORE_ADVANCED_PHOTO_EDITOR, } ) \
+PLORE_X(TXT,     "txt",  "text",          { PLORE_TEXT_HANDLER                                                          } ) \
+PLORE_X(C,       "c",    "c source code", { PLORE_TEXT_HANDLER                                                          } ) \
+PLORE_X(H,       "h",    "header file",   { PLORE_TEXT_HANDLER                                                          } ) \
+PLORE_X(MP4,     "mp4",  "mp4",           { PLORE_MEDIA_HANDLER,                                                        } ) \
+PLORE_X(MP3,     "mp3",  "mp3",           { PLORE_MEDIA_HANDLER,                                                        } ) \
+PLORE_X(OGG,     "ogg",  "ogg vorbis",    { PLORE_MEDIA_HANDLER,                                                        } ) \
+PLORE_X(FLAC,    "flac", "flac",          { PLORE_MEDIA_HANDLER,                                                        } ) \
+PLORE_X(WEBM,    "webm", "webm",          { PLORE_MEDIA_HANDLER,                                                        } ) \
+PLORE_X(BAT,     "bat",  "batch",         { PLORE_TEXT_HANDLER                                                          } )  
 
 typedef enum plore_file_extension {
 #define PLORE_X(Name, _Ignored1, _Ignored2, ...) PloreFileExtension_##Name##,
