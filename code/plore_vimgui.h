@@ -90,7 +90,7 @@ global u32 PloreDarkTextColours[] = {
 };
 #undef PLORE_X
 
-// NOTE(Evan): Container for other widgets. These are garbage collected when inactive.
+// NOTE(Evan): Container for other widgets.
 typedef struct vimgui_window {
 	u64 ID;
 	rectangle Rect;
@@ -102,8 +102,6 @@ typedef struct vimgui_window {
 	u64 RowCountLastFrame;
 	u64 RowCountThisFrame; // NOTE(Evan): ThisFrame
 	u64 Layer;             // NOTE(Evan): ThisFrame
-	i64 Generation; // NOTE(Evan): When a window is "touched", this is incremented.
-	                // If the generation lags behind the global context, the window is deleted. 
 	b64 Hidden;
 	b64 NeverFocus;
 } vimgui_window;
@@ -164,30 +162,24 @@ typedef struct vimgui_widget_state {
 
 typedef struct plore_vimgui_context {
 	struct plore_vimgui_context_this_frame {
-		u64 WidgetCount;
 		u64 WindowFocusStolen;
 		u64 WidgetFocusStolen;
 		u64 ParentStackCount;
 		u64 ParentStack[8];
 		u64 ParentStackMax;
 		u64 WindowWeAreLayingOut;
-		vimgui_widget Widgets[512];
 		keyboard_and_mouse Input;
 	} ThisFrame;
-	
-	vimgui_widget_state WidgetState[16];
-	u64 WidgetStateCount;
+	plore_map Widgets;
+	plore_map WidgetState;
 	
 	b64 GUIPassActive;
 	b64 LayoutPassActive;
 	u64 HotWidgetID;
 	
-	vimgui_window Windows[64];
-	u64 WindowCount;
+	plore_map Windows;
 	u64 ActiveWindow;
 	u64 HotWindow;
-	
-	i64 GenerationCount;
 	
 	plore_render_list *RenderList;
 	plore_font *Font;

@@ -37,6 +37,9 @@ VimguiInit(memory_arena *Arena, plore_vimgui_context *Context, plore_render_list
 	Context->RenderList = RenderList;
 	Context->Font = RenderList->Font;
 	Context->FrameArena = SubArena(Arena, Megabytes(1), 16);
+	Context->Windows     = MapInit(Arena, u64, vimgui_window, 64);
+	Context->Widgets     = MapInit(Arena, u64, vimgui_widget, 512);
+	Context->WidgetState = MapInit(Arena, u64, vimgui_widget_state, 16);
 }
 
 internal void
@@ -50,13 +53,16 @@ VimguiBegin(plore_vimgui_context *Context, keyboard_and_mouse Input, v2 WindowDi
 	
 	Context->WindowDimensions = WindowDimensions;
 	
-	for (u64 W = 0; W < Context->WindowCount; W++) {
-		vimgui_window *Window = Context->Windows + W;
+	for (plore_map_iterator It = MapIter(&Context->Windows);
+		 !It.Finished;
+		 It = MapIterNext(&Context->Windows, It)) {
+		vimgui_window *Window = It.Value;
 		Window->RowCountThisFrame = 0;
 		Window->Layer = 0;
 	}
 	
 	ClearArena(&Context->FrameArena);
+	MapReset(&Context->Widgets);
 }
 
 internal void
@@ -67,19 +73,27 @@ VimguiEnd(plore_vimgui_context *Context) {
 	f32 dX = Context->WindowDimensions.X;
 	f32 dY = Context->WindowDimensions.Y;
 	
-	vimgui_widget *Widgets = Context->ThisFrame.Widgets;
-	Assert(Context->ThisFrame.WidgetCount);
+	Assert(Context->Widgets.Count);
+	vimgui_widget *Widgets = PushArray(&Context->FrameArena, vimgui_widget, Context->Widgets.Count);
+	u64 WidgetCount = 0;
+	for (plore_map_iterator It = MapIter(&Context->Widgets);
+		 !It.Finished;
+		 It = MapIterNext(&Context->Widgets, It)) {
+		StructCopy(It.Value, Widgets+WidgetCount, vimgui_widget);
+		WidgetCount++;
+	}
+			 
 	
 	f32 FontHeight = GetCurrentFontHeight(Context->Font);
 	f32 FontWidth = GetCurrentFontWidth(Context->Font);
 	
 #define PloreSortPredicate(A, B) A.Layer < B.Layer
-	PloreSort(Context->ThisFrame.Widgets, Context->ThisFrame.WidgetCount, vimgui_widget)
+	PloreSort(Widgets, WidgetCount, vimgui_widget)
 #undef PloreSortPredicate
 	
 	// NOTE(Evan): Push widgets back-to-front onto the list for painters' algorithm.
-	for (u64 W = 0; W < Context->ThisFrame.WidgetCount;  W++) {
-		vimgui_widget *Widget = Context->ThisFrame.Widgets + Context->ThisFrame.WidgetCount-W-1;
+	for (u64 W = 0; W < WidgetCount;  W++) {
+		vimgui_widget *Widget = Widgets + WidgetCount-W-1;
 		
 		vimgui_window *Window = GetWindow(Context, Widget->ID);
 		if (!Window) Window = GetWindow(Context, Widget->WindowID);
@@ -90,7 +104,7 @@ VimguiEnd(plore_vimgui_context *Context) {
 			if (!Widget->BackgroundColourFlags) Widget->BackgroundColourFlags = WidgetColourFlags_Hot;
 		}
 		
-		// @Cleanup this border business.
+		// CLEANUP(Evan): Border business is a bit messy.
 		u32 BackgroundColour = GetWidgetColour(Widget->BackgroundColour, Widget->BackgroundColourFlags);
 		u32 BorderColour = 0x15ffffff;
 		rectangle bRect = Widget->Rect;
@@ -422,36 +436,14 @@ VimguiEnd(plore_vimgui_context *Context) {
 		}
 		
 	}
-	
-	
-	// NOTE(Evan): Cleanup any windows that didn't have any activity the past two frames.
-	for (u64 W = 0; W < Context->WindowCount; W++) {
-		vimgui_window *Window = Context->Windows + W;
-		Assert(Window->ID);
-		
-		Window->RowCountLastFrame = Window->RowCountThisFrame;
-		if (Window->RowCountThisFrame == 0) {
-			if (AbsDifference(Window->Generation, Context->GenerationCount) > 1) {
-				*Window = Context->Windows[--Context->WindowCount];
-			}
-		}
-	}
-	
 	Context->HotWidgetID = 0;
-	Context->GenerationCount++;
 	
 }
 
 internal vimgui_window *
 GetLayoutWindow(plore_vimgui_context *Context) {
 	vimgui_window *Window = 0;
-	for (u64 W = 0; W < Context->WindowCount; W++) {
-		vimgui_window *MaybeWindow = Context->Windows + W;
-		if (MaybeWindow->ID == Context->ThisFrame.WindowWeAreLayingOut) {
-			Window = MaybeWindow;
-			break;
-		}
-	}
+	Window = MapGet(&Context->Windows, &Context->ThisFrame.WindowWeAreLayingOut).Value;
 	
 	return(Window);
 }
@@ -459,13 +451,7 @@ GetLayoutWindow(plore_vimgui_context *Context) {
 internal vimgui_window *
 GetWindow(plore_vimgui_context *Context, u64 ID) {
 	vimgui_window *MaybeWindow = 0;
-	for (u64 W = 0; W < Context->WindowCount; W++) {
-		vimgui_window *Window = Context->Windows + W;
-		if (Window->ID == ID) {
-			MaybeWindow = Window;
-			break;
-		}
-	}
+	MaybeWindow = MapGet(&Context->Windows, &ID).Value;
 	
 	return(MaybeWindow);
 }
@@ -473,36 +459,21 @@ GetWindow(plore_vimgui_context *Context, u64 ID) {
 internal vimgui_widget *
 GetWidget(plore_vimgui_context *Context, u64 ID) {
 	vimgui_widget *MaybeWidget = 0;
-	for (u64 W = 0; W < Context->ThisFrame.WidgetCount; W++) {
-		vimgui_widget *Widget = Context->ThisFrame.Widgets + W;
-		if (Widget->ID == ID) {
-			MaybeWidget = Widget;
-			break;
-		}
-			
-	}
-	
+	MaybeWidget = MapGet(&Context->Widgets, &ID).Value;
 	return(MaybeWidget);
 }
 
 internal vimgui_widget_state *
 GetOrCreateWidgetState(plore_vimgui_context *Context, u64 ID) {
 	vimgui_widget_state *Result = 0;
-	for (u64 S = 0; S < Context->WidgetStateCount; S++) {
-		if (Context->WidgetState[S].ID == ID) {
-			Result = Context->WidgetState + S;
-			break;
-		}
-	}
+	Result = MapGet(&Context->WidgetState, &ID).Value;
 	
 	if (!Result) {
-		if (Context->WidgetStateCount == ArrayCount(Context->WidgetState)) {
-			Context->WidgetState[0] = ClearStruct(vimgui_widget_state);
-			Result = Context->WidgetState + 0;
-		} else {
-			Result = Context->WidgetState + Context->WidgetStateCount++;
-		}
-		Result->ID = ID;
+		if (Context->WidgetState.Count == Context->WidgetState.Capacity) {
+			u64 *FirstID = MapIter(&Context->WidgetState).Key;
+			MapRemove(&Context->WidgetState, FirstID);
+		} 
+		Result = MapInsert(&Context->WidgetState, &ID, &ClearStruct(vimgui_widget_state)).Value;
 	}
 	
 	return(Result);
@@ -711,19 +682,16 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 	vimgui_window *MaybeWindow = GetWindow(Context, MyID);
 	
 	if (!MaybeWindow) {
-		if (Context->WindowCount < ArrayCount(Context->Windows)) {
-			MaybeWindow = Context->Windows + Context->WindowCount++;
-			*MaybeWindow = (vimgui_window) {0};
+		if (Context->Windows.Count < Context->Windows.Capacity) {
+			MaybeWindow = MapInsert(&Context->Windows, &MyID, &ClearStruct(vimgui_window)).Value;
 			MaybeWindow->ID = MyID;
 			MaybeWindow->Title = Desc.Title;
-			MaybeWindow->Generation = Context->GenerationCount;
 			MaybeWindow->NeverFocus = Desc.NeverFocus;
 		}
 	}
 	
 	if (MaybeWindow) {
 		Assert(Context->ThisFrame.ParentStackCount < ArrayCount(Context->ThisFrame.ParentStack));
-		MaybeWindow->Generation++; // NOTE(Evan): Touch the window so it continues to live.
 		if (Desc.Hidden) {
 			MaybeWindow->Hidden = true;
 			return(false); 
@@ -791,8 +759,8 @@ WindowEnd(plore_vimgui_context *Context) {
 
 internal void
 PushWidget(plore_vimgui_context *Context, vimgui_window *Parent, vimgui_widget Widget) {
-	Assert(Context->ThisFrame.WidgetCount < ArrayCount(Context->ThisFrame.Widgets));
-	Context->ThisFrame.Widgets[Context->ThisFrame.WidgetCount++] = Widget;
+	Assert(Context->Widgets.Count < Context->Widgets.Capacity);
+	MapInsert(&Context->Widgets, &Widget.ID, &Widget);
 }
 
 internal void
@@ -913,4 +881,3 @@ PushRenderScissor(plore_render_list *RenderList, vimgui_render_scissor_desc Desc
 		},
 	};
 }
-	
