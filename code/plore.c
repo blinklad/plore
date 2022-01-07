@@ -770,7 +770,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 						}
 						
 						
-						// @Broken
+						// FIXME(Evan): Lister movement is backwards if drawn top-to-bottom.
 						v2 RowP = V2(0, SplitDimensions.Y - MaybeInsertHeight - FooterHeight - (RowMax-ListerCount+1)*FooterHeight - PadY);
 						if (!ExclusiveListerMode) {
 							RowP.Y = SplitDimensions.Y - FooterHeight - ListerCount*FooterHeight; 
