@@ -629,14 +629,13 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 						
 						if (Tab == Active) BackgroundColourFlags = WidgetColourFlags_Focus;
 						
-						u64 NumberSize = 32;
-						char *Number = PushBytes(&State->FrameArena, NumberSize);
-						StringPrintSized(Number, NumberSize, "%d", T+1);
+						temp_string Number = TempString(&State->FrameArena, 32);
+						TempPrint(Number, "%d", T+1);
 						
 						if (Button(State->VimguiContext, (vimgui_button_desc) {
 									   .ID = (u64) Tab,
 									   .Rect = { 
-										   .P =    { (TabCount)*PadX + (TabCount-1)*TabWidth, PadY },
+										   .P =    { (TabCount-1)*(TabWidth+PadX), PadY },
 										   .Span = { TabWidth, TabHeight },
 									   },
 									   .Title = {
@@ -646,7 +645,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 										   .Alignment = VimguiLabelAlignment_CenterHorizontal,
 									   },
 									   .Secondary = {
-										   .Text = Number,
+										   .Text = Number.Buffer,
 										   .Alignment = VimguiLabelAlignment_Left,
 										   .Colour = (Tab == Active) ? TextColour_TabActive : TextColour_Tab,
 										   .Pad = V2(10, 6),
@@ -692,24 +691,19 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 				
 				if (!InsertPrompt) InsertPrompt = "YOU SHOULD NOT SEE THIS.";
 				
-				char Buffer[128] = {0};
-				u64 BufferSize = 0;
-				
+				temp_string Insert = TempString(&State->FrameArena, 128);
 				u64 Size = 128;
-				char *S = PushBytes(&State->FrameArena, Size);
-				BufferSize += StringPrintSized(Buffer, ArrayCount(Buffer), "%s ", InsertPrompt);
-				BufferSize += StringPrintSized(Buffer+BufferSize, ArrayCount(Buffer), 
-											   "%s", 
-											   VimKeysToString(S, Size, VimContext->CommandKeys).Buffer);
+				TempCat(Insert, "%s ", InsertPrompt);
+				TempCat(Insert, "%s", VimKeysToString(PushBytes(&State->FrameArena, Size), Size, VimContext->CommandKeys).Buffer);
 				
 				H -= (FooterHeight + 2*PadY);
 				
 				StoleFocus = true;
 				
 				if (Button(State->VimguiContext, (vimgui_button_desc) {
-							   .ID = (u64) Buffer,
+							   .ID = (u64) Insert.Buffer,
 							   .Title = {
-								   .Text = Buffer, 
+								   .Text = Insert.Buffer, 
 								   .Colour = TextColour_Prompt,
 								   .Pad = V2(16, 12),
 								   .Alignment = VimguiLabelAlignment_Left,
@@ -764,9 +758,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 						ListerCount++;
 						
 						// NOTE(Evan): We left-justify here because there's VIMGUI has no alignment option to allow for it!
-						u64 ListerBufferSize = 512;
-						char *ListerBuffer = PushBytes(&State->FrameArena, ListerBufferSize);
-						StringPrintSized(ListerBuffer, ListerBufferSize, "%-30s", Title);
+						temp_string Lister = TempString(&State->FrameArena, 512);
+						TempPrint(Lister, "%-30s", Title);
 						
 						text_colour TextColour = TextColour_Default;
 						if (ListerFilter) {
@@ -783,7 +776,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 						if (Button(State->VimguiContext, (vimgui_button_desc) {
 									   .ID = ID,
 									   .Title = {
-										   .Text = ListerBuffer,
+										   .Text = Lister.Buffer,
 										   .Pad = V2(16, 8),
 										   .Alignment = VimguiLabelAlignment_Left,
 										   .Colour = TextColour,
@@ -829,19 +822,18 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 						char *BindingString = PushBytes(&State->FrameArena, BindingSize);
 						BindingString = VimBindingToString(BindingString, BindingSize, Candidate);
 						
-						u64 CandidateSize = 256;
-						char *CandidateString = PushBytes(&State->FrameArena, CandidateSize);
+						temp_string CandidateString = TempString(&State->FrameArena, 256);
 						
 						if (Candidate->Shell) {
-							StringPrintSized(CandidateString, CandidateSize, "%s, arg: %s",
-											 VimCommandDescriptions[Candidate->Type],
-											 Candidate->Shell
-											 );
+							TempPrint(CandidateString, "%s, arg: %s",
+									  VimCommandDescriptions[Candidate->Type],
+									  Candidate->Shell
+									  );
 						} else {
-							StringPrintSized(CandidateString, CandidateSize, "%s", VimCommandDescriptions[Candidate->Type]);
+							TempPrint(CandidateString, "%s", VimCommandDescriptions[Candidate->Type]);
 						}
 						
-						u64 ID = Candidate->Shell ? (u64) Candidate->Shell : (u64) CandidateString + Candidate->Type;
+						u64 ID = Candidate->Shell ? (u64) Candidate->Shell : (u64) CandidateString.Buffer + Candidate->Type;
 						
 						if (Button(State->VimguiContext, (vimgui_button_desc) {
 									   .ID = ID,
@@ -851,7 +843,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 										   .Alignment = VimguiLabelAlignment_Left,
 									   },
 									   .Secondary = {
-										   .Text = CandidateString,
+										   .Text = CandidateString.Buffer,
 										   .Pad = V2(32, 16),
 										   .Alignment = VimguiLabelAlignment_Left,
 										   .Colour = TextColour_PromptCursor,
@@ -885,8 +877,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			
 			// NOTE(Evan): Cursor information, appears at bottom of screen.
 			
-			u64 CursorInfoBufferSize = 512;
-			char *CursorInfoBuffer = PushBytes(&State->FrameArena, CursorInfoBufferSize);
+			temp_string CursorInfoString = TempString(&State->FrameArena, 512);
 			char *CommandString = "";
 			
 			// NOTE(Evan): Only show incomplete command key buffer!
@@ -913,31 +904,29 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			
 			if (Tab->DirectoryState->Cursor.Valid) {
 				plore_file *CursorFile = &Tab->DirectoryState->Cursor.File;
-				StringPrintSized(CursorInfoBuffer, 
-								 CursorInfoBufferSize,
-							     "[%s] %s %s", 
-							     (CursorFile->Type == PloreFileNode_Directory) ? "directory" : "file", 
-								 CursorFile->Path.FilePart,
-								 PloreTimeFormat(&State->FrameArena, CursorFile->LastModification, "%a %b %d/%m/%y")
-								 );
+				TempPrint(CursorInfoString, 
+					      "[%s] %s %s", 
+					      (CursorFile->Type == PloreFileNode_Directory) ? "directory" : "file", 
+						  CursorFile->Path.FilePart,
+						  PloreTimeFormat(&State->FrameArena, CursorFile->LastModification, "%a %b %d/%m/%y")
+						  );
 			} else {
-				StringPrintSized(CursorInfoBuffer, 
-								 CursorInfoBufferSize,
-							     "[no selection]"
-								 );
+				TempPrint(CursorInfoString, 
+					      "[no selection]"
+						  );
 			}
 			
 			if (Button(State->VimguiContext, (vimgui_button_desc) {
 					   .Title     = { 
-						   .Text = CursorInfoBuffer, 
+						   .Text = CursorInfoString.Buffer, 
 						   .Alignment = VimguiLabelAlignment_Left, 
 						   .Colour = TextColour_CursorInfo,
-						   .Pad = V2(8, 8),
+						   .Pad = V2(8, FontHeight/4),
 					   },
 					   .Secondary = { 
 						   .Text = Buffer,
 						   .Alignment = VimguiLabelAlignment_Left,
-						   .Pad = V2(0, 8),
+						   .Pad = V2(0, FontHeight/4),
 						   .Colour = TextColour_Prompt
 					   },
 					   .Rect = { 
@@ -1026,18 +1015,16 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 									
 									b64 DisplayFileNumbers = false;
 									u64 FileNameSize = 256;
-									char *FileName = PushBytes(&State->FrameArena, FileNameSize);
+									temp_string FileName = TempString(&State->FrameArena, 256);
 									if (DisplayFileNumbers) {
-										StringPrintSized(FileName, FileNameSize, "%-3d %s", Row, Listing->Entries[Row].Path.FilePart);
+										TempPrint(FileName, "%-3d %s", Row, Listing->Entries[Row].Path.FilePart);
 									} else {
-										StringPrintSized(FileName, FileNameSize, "%s", Listing->Entries[Row].Path.FilePart);
+										TempPrint(FileName, "%s", Listing->Entries[Row].Path.FilePart);
 										
 									}
 									
-									char *Timestamp = PloreTimeFormat(&State->FrameArena, RowEntry->LastModification, "%b %d/%m/%y");
-									char *SecondaryText = "";
+									temp_string SecondaryText = TempString(&State->FrameArena, 256);
 									if (!Tab->FilterState->HideFileMetadata) {
-										SecondaryText = Timestamp;
 										if (RowEntry->Type == PloreFileNode_File) {
 											char *EntrySizeLabel = " b";
 											u64 EntrySize = RowEntry->Bytes;
@@ -1049,27 +1036,23 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 												EntrySizeLabel = "kB";
 											}
 											
-											u64 Size = 256;
-											SecondaryText = PushBytes(&State->FrameArena, Size);
-											StringPrintSized(SecondaryText, Size, "%s %4d%s", Timestamp, EntrySize, EntrySizeLabel);
+											TempPrint(SecondaryText, "%s %4d%s", PloreTimeFormat(&State->FrameArena, RowEntry->LastModification, "%b %d/%m/%y"), EntrySize, EntrySizeLabel);
 										} else {
-											u64 Size = 256;
-											SecondaryText = PushBytes(&State->FrameArena, Size);
-											StringPrintSized(SecondaryText, Size, "%s%7s", Timestamp, "-");
+											TempPrint(SecondaryText, "%s%7s", PloreTimeFormat(&State->FrameArena, RowEntry->LastModification, "%b %d/%m/%y"), "-");
 										}
 										
 									}
 									
 									if (Button(State->VimguiContext, (vimgui_button_desc) {
 												   .Title     = { 
-													   .Text = FileName,
+													   .Text = FileName.Buffer,
 													   .Alignment = VimguiLabelAlignment_Left ,
 													   .Colour = TextColour,
 													   .Pad = V2(4, 0),
 													   .ColourFlags = TextColourFlags,
 												   },
 												   .Secondary = { 
-													   .Text = SecondaryText, 
+													   .Text = SecondaryText.Buffer, 
 													   .Alignment = VimguiLabelAlignment_Right,
 													   .Colour = TextColour_Tertiary,
 													   .ColourFlags = TextColourFlags,
@@ -1159,17 +1142,16 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 									default: {
 										platform_readable_file TheFile = Platform->DebugOpenFile(Listing->File.Path.Absolute);
 										if (TheFile.OpenedSuccessfully) {
-											u64 TextBoxSize = Kilobytes(8);
-											char *Text = PushBytes(&State->FrameArena, TextBoxSize);
-											
-											platform_read_file_result ReadResult = Platform->DebugReadFileSize(TheFile, Text, TextBoxSize);
+											temp_string Text = TempString(&State->FrameArena, Kilobytes(8));
+											platform_read_file_result ReadResult = Platform->DebugReadFileSize(TheFile, Text.Buffer, Text.Capacity);
+											Text.Buffer[ReadResult.BytesRead] = '\0';
 											Assert(ReadResult.ReadSuccessfully);
 											
 											u64 TextBoxID = (u64)HashString(Listing->File.Path.Absolute);
 											
 											TextBox(State->VimguiContext, (vimgui_text_box_desc) {
 														.ID = TextBoxID,
-														.Text = Text,
+														.Text = Text.Buffer,
 														.Rect = {
 															.P = V2(2*PadX, FontHeight+4),
 															.Span = V2(W-4*PadX, H-FooterHeight-2*PadY),
