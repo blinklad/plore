@@ -234,7 +234,10 @@ GetKey(char C) {
 #endif
 
 #include "plore_memory.c"
-#include "plore_map.c"
+
+#define PLORE_MAP_IMPLEMENTATION
+#include "plore_map.h"
+
 #include "plore_table.c"
 #include "plore_vim.c"
 #include "plore_vimgui.c"
