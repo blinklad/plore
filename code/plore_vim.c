@@ -735,12 +735,12 @@ PLORE_VIM_COMMAND(ISearch)  {
 			
 			if (Tab->DirectoryState->Current.Count) {
 				for (u64 F = 0; F < Tab->DirectoryState->Current.Count; F++) {
-					plore_file_listing_info *CurrentCursor = GetInfo(FileContext, Tab->DirectoryState->Current.File.Path.Absolute);
+					plore_file_listing_info *CurrentCursor = MapGet(&FileContext->FileInfo, &Tab->DirectoryState->Current.File.Path).Value;
 					u64 Current = (CurrentCursor->Cursor + F) % Tab->DirectoryState->Current.Count;
 					plore_file *File = Tab->DirectoryState->Current.Entries + Current;
 					
 					if (SubstringNoCase(File->Path.FilePart, Tab->FilterState->ISearchFilter.Text).IsContained) {
-						plore_file_listing_info *CurrentCursor = GetInfo(FileContext, Tab->DirectoryState->Current.File.Path.Absolute);
+						plore_file_listing_info *CurrentCursor = MapGet(&FileContext->FileInfo, &Tab->DirectoryState->Current.File.Path.Absolute).Value;
 						CurrentCursor->Cursor = Current;
 						break;
 					}
@@ -810,9 +810,11 @@ PLORE_VIM_COMMAND(TabTextFilterShow) {
 
 
 PLORE_VIM_COMMAND(DirectoryTextFilterClear) {
-	for (u64 D = 0; D < ArrayCount(FileContext->InfoSlots); D++) {
-		plore_file_listing_info_slot *Slot = FileContext->InfoSlots[D];
-		if (Slot->Allocated) Slot->Info.Filter = ClearStruct(text_filter);
+	for (plore_map_iterator It = MapIter(&FileContext->FileInfo); 
+		 !It.Finished;
+		 It = MapIterNext(&FileContext->FileInfo, It)) {
+		plore_file_listing_info *Info = It.Value;
+		Info->Filter = ClearStruct(text_filter);
 	}
 	// TODO(Evan): Walk the directory listing table!
 }
@@ -1135,7 +1137,7 @@ PLORE_VIM_COMMAND(HorizontalSplit) {
 		State->SplitTabs[State->SplitTabCount++] = NewTab;
 		
 		plore_tab *TabToInit = State->Tabs + NewTab;
-		InitTab(State, TabToInit);
+		TabInit(State, TabToInit);
 		SynchronizeCurrentDirectory(&State->FrameArena, TabToInit);
 		SynchronizeCurrentDirectory(&State->FrameArena, Tab);
 	}

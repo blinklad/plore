@@ -154,7 +154,7 @@ SetCurrentTab(plore_state *State, u64 NewTab);
 
 // NOTE(Evan): Called by SetCurrentTab internally.
 internal void
-InitTab(plore_state *State, plore_tab *Tab);
+TabInit(plore_state *State, plore_tab *Tab);
 
 internal plore_tab *
 GetCurrentTab(plore_state *State);
@@ -234,8 +234,8 @@ GetKey(char C) {
 #endif
 
 #include "plore_memory.c"
-#include "plore_table.c"
 #include "plore_map.c"
+#include "plore_table.c"
 #include "plore_vim.c"
 #include "plore_vimgui.c"
 #include "plore_time.c"
@@ -264,7 +264,8 @@ GetImpliedSelection(plore_state *State) {
 	} else if (!FileContext->Selected.Count) {
 		plore_file_listing *Cursor = &Tab->DirectoryState->Cursor;
 		if (Cursor->Valid) {
-			Result = &GetOrCreateFileInfo(FileContext, &Cursor->File.Path).Info->Path;
+			GetOrCreateFileInfo(FileContext, &Cursor->File.Path);
+			Result = &Cursor->File.Path;
 		}
 	}
 	
@@ -336,7 +337,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			Tab->Arena = SubArena(&State->Arena, Megabytes(2), 16);
 		}
 		
-		InitTab(State, &State->Tabs[0]);
+		TabInit(State, &State->Tabs[0]);
 		State->SplitTabs[State->SplitTabCount++] = 0;
 		
 		State->Font = FontInit(&State->Arena, "data/fonts/Inconsolata-Light.ttf");
@@ -956,7 +957,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 					plore_viewable_directory *Directory = ViewDirectories + Col;
 					plore_file_listing *Listing = Directory->File;
 					if (!Listing) continue; /* Parent can be null, if we are currently looking at a top-level directory. */
-					plore_file_listing_info *RowCursor = GetInfo(Tab->FileContext, Listing->File.Path.Absolute);
+					plore_file_listing_info *RowCursor = MapGet(&Tab->FileContext->FileInfo, &Listing->File.Path).Value;
 					char *Title = Listing->File.Path.FilePart;
 					
 					widget_colour_flags WindowColourFlags = WidgetColourFlags_Default;

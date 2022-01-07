@@ -196,7 +196,6 @@ typedef struct plore_file_listing {
 } plore_file_listing;
 
 typedef struct plore_file_listing_info {
-	plore_path Path;
 	text_filter Filter;
 	u64 Cursor;
 } plore_file_listing_info;
@@ -209,10 +208,9 @@ typedef struct plore_file_listing_info_slot {
 typedef struct plore_file_context {
 	plore_map Selected;
 	plore_map Yanked;
+	plore_map FileInfo;
 	
-	plore_file_listing_info_slot *InfoSlots[512];
 	u64 FileCount;
-	
 	b64 InTopLevelDirectory;
 } plore_file_context;
 

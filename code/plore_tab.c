@@ -8,7 +8,7 @@ GetCurrentTab(plore_state *State) {
 
 
 internal void
-InitTab(plore_state *State, plore_tab *Tab) {
+TabInit(plore_state *State, plore_tab *Tab) {
 	Assert(!Tab->Active);
 	Assert(!Tab->Arena.BytesUsed);
 	
@@ -22,10 +22,7 @@ InitTab(plore_state *State, plore_tab *Tab) {
 	Tab->FilterState->HideMask.HiddenFiles = true; 
 	
 	Tab->DirectoryState = PushStruct(&Tab->Arena, plore_current_directory_state);
-	for (u64 Dir = 0; Dir < ArrayCount(Tab->FileContext->InfoSlots); Dir++) {
-		Tab->FileContext->InfoSlots[Dir] = PushStruct(&Tab->Arena, plore_file_listing_info);
-	}
-	
+	Tab->FileContext->FileInfo = MapInit(&Tab->Arena, plore_path, plore_file_listing_info, 512);
 	Tab->FileContext->Selected = MapInit(&Tab->Arena, plore_path, void, 256);
 	Tab->FileContext->Yanked = MapInit(&Tab->Arena, plore_path, void, 256);
 }
@@ -52,7 +49,7 @@ SetCurrentTab(plore_state *State, u64 NewTab) {
 	plore_tab *Tab = State->Tabs + NewTab;
 	plore_tab *Previous = State->Tabs + State->TabCurrent;
 	if (Previous != Tab) {
-		if (!Tab->Active) InitTab(State, Tab);
+		if (!Tab->Active) TabInit(State, Tab);
 		
 		Result = true;
 		
