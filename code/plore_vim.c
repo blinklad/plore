@@ -739,8 +739,9 @@ PLORE_VIM_COMMAND(ISearch)  {
 					u64 Current = (CurrentCursor->Cursor + F) % Tab->DirectoryState->Current.Count;
 					plore_file *File = Tab->DirectoryState->Current.Entries + Current;
 					
+					MapInsert(&FileContext->FileInfo, "Some rvalue", "Some rvalue");
 					if (SubstringNoCase(File->Path.FilePart, Tab->FilterState->ISearchFilter.Text).IsContained) {
-						plore_file_listing_info *CurrentCursor = MapGet(&FileContext->FileInfo, &Tab->DirectoryState->Current.File.Path.Absolute).Value;
+						plore_file_listing_info *CurrentCursor = MapGet(&FileContext->FileInfo, &Tab->DirectoryState->Current.File.Path).Value;
 						CurrentCursor->Cursor = Current;
 						break;
 					}
