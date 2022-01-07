@@ -45,7 +45,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 - Multiple tabs, each with their own state (selection, filter, etc)
 - Searching, sorting, filtering
 - Basic global font scaling.
-- Split tabs.
+- Proof-of-concept horizontal/vertical split tabs.
 
 ### TODOS
 * Linux porting.
@@ -60,7 +60,6 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
    - ~~Interactive change directory~~
    - ~~Interactive delete with confirmation~~
    - ~~User-defined trash location~~
-   - ~~Interactive rename~~
    - ~~Interactive rename~~
    - ~~Select file/s~~, ~~Select entire directory~~, Scalar select, Clear selection
    - ~~Yank~~, ~~Yank entire directory~~, ~~Yank selection~~, ~~Clear Yank~~, ~~Scalar yank~~
