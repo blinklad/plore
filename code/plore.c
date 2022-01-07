@@ -961,6 +961,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 						}
 					}
 					if (Window(State->VimguiContext, (vimgui_window_desc) {
+								   .ID = (u64)Title+(u64)Tab,
 								   .Title                 = Title,
 								   .Rect                  = {P, Span}, 
 								   .BackgroundColour      = WidgetColour_Window,
