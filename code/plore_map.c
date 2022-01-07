@@ -18,12 +18,12 @@ _MapInit(memory_arena *Arena, u64 KeySize, u64 ValueSize, u64 Capacity) {
 	Assert(Capacity);
 	
 	plore_map Result = {
-		.KeySize = KeySize,
+		.KeySize   = KeySize,
 		.ValueSize = ValueSize,
-		.Lookup = PushArray(Arena, plore_map_key_lookup, Capacity),
-		.Keys = PushBytes(Arena, Capacity*KeySize),
-		.Values = PushBytes(Arena, Capacity*ValueSize),
-		.Capacity = Capacity,
+		.Lookup    = PushArray(Arena, plore_map_key_lookup, Capacity),
+		.Keys      = PushBytes(Arena, Capacity*KeySize),
+		.Values    = PushBytes(Arena, Capacity*ValueSize),
+		.Capacity  = Capacity,
 	};
 	
 	Assert(KeySize);
@@ -31,15 +31,14 @@ _MapInit(memory_arena *Arena, u64 KeySize, u64 ValueSize, u64 Capacity) {
 	Assert(Result.Keys);
 	
 	// NOTE(Evan): 0-sized values are legal for using maps as a set.
-	if (ValueSize) {
-		Assert(Result.Values);
-	}
+	if (ValueSize) Assert(Result.Values);
 	
 	return(Result);
 }
 
-internal void 
+internal plore_map_insert_result 
 _MapInsert(plore_map *Map, void *Key, void *Value, u64 DEBUGKeySize, u64 DEBUGValueSize) {
+	plore_map_insert_result Result = {0};
 	Assert(Map);
 	Assert(Map->Keys && Map->Lookup);
 	Assert(Map->Count < Map->Capacity);
@@ -52,7 +51,6 @@ _MapInsert(plore_map *Map, void *Key, void *Value, u64 DEBUGKeySize, u64 DEBUGVa
 	(void)DEBUGValueSize;
 #endif
 	
-	b64 DidAlreadyExist = false;
 	u64 Index = HashBytes(Key, Map->KeySize) % Map->Capacity;
 	plore_map_key_lookup *Lookup = Map->Lookup+Index;
 	
@@ -65,25 +63,25 @@ _MapInsert(plore_map *Map, void *Key, void *Value, u64 DEBUGKeySize, u64 DEBUGVa
 				Lookup->Allocated = true;
 				break;
 			} else if (BytesMatch(Key, _GetKey(Map, Index), Map->KeySize)) {
-				DidAlreadyExist = true;
+				Result.DidAlreadyExist = true;
 				break;
 			}
 		}
 	}
 	
-	if (!DidAlreadyExist) {
+	if (!Result.DidAlreadyExist) {
 		Lookup->Allocated = true;
 		Map->Count++;
 		
 		MemoryCopy(Key, _GetKey(Map, Index), Map->KeySize);
 		if (Map->ValueSize) MemoryCopy(Value, _GetValue(Map, Index), Map->ValueSize);
-	}
+	} 
 	
+	Result.Key = _GetKey(Map, Index);
+	if (Map->ValueSize) Result.Value = _GetValue(Map, Index);
+	
+	return(Result);
 }
-
-typedef struct plore_map_remove_result {
-	b64 KeyDidNotExist;
-} plore_map_remove_result;
 
 internal plore_map_remove_result
 _MapRemove(plore_map *Map, void *Key, u64 DEBUGKeySize) {
