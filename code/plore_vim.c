@@ -854,6 +854,7 @@ PLORE_VIM_COMMAND(RenameFile) {
 			InsertBegin(VimContext, Command);
 		} break;
 		
+		case VimCommandState_Cancel:
 		case VimCommandState_Incomplete: {
 		} break;
 		
@@ -865,10 +866,6 @@ PLORE_VIM_COMMAND(RenameFile) {
 				char *NewAbsolute = StringConcatenate(Buffer, ArrayCount(Buffer), Command.Shell);
 				if (Platform->RenameFile(Selected->Absolute, NewAbsolute)) MapReset(&FileContext->Selected);
 			}
-		} break;
-		
-		case VimCommandState_Cancel: {
-			DrawText("FIXME!");
 		} break;
 		
 		InvalidDefaultCase;
