@@ -26,6 +26,81 @@
 #ifndef PLORE_MAP_H
 #define PLORE_MAP_H
 
+typedef struct plore_map plore_map;
+
+
+//
+// NOTE(Evan): Allow sizeof(void), which is obviously 0.
+// Use case: MapInit(&SomeArena, key_type, void, Count), using the map as a set of key_type's.
+//
+// CLEANUP(Evan): Disabling errors like this is a bit rude.
+//
+#pragma warning(disable: 4034)
+
+
+//
+// Interface
+//
+
+
+//
+// NOTE(Evan): 
+// These macros are used for rudimentary *runtime* checking that pointer arguments can be of the same type, as using void * removes
+// all type information.
+// Obviously, checking pointer sizes does not work for different types of the same size, nor does it work at all in release builds.
+// However, these macros are entirely transparent for the caller, except for when they want to insert non-lvalues,
+// such as for using a map to test set membership.
+//
+// Every alternative to this has different tradeoffs in complexity, usability and performance, so let's just see how this goes.
+//
+#define MapInit(Arena, key_type, value_type, Count) _MapInit(Arena, sizeof(key_type), sizeof(value_type), Count)
+#define MapInsert(Map, K, V)                        _MapInsert(Map, K, V, sizeof(*K), sizeof(*V))
+#define SetInsert(Map, K, V)                        _MapInsert(Map, K, V, sizeof(*K), 0)
+#define MapRemove(Map, K)                           _MapRemove(Map, K, sizeof(*K))
+#define MapGet(Map, K)                              _MapGet(Map,    K, sizeof(*K))
+
+typedef struct plore_map_get_result {
+	void *Value;
+	u64 Index;
+	b64 Exists; // NOTE(Evan): Required for 0-sized values, i.e., testing set membership.
+} plore_map_get_result;
+
+typedef struct plore_map_remove_result {
+	b64 KeyDidNotExist;
+} plore_map_remove_result;
+
+typedef struct plore_map_insert_result {
+	b64 DidAlreadyExist;
+	void *Key;
+	void *Value;
+} plore_map_insert_result;
+
+typedef struct plore_map_iterator {
+	b64 Finished;
+	u64 _Index;
+	void *Key;
+	void *Value;
+} plore_map_iterator;
+
+internal plore_map_iterator
+MapIter(plore_map *Map);
+
+internal plore_map_iterator
+MapIterNext(plore_map *Map, plore_map_iterator It);
+
+// NOTE(Evan): Marks every key+value slot as unallocated without clearing.
+internal void
+MapReset(plore_map *Map);
+
+// NOTE(Evan): Zeroes key+value memory.
+internal void
+MapClearMemory(plore_map *Map);
+
+// NOTE(Evan): Returns destination.
+internal plore_map *
+MapCopy(plore_map *Source, plore_map *Destination);
+	
+
 // NOTE(Evan): If Lookup[Index].Allocated, then the contiguous arrays Keys[Index]/Values[Index] are valid.
 typedef struct plore_map_key_lookup {
 	b8 Allocated;
@@ -43,69 +118,33 @@ typedef struct plore_map {
 	void *Values;
 } plore_map;
 
+//
+// Internal functions
+//
+
+
+internal plore_map_get_result
+_MapGet(plore_map *Map, void *Key, u64 DEBUGKeySize);
+
+internal plore_map_remove_result
+_MapRemove(plore_map *Map, void *Key, u64 DEBUGKeySize);
+
+internal plore_map_insert_result 
+_MapInsert(plore_map *Map, void *Key, void *Value, u64 DEBUGKeySize, u64 DEBUGValueSize);
+
 internal plore_map
 _MapInit(memory_arena *Arena, u64 KeySize, u64 DataSize, u64 Count);
 
-internal void
-MapClearMemory(plore_map *Map);
-
-internal plore_map *
-MapCopy(plore_map *Source, plore_map *Destination);
-	
-internal void
-MapReset(plore_map *Map);
-
-//
-// NOTE(Evan): 
-// These macros are used for rudimentary *runtime* checking that pointer arguments can be of the same type, as using void * removes
-// all type information.
-// Obviously, checking pointer sizes does not work for different types of the same size, nor does it work at all in release builds.
-// However, these macros are entirely transparent for the caller, except for when they want to insert non-lvalues,
-// such as for using a map to test set membership.
-//
-// Every alternative to this has different tradeoffs in complexity, usability and performance, so let's just see how this goes.
-//
-
-//
-// NOTE(Evan): Allow sizeof(void), which is obviously 0.
-// Use case: MapInit(&SomeArena, key_type, void, Count), using the map as a set of key_type's.
-//
-// CLEANUP(Evan): Disabling errors like this is a bit rude.
-//
-#pragma warning(disable: 4034)
-
-typedef struct plore_map_remove_result {
-	b64 KeyDidNotExist;
-} plore_map_remove_result;
-
-typedef struct plore_map_insert_result {
-	b64 DidAlreadyExist;
-	void *Key;
-	void *Value;
-} plore_map_insert_result;
-
-#define MapInit(Arena, key_type, value_type, Count) _MapInit(Arena, sizeof(key_type), sizeof(value_type), Count)
-#define MapInsert(Map, K, V)                        _MapInsert(Map, K, V, sizeof(*K), sizeof(*V))
-#define SetInsert(Map, K, V)                        _MapInsert(Map, K, V, sizeof(*K), 0)
-#define MapRemove(Map, K)                           _MapRemove(Map, K, sizeof(*K))
-#define MapGet(Map, K)                              _MapGet(Map,    K, sizeof(*K))
-
-typedef struct plore_map_iterator {
-	b64 Finished;
-	u64 _Index;
-	void *Key;
-	void *Value;
-} plore_map_iterator;
-
-internal plore_map_iterator
-MapIter(plore_map *Map);
-
-internal plore_map_iterator
-MapIterNext(plore_map *Map, plore_map_iterator It);
-
 #endif // PLORE_MAP_H
 
+//
+// Implementation
+//
+
 #ifdef PLORE_MAP_IMPLEMENTATION
+
+
+
 plore_inline void *
 _GetKey(plore_map *Map, u64 Index) {
 	void *Result = (void *)((u8 *)Map->Keys + Index*Map->KeySize);
@@ -231,12 +270,6 @@ _MapRemove(plore_map *Map, void *Key, u64 DEBUGKeySize) {
 	
 	return(Result);
 }
-
-typedef struct plore_map_get_result {
-	void *Value;
-	u64 Index;
-	b64 Exists; // NOTE(Evan): Seems redundant, but required for 0-sized values, i.e., testing set membership.
-} plore_map_get_result;
 
 internal plore_map_get_result
 _MapGet(plore_map *Map, void *Key, u64 DEBUGKeySize) {
