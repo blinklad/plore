@@ -269,7 +269,7 @@ HashString(char *String) {
 	Hash ^= Hash ^ ROTATE_RIGHT(Hash, 11);
 	Hash += (Hash << 6);
 	Hash ^= ROTATE_RIGHT(Hash, 22);
-	return Hash+Seed;
+	return(Hash+Seed);
 }
 
 plore_inline u64 
@@ -301,7 +301,6 @@ typedef struct temp_string {
 plore_inline temp_string
 TempString(memory_arena *Arena, u64 Capacity) {
 	temp_string Result = {
-		.Arena = Arena,
 		.Buffer = PushBytes(Arena, Capacity),
 		.Capacity = Capacity,
 	};

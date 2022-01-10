@@ -98,13 +98,15 @@ MemoryClear(void *Memory, u64 ByteCount) {
 	return(Memory);
 }
 
-plore_inline void
+plore_inline void *
 MemoryCopy(void *Source, void *Destination, u64 ByteCount) {
 	u8 *S = (u8 *)Source;
 	u8 *D = (u8 *)Destination;
 	
 	u64 CopiedCount = 0;
 	while(CopiedCount++ < ByteCount) *D++ = *S++;
+	
+	return(Destination);
 }
 
 plore_inline i64
