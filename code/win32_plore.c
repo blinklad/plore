@@ -329,6 +329,31 @@ PLATFORM_IS_PATH_TOP_LEVEL(WindowsIsPathTopLevel) {
 	return(Result);
 	
 }
+
+internal u64
+WindowsGetDirectorySize(plore_file *Directory) {
+	u64 Result = 0;
+	
+}
+
+// NOTE(Evan): Returns whether the path 
+internal b64
+WindowsMakePathSearchable(char *Directory, char *Buffer, u64 Size) {
+	u64 BytesWritten = StringCopy(Directory, Buffer, Size);
+	u64 SearchBytesWritten = 0;
+	char SearchChars[] = {'\\', '*'};
+	b64 SearchCanFit = BytesWritten < (Size + sizeof(SearchChars));
+	if (!SearchCanFit) return(false);
+	
+	b64 IsDirectoryRoot = PathIsRoot(Buffer);
+	if (!IsDirectoryRoot) Buffer[BytesWritten + SearchBytesWritten++] = '\\';
+	
+	Buffer[BytesWritten + SearchBytesWritten++] = '*';
+	Buffer[BytesWritten + SearchBytesWritten++] = '\0';
+	
+	return(true);
+}
+
 // NOTE(Evan): Directory name should not include trailing '\' nor any '*' or '?' wildcards.
 PLATFORM_GET_DIRECTORY_ENTRIES(WindowsGetDirectoryEntries) {
 	directory_entry_result Result = {
@@ -338,23 +363,11 @@ PLATFORM_GET_DIRECTORY_ENTRIES(WindowsGetDirectoryEntries) {
 	};
 	
 	char SearchableDirectoryName[PLORE_MAX_PATH] = {0};
-	u64 BytesWritten = StringCopy(DirectoryName, SearchableDirectoryName, ArrayCount(SearchableDirectoryName));
-	u64 SearchBytesWritten = 0;
-	char SearchChars[] = {'\\', '*'};
-	b64 SearchCanFit = BytesWritten < PLORE_MAX_PATH + sizeof(SearchChars);
-	if (!SearchCanFit) {
+	if (!WindowsMakePathSearchable(DirectoryName, SearchableDirectoryName, ArrayCount(SearchableDirectoryName))) {
 		return(Result);
 	}
 	
 	b64 IsDirectoryRoot = PathIsRoot(DirectoryName);
-	if (!IsDirectoryRoot) {
-		SearchableDirectoryName[BytesWritten + SearchBytesWritten++] = '\\';
-	} else {
-		int BreakHere = 5;
-	}
-	
-	SearchableDirectoryName[BytesWritten + SearchBytesWritten++] = '*';
-	SearchableDirectoryName[BytesWritten + SearchBytesWritten++] = '\0';
 	
 	WIN32_FIND_DATA FindData = {0};
 	HANDLE FindHandle = FindFirstFile(SearchableDirectoryName, &FindData);
