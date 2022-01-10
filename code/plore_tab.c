@@ -24,7 +24,6 @@ TabInit(plore_state *State, plore_tab *Tab) {
 	Tab->DirectoryState = PushStruct(&Tab->Arena, plore_current_directory_state);
 	Tab->FileContext->FileInfo = MapInit(&Tab->Arena, plore_path, plore_file_listing_info, 512);
 	Tab->FileContext->Selected = MapInit(&Tab->Arena, plore_path, void, 256);
-	Tab->FileContext->Yanked = MapInit(&Tab->Arena, plore_path, void, 256);
 }
 
 internal void

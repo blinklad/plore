@@ -198,14 +198,8 @@ typedef struct plore_file_listing_info {
 	u64 Cursor;
 } plore_file_listing_info;
 
-typedef struct plore_file_listing_info_slot {
-	b64 Allocated;
-	plore_file_listing_info Info;
-} plore_file_listing_info_slot;
-
 typedef struct plore_file_context {
 	plore_map Selected;
-	plore_map Yanked;
 	plore_map FileInfo;
 	
 	u64 FileCount;

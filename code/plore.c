@@ -131,13 +131,18 @@ typedef struct plore_state {
 	b64 ShouldQuit;
 	f64 DT;
 	
+	// NOTE(Evan): Each tab has their own file context (selection, cursor state), but can change the global yank state.
 	plore_tab Tabs[PloreTab_Count];
 	u64 TabCount;
 	u64 TabCurrent;
+	
+	// NOTE(Evan): Globally yanked files, so files can be pasted/moved between tabs.
+	plore_map Yanked;
+	
+	// NOTE(Evan): Essentially unused except for proof-of-concept splits.
 	u64 SplitTabs[PloreTab_Count];
 	u64 SplitTabCount;
 	
-	plore_memory *Memory;
 	plore_vim_context *VimContext;
 	plore_vimgui_context *VimguiContext; // TODO(Evan): Move this so it's a per-tab thing.
 	plore_render_list *RenderList;
@@ -175,18 +180,6 @@ LoadImage(memory_arena *Arena, char *AbsolutePath, u64 MaxX, u64 MaxY);
 internal void
 PrintDirectory(plore_file_listing_info *Directory);
 
-plore_inline b64
-IsYanked(plore_file_context *Context, plore_path *Yankee);
-
-plore_inline b64
-IsSelected(plore_file_context *Context, plore_path *Selectee);
-
-internal void
-ToggleSelected(plore_file_context *Context, plore_path *Selectee);
-
-internal void
-ToggleYanked(plore_file_context *Context, plore_path *Yankee);
-
 internal char *
 PloreKeysToString(memory_arena *Arena, vim_key *Keys, u64 KeyCount);
 
@@ -214,6 +207,12 @@ GetCurrentFontHeight(plore_font *Font);
 
 internal f32
 GetCurrentFontWidth(plore_font *Font);
+
+internal void
+ToggleSelected(plore_map *Map, plore_path *File);
+
+internal void
+ToggleYanked(plore_map *Map, plore_path *File);
 
 internal plore_key
 GetKey(char C) {
@@ -993,9 +992,9 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 									b64 CursorHover = RowCursor && RowCursor->Cursor == Row;
 									if (CursorHover) WidgetColourFlags = WidgetColourFlags_Focus;
 									
-									if (IsYanked(Tab->FileContext, &RowEntry->Path)) {
+									if (MapGet(&State->Yanked, &RowEntry->Path).Exists) {
 										BackgroundColour = WidgetColour_RowSecondary;
-									} else if (IsSelected(Tab->FileContext, &RowEntry->Path)) {
+									} else if (MapGet(&Tab->FileContext->Selected, &RowEntry->Path).Exists) {
 										BackgroundColour = WidgetColour_RowTertiary;
 									} 
 									
@@ -1193,34 +1192,22 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		   });
 }
 
-plore_inline b64
-IsYanked(plore_file_context *Context, plore_path *Yankee) {
-	b64 Result = MapGet(&Context->Yanked, Yankee).Exists;
-	return(Result);
-}
-
-plore_inline b64
-IsSelected(plore_file_context *Context, plore_path *Selectee) {
-	b64 Result = MapGet(&Context->Selected, Selectee).Exists;
-	return(Result);
+internal void
+ToggleFileStatus(plore_map *Map, plore_path *File) {
+	plore_map_get_result Result = MapGet(Map, File);
+	if (Result.Exists) MapRemove(Map, File);
+	else               SetInsert(Map, File, 0);
 }
 
 internal void
-ToggleSelected(plore_file_context *Context, plore_path *Selectee) {
-	Assert(Selectee);
-	plore_map_get_result Result = MapGet(&Context->Selected, Selectee);
-	if (Result.Exists) MapRemove(&Context->Selected, Selectee);
-	else               SetInsert(&Context->Selected, Selectee, 0);
+ToggleSelected(plore_map *Map, plore_path *File) {
+	ToggleFileStatus(Map, File);
 }
 
 internal void
-ToggleYanked(plore_file_context *Context, plore_path *Yankee) {
-	Assert(Yankee);
-	plore_map_get_result Result = MapGet(&Context->Yanked, Yankee);
-	if (Result.Exists) MapRemove(&Context->Yanked, Yankee);
-	else               SetInsert(&Context->Yanked, Yankee, 0);
+ToggleYanked(plore_map *Map, plore_path *File) {
+	ToggleFileStatus(Map, File);
 }
-
 
 // @Cleanup
 internal void
@@ -1405,7 +1392,7 @@ SynchronizeCurrentDirectory(memory_arena *FrameArena, plore_tab *Tab) {
 	
 	if (CurrentState->Current.Count) PloreSort(CurrentState->Current.Entries, CurrentState->Current.Count, plore_file)
 		
-		if (CurrentState->Current.Valid && CurrentState->Current.Count) {
+	if (CurrentState->Current.Valid && CurrentState->Current.Count) {
 		plore_file_listing_info_get_or_create_result CursorResult = GetOrCreateFileInfo(FileContext, &CurrentState->Current.File.Path);
 		
 		
@@ -1414,7 +1401,7 @@ SynchronizeCurrentDirectory(memory_arena *FrameArena, plore_tab *Tab) {
 		
 		CreateFileListing(&CurrentState->Cursor, ListingFromFile(CursorEntry));
 		FilterFileListing(FrameArena, Tab, &CurrentState->Cursor);
-		if (CurrentState->Cursor.Count) PloreSort(CurrentState->Cursor.Entries, CurrentState->Cursor.Count, plore_file)
+		if (CurrentState->Cursor.Count) PloreSort(CurrentState->Cursor.Entries, CurrentState->Cursor.Count, plore_file);
 	}
 	
 	if (!FileContext->InTopLevelDirectory) {
