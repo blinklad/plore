@@ -18,10 +18,7 @@
 #define PLORE_EXPORT 
 #endif
 
-struct plore_state;
 typedef struct plore_state plore_state;
-
-// HACK(Evan): Currently, we bake a "display" and "debug" font!
 typedef struct plore_font plore_font;
 
 typedef enum interact_state {
