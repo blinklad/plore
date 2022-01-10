@@ -286,13 +286,12 @@ HashBytes(u8 *Bytes, u64 Count) {
 	Hash ^= Hash ^ ROTATE_RIGHT(Hash, 11);
 	Hash += (Hash << 6);
 	Hash ^= ROTATE_RIGHT(Hash, 22);
-	return Hash+Seed;
+	return(Hash+Seed);
 }
 
 #include "plore_memory.h"
 
 typedef struct temp_string {
-	memory_arena *Arena; // NOTE(Evan): Owning arena.
 	char *Buffer;
 	u64 Count;
 	u64 Capacity;

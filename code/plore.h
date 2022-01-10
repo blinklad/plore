@@ -11,6 +11,7 @@
 
 #if defined(PLORE_WINDOWS)
 #define PLORE_EXPORT __declspec(dllexport)
+
 #elif defined(PLORE_LINUX)
 #define PLORE_EXPORT __attribute__ ((dllexport))
 #else 
