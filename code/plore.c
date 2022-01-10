@@ -319,44 +319,50 @@ FontInit(memory_arena *Arena, char *Path) {
 	return(Result);
 }
 
+internal plore_state *
+PloreInit(memory_arena *Arena) {
+	plore_state *State = PushStruct(Arena, plore_state);
+	
+	State->Initialized = true;
+	State->FrameArena = SubArena(Arena, Megabytes(128), 16);
+	STBIFrameArena = &State->FrameArena;
+	
+	// MAINTENANCE(Evan): Don't copy the main arena by value until we've allocated the frame arena.
+	State->Arena = *Arena;
+	
+	State->Yanked = MapInit(&State->Arena, plore_path, void, 256);
+	for (u64 T = 0; T < ArrayCount(State->Tabs); T++) {
+		plore_tab *Tab = State->Tabs + T;
+		Tab->Arena = SubArena(&State->Arena, Megabytes(2), 16);
+	}
+	
+	TabInit(State, &State->Tabs[0]);
+	State->SplitTabs[State->SplitTabCount++] = 0;
+	
+	State->Font = FontInit(&State->Arena, "data/fonts/Inconsolata-Light.ttf");
+	
+#if defined(PLORE_INTERNAL)
+	DebugInit(State);
+#endif
+	
+	State->VimContext = PushStruct(&State->Arena, plore_vim_context);
+	State->VimContext->Mode = VimMode_Normal;
+	
+	State->RenderList = PushStruct(&State->Arena, plore_render_list);
+	State->RenderList->Font = State->Font;
+	
+	State->VimguiContext = PushStruct(&State->Arena, plore_vimgui_context);
+	VimguiInit(&State->Arena, State->VimguiContext, State->RenderList);
+	
+	return(State);
+}
+
 PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	plore_state *State = (plore_state *)PloreMemory->PermanentStorage.Memory;
 	
 	if (!State->Initialized) {
 		PlatformInit(PlatformAPI);
-		State = PushStruct(&PloreMemory->PermanentStorage, plore_state);
-		
-		State->Initialized = true;
-		State->Memory = PloreMemory;
-		State->FrameArena = SubArena(&State->Memory->PermanentStorage, Megabytes(128), 16);
-		STBIFrameArena = &State->FrameArena;
-		
-		// MAINTENANCE(Evan): Don't copy the main arena by value until we've allocated the frame arena.
-		State->Arena = PloreMemory->PermanentStorage;
-		
-		for (u64 T = 0; T < ArrayCount(State->Tabs); T++) {
-			plore_tab *Tab = State->Tabs + T;
-			Tab->Arena = SubArena(&State->Arena, Megabytes(2), 16);
-		}
-		
-		TabInit(State, &State->Tabs[0]);
-		State->SplitTabs[State->SplitTabCount++] = 0;
-		
-		State->Font = FontInit(&State->Arena, "data/fonts/Inconsolata-Light.ttf");
-		
-#if defined(PLORE_INTERNAL)
-		DebugInit(State);
-#endif
-		
-		State->VimContext = PushStruct(&State->Arena, plore_vim_context);
-		State->VimContext->Mode = VimMode_Normal;
-		
-		State->RenderList = PushStruct(&State->Arena, plore_render_list);
-		State->RenderList->Font = State->Font;
-		
-		State->VimguiContext = PushStruct(&State->Arena, plore_vimgui_context);
-		VimguiInit(&State->Arena, State->VimguiContext, State->RenderList);
-		
+		State = PloreInit(&PloreMemory->PermanentStorage);
 		
 		SynchronizeCurrentDirectory(&State->FrameArena, GetCurrentTab(State));
 		
@@ -1383,6 +1389,7 @@ SynchronizeCurrentDirectory(memory_arena *FrameArena, plore_tab *Tab) {
 	
 	CurrentState->Cursor = ClearStruct(plore_file_listing);
 	CurrentState->Current = ClearStruct(plore_file_listing);
+	CurrentState->Parent = ClearStruct(plore_file_listing);
 	
 #define PloreSortPredicate(A, B) PloreFileSortHelper(&A, &B, Tab->FilterState->SortMask, Tab->FilterState->SortAscending)
 	
