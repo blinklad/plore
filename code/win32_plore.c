@@ -469,15 +469,32 @@ PLATFORM_DELETE_FILE(WindowsDeleteFile) {
 }
 
 PLATFORM_MOVE_FILE(WindowsMoveFile) {
-	// NOTE(Evan): MoveFile will delete the source file if this is set;
-	Assert(dAbsolutePath);
 	b64 Result = false;
-	DWORD LastError = 0;
-	if (dAbsolutePath) {
-		Result = MoveFileEx(sAbsolutePath, dAbsolutePath, 0);
-		LastError = GetLastError();
+	Assert(dAbsolutePath);
+	
+	char sPathDoubleNulled[PLORE_MAX_PATH+1] = {0};
+	{
+		u64 BytesWritten = StringCopy(sAbsolutePath, sPathDoubleNulled, ArrayCount(sPathDoubleNulled));
+		Assert(BytesWritten <= PLORE_MAX_PATH);
+		sPathDoubleNulled[BytesWritten+1] = '\0';
+	}
+	char dPathDoubleNulled[PLORE_MAX_PATH+1] = {0};
+	{
+		u64 BytesWritten = StringCopy(dAbsolutePath, dPathDoubleNulled, ArrayCount(dPathDoubleNulled));
+		Assert(BytesWritten <= PLORE_MAX_PATH);
+		dPathDoubleNulled[BytesWritten+1] = '\0';
 	}
 	
+	FILEOP_FLAGS Flags = FOF_SIMPLEPROGRESS;//FOF_SILENT;
+	SHFILEOPSTRUCT ShellOptions = {
+		.hwnd = GlobalWindowsContext->Window,
+		.wFunc = FO_MOVE,
+		.pFrom = sPathDoubleNulled,
+		.pTo = dPathDoubleNulled,
+		.fFlags = Flags,
+	};
+	
+	Result = SHFileOperation(&ShellOptions) == 0;
 	return(Result);
 }
 
