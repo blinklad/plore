@@ -705,7 +705,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 				
 				StoleFocus = true;
 				
-				if (Button(State->VimguiContext, (vimgui_button_desc) {
+				Button(State->VimguiContext, (vimgui_button_desc) {
 							   .ID = (u64) Insert.Buffer,
 							   .Title = {
 								   .Text = Insert.Buffer, 
@@ -725,8 +725,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								   .Span = V2(SplitDimensions.X-2*PadX, FooterHeight + PadY)
 							   },
 							   .BackgroundColourFlags = WidgetColourFlags_Focus,
-						   })) {
-				}
+			    });
 			}
 			
 			if (VimContext->Mode == VimMode_Lister) {
@@ -860,6 +859,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 									   .BackgroundColour =  WidgetColour_Primary,
 									   .BackgroundColourFlags = WidgetColourFlags_Focus,
 								   })) {
+							
 							ClearCommands(State->VimContext);
 							vim_command Command = {
 							    .Type = Candidate->Type,
@@ -1387,9 +1387,7 @@ SynchronizeCurrentDirectory(memory_arena *FrameArena, plore_tab *Tab) {
 	plore_file_filter_state *FilterState = Tab->FilterState; 
 	Tab->CurrentDirectory = Platform->GetCurrentDirectoryPath();
 	
-	CurrentState->Cursor = ClearStruct(plore_file_listing);
-	CurrentState->Current = ClearStruct(plore_file_listing);
-	CurrentState->Parent = ClearStruct(plore_file_listing);
+	*CurrentState = ClearStruct(plore_current_directory_state);
 	
 #define PloreSortPredicate(A, B) PloreFileSortHelper(&A, &B, Tab->FilterState->SortMask, Tab->FilterState->SortAscending)
 	
