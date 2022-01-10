@@ -330,11 +330,6 @@ PLATFORM_IS_PATH_TOP_LEVEL(WindowsIsPathTopLevel) {
 	
 }
 
-internal u64
-WindowsGetDirectorySize(plore_file *Directory) {
-	u64 Result = 0;
-	
-}
 
 // NOTE(Evan): Returns whether the path 
 internal b64
@@ -352,6 +347,25 @@ WindowsMakePathSearchable(char *Directory, char *Buffer, u64 Size) {
 	Buffer[BytesWritten + SearchBytesWritten++] = '\0';
 	
 	return(true);
+}
+
+internal u64
+WindowsGetDirectorySize(plore_file *Directory) {
+	u64 Result = 0;
+	char SearchableDirectoryName[PLORE_MAX_PATH] = {0};
+	if (!WindowsMakePathSearchable(Directory->Path.Absolute, SearchableDirectoryName, ArrayCount(SearchableDirectoryName))) {
+		return(Result);
+	}
+		 
+	WIN32_FIND_DATA FindData = {0};
+	HANDLE FindHandle = FindFirstFile(SearchableDirectoryName, &FindData);
+	u64 IgnoredCount = 0;
+	if (FindHandle != INVALID_HANDLE_VALUE) {
+		do {
+		} while (FindNextFile(FindHandle, &FindData));
+		
+		FindClose(FindHandle);
+	}
 }
 
 // NOTE(Evan): Directory name should not include trailing '\' nor any '*' or '?' wildcards.
