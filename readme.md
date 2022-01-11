@@ -63,7 +63,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
    - ~~Interactive rename~~
    - ~~Select file/s~~, ~~Select entire directory~~, Scalar select, Clear selection
    - ~~Yank~~, ~~Yank entire directory~~, ~~Yank selection~~, ~~Clear Yank~~, ~~Scalar yank~~
-   - ~~Paste~~, Pasting between tabs should be allowed somehow too
+   - ~~Paste~~, ~~Paste between tabs~~
    - ~~Interactive make directory~~
    - ~~Interactive make file~~
    - ISearch: ~~Jump to result on return~~, ~~navigate between results~~
@@ -98,8 +98,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 - Undo for: Rename, Paste, Delete (PLORE_TRASH/Recycle Bin only). 
 - Persistent: Undo, command history, marked files/directories, bookmarks. Requires plore.history.
 - Track: File ownership (not POSIX, but probably "owned by current user, system, or other")
-- Recursive ISearch.
-- Track/calculate: Directory cumulative size.
+- Recursive: ISearch, ~~Directory size~~ (displayed for cursor only), accurate & performant directory size.
 - CursorInfo: Display cumulative size and number of files
 - Windows file handler: We can read registry entries to find out what programs are used to open an extension. This allows previewing the paths in a lister. Or, we can use `ShellExecute` with the `open` 'verb', which would be harder to provide feedback with, but require less registry reading nonsense.
 
