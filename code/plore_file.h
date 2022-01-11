@@ -106,7 +106,7 @@ typedef struct plore_file {
 	plore_file_node Type;
 	plore_file_extension Extension;
 	plore_time LastModification;
-	u64 Bytes;
+	u64 Bytes; // NOTE(Evan): Always 0 for directories. A cache is used for expensive recursive directory size queries.
 	b64 Hidden;
 } plore_file;
 #endif //PLORE_FILE_H
