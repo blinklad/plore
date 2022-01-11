@@ -20,21 +20,21 @@ global platform_debug_print_line *PrintLine;
 global platform_debug_print *Print;
 
 #if defined(PLORE_INTERNAL)
-#if defined(PLORE_WINDOWS)
-#ifdef Assert
-#undef Assert
-#define Assert(X) if (!(X)) {                                                                                      \
-                      char __AssertBuffer[256];                                                                    \
-                      StringPrintSized(__AssertBuffer,                                                             \
-                      ArrayCount(__AssertBuffer),                                                                  \
-                        "Assert fired on line %d in file %s\n"                                                     \
-                        "Try again to attach debugger, abort to exit, continue to ignore.",                        \
-                      __LINE__,                                                                                    \
-                      __FILE__);                                                                                   \
-                      if (Platform->DebugAssertHandler(__AssertBuffer)) Debugger;                                  \
-}
-#endif
-#endif
+	#if defined(PLORE_WINDOWS)
+	#ifdef Assert
+		#undef Assert
+		#define Assert(X) if (!(X)) {                                                                                      \
+		                      char __AssertBuffer[256];                                                                    \
+		                      StringPrintSized(__AssertBuffer,                                                             \
+		                      ArrayCount(__AssertBuffer),                                                                  \
+		                        "Assert fired on line %d in file %s\n"                                                     \
+		                        "Try again to attach debugger, abort to exit, continue to ignore.",                        \
+		                      __LINE__,                                                                                    \
+		                      __FILE__);                                                                                   \
+		                      if (Platform->DebugAssertHandler(__AssertBuffer)) Debugger;                                  \
+		}
+		#endif
+	#endif
 #endif
 
 memory_arena *STBIFrameArena = 0;
@@ -139,6 +139,9 @@ typedef struct plore_state {
 	// NOTE(Evan): Globally yanked files, so files can be pasted/moved between tabs.
 	plore_map Yanked;
 	
+	// NOTE(Evan): Cache of recent recursive directory queries. Invalidated after 1 minute.
+	plore_map DirectorySizes;
+	
 	// NOTE(Evan): Essentially unused except for proof-of-concept splits.
 	u64 SplitTabs[PloreTab_Count];
 	u64 SplitTabCount;
@@ -228,6 +231,8 @@ GetKey(char C) {
 	return(Result);
 }
 
+
+
 #if defined(PLORE_INTERNAL)
 #include "plore_debug.c"
 #endif
@@ -237,12 +242,44 @@ GetKey(char C) {
 #define PLORE_MAP_IMPLEMENTATION
 #include "plore_map.h"
 
+
 #include "plore_table.c"
 #include "plore_vim.c"
 #include "plore_vimgui.c"
 #include "plore_time.c"
 #include "plore_tab.c"
 
+// NOTE(Evan): Caches recursive directory traversals, dirtying them after 1 minute.
+internal u64
+GetDirectorySize(plore_state *State, plore_path *Path) {
+	plore_map *Sizes = &State->DirectorySizes;
+	u64 Result = 0;
+	plore_directory_size_info *Info = MapGet(Sizes, Path).Value;
+	if (Info) Result = Info->Size;
+	
+	if (!Info || PloreTimeDifferenceInSeconds(Info->LastQueryTime, PloreTimeNow()) > 1.0) {
+		plore_directory_size_info NewInfo = {
+			.Size = Platform->GetDirectorySize(Path->Absolute),
+			.LastQueryTime = PloreTimeNow(),
+		};
+		
+		if (Info) {
+			*Info = NewInfo;
+		} else if (Sizes->Count < Sizes->Capacity) {
+			MapInsert(Sizes, Path, &NewInfo);
+		} else {
+			// TODO(Evan): Move from a hash table to a LRU cache, otherwise this will spike frametimes when thrashing.
+			PrintLine("Capacity reached! %d/%d", Sizes->Count, Sizes->Capacity);
+			u64 Random = PloreRandom() % Sizes->Capacity;
+			plore_path *Old = _GetKey(Sizes, Random);
+			MapRemove(Sizes, Old);
+			MapInsert(Sizes, Path, &NewInfo);
+		}
+		
+	}
+	
+	return(Result);
+}
 
 internal plore_file *
 GetCursorFile(plore_state *State) {
@@ -331,6 +368,7 @@ PloreInit(memory_arena *Arena) {
 	State->Arena = *Arena;
 	
 	State->Yanked = MapInit(&State->Arena, plore_path, void, 256);
+	State->DirectorySizes = MapInit(&State->Arena, plore_path, plore_directory_size_info, 256);
 	for (u64 T = 0; T < ArrayCount(State->Tabs); T++) {
 		plore_tab *Tab = State->Tabs + T;
 		Tab->Arena = SubArena(&State->Arena, Megabytes(2), 16);
@@ -1031,10 +1069,19 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 									
 									temp_string SecondaryText = TempString(&State->FrameArena, 256);
 									if (!Tab->FilterState->HideFileMetadata) {
-										if (RowEntry->Type == PloreFileNode_File) {
+										
+										u64 EntrySize = RowEntry->Bytes;
+										if (RowEntry->Type == PloreFileNode_File || CursorHover) {
 											char *EntrySizeLabel = " b";
-											u64 EntrySize = RowEntry->Bytes;
-											if (EntrySize > Megabytes(1)) {
+											
+											if (RowEntry->Type == PloreFileNode_Directory) {
+												EntrySize = GetDirectorySize(State, &RowEntry->Path);
+											}
+											
+											if (EntrySize > Gigabytes(1)) {
+												EntrySize /= Gigabytes(1);
+												EntrySizeLabel = "gB";
+											} else if (EntrySize > Megabytes(1)) {
 												EntrySize /= Megabytes(1); 
 												EntrySizeLabel = "mB";
 											} else if (EntrySize > Kilobytes(1)) {
