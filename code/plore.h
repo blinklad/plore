@@ -193,6 +193,13 @@ typedef struct plore_file_listing {
 	b64 Valid;
 } plore_file_listing;
 
+// NOTE(Evan): Used for caching recursive directory size queries.
+typedef struct plore_directory_size_info {
+	plore_time LastQueryTime;
+	u64 Size;
+} plore_directory_size_info;
+
+// NOTE(Evan): Used for per-tab file traversal state.
 typedef struct plore_file_listing_info {
 	text_filter Filter;
 	u64 Cursor;
