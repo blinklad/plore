@@ -349,23 +349,58 @@ WindowsMakePathSearchable(char *Directory, char *Buffer, u64 Size) {
 	return(true);
 }
 
-internal u64
-WindowsGetDirectorySize(plore_file *Directory) {
+// NOTE(Evan): A depth of 32 is not 100% accurate, but is a reasonable holdover until a better performing and more accurate solution
+// (parallel or otherwise) is implemented!
+#define MAX_SEARCH_DEPTH 32
+char ChildStack[MAX_SEARCH_DEPTH][PLORE_MAX_PATH];
+u64 ChildStackCount;
+
+PLATFORM_GET_DIRECTORY_SIZE(WindowsGetDirectorySize) {
 	u64 Result = 0;
-	char SearchableDirectoryName[PLORE_MAX_PATH] = {0};
-	if (!WindowsMakePathSearchable(Directory->Path.Absolute, SearchableDirectoryName, ArrayCount(SearchableDirectoryName))) {
-		return(Result);
-	}
-		 
-	WIN32_FIND_DATA FindData = {0};
-	HANDLE FindHandle = FindFirstFile(SearchableDirectoryName, &FindData);
-	u64 IgnoredCount = 0;
-	if (FindHandle != INVALID_HANDLE_VALUE) {
-		do {
-		} while (FindNextFile(FindHandle, &FindData));
+	
+	StringCopy(DirectoryName, ChildStack[ChildStackCount++], ArrayCount(ChildStack[0]));
+	
+	while (ChildStackCount) {
+		WIN32_FIND_DATA FindData = {0};
 		
-		FindClose(FindHandle);
+		char ThisDirectory[PLORE_MAX_PATH] = {0};
+		StringCopy(ChildStack[--ChildStackCount], ThisDirectory, ArrayCount(ThisDirectory));
+		
+		char SearchableDirectory[PLORE_MAX_PATH] = {0};
+		if (!WindowsMakePathSearchable(ThisDirectory, SearchableDirectory, ArrayCount(SearchableDirectory))) {
+			break;
+		}
+		
+		HANDLE FindHandle = FindFirstFile(SearchableDirectory, &FindData);
+		u64 IgnoredCount = 0;
+		if (FindHandle != INVALID_HANDLE_VALUE) {
+			do {
+				if (FindData.cFileName[0] == '.' || FindData.cFileName[0] == '$') continue;
+				
+				DWORD FlagsToIgnore = FILE_ATTRIBUTE_DEVICE     |
+									   FILE_ATTRIBUTE_ENCRYPTED |
+									   FILE_ATTRIBUTE_OFFLINE   |
+									   FILE_ATTRIBUTE_TEMPORARY;
+				
+				if (FindData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+					if (ChildStackCount < MAX_SEARCH_DEPTH) {
+						char *ChildStackEntry = ChildStack[ChildStackCount++];
+						
+						// NOTE(Evan): Make the file name an absolute path.
+						u64 BytesWritten = StringCopy(ThisDirectory, ChildStackEntry, PLORE_MAX_PATH);
+						ChildStackEntry[BytesWritten++] = '\\';
+						StringCopy(FindData.cFileName, ChildStackEntry+BytesWritten, PLORE_MAX_PATH-BytesWritten);
+					}
+				} else if (!(FindData.dwFileAttributes & FlagsToIgnore)) {
+					Result += (FindData.nFileSizeHigh * (MAXDWORD+1)) + FindData.nFileSizeLow;
+				}
+			} while (FindNextFile(FindHandle, &FindData));
+				
+			FindClose(FindHandle);
+		}
 	}
+	
+	return(Result);
 }
 
 // NOTE(Evan): Directory name should not include trailing '\' nor any '*' or '?' wildcards.
@@ -438,7 +473,6 @@ PLATFORM_GET_DIRECTORY_ENTRIES(WindowsGetDirectoryEntries) {
 	} else {
 		WindowsDebugPrintLine("Could not open directory %s", SearchableDirectoryName);
 	}
-	
 	
 	Result.Succeeded = true;
 	return(Result);
@@ -1234,6 +1268,7 @@ int WinMain (
 #undef DeleteFile          // @Hack
 		
 		.GetDirectoryEntries     = WindowsGetDirectoryEntries,
+		.GetDirectorySize        = WindowsGetDirectorySize,
 		.GetCurrentDirectory     = WindowsGetCurrentDirectory,
 		.GetCurrentDirectoryPath = WindowsGetCurrentDirectoryPath,
 		.SetCurrentDirectory     = WindowsSetCurrentDirectory,
