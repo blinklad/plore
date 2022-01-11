@@ -12,4 +12,10 @@ typedef struct plore_time {
 internal char *
 PloreTimeFormat(memory_arena *Arena, plore_time Time, char *Format);
 
+internal float64
+PloreTimeDifferenceInSeconds(plore_time A, plore_time B);
+
+internal plore_time
+PloreTimeNow();
+
 #endif //PLORE_TIME_H
