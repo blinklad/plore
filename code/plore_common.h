@@ -148,4 +148,13 @@ for (u64 I = 0; I < Count-1; I++) {                            \
 	}                                                          \
 }                                                              \
 
+
+// TODO(Evan): Remove stdlib, and make a better random function.
+#include <stdlib.h>
+plore_inline u64
+PloreRandom() {
+	u64 Result = rand() % RAND_MAX;
+	return(Result);
+}
+
 #endif
