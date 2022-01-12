@@ -617,6 +617,14 @@ PLORE_VIM_COMMAND(MoveDown)  {
 	MoveHelper(State, Command, +1);
 }
 
+PLORE_VIM_COMMAND(PageDown) {
+	DrawText("PageDown");
+}
+
+PLORE_VIM_COMMAND(PageUp) {
+	DrawText("PageUp");
+}
+
 PLORE_VIM_COMMAND(Yank)  {
 	if (FileContext->Selected.Count) { // Yank selection if there is any.
 		for (plore_map_iterator It = MapIter(&FileContext->Selected);
@@ -1126,29 +1134,16 @@ PLORE_VIM_COMMAND(FontScaleDecrease) {
 }
 
 PLORE_VIM_COMMAND(ToggleFileMetadata) {
-	Tab->FilterState->HideFileMetadata = !Tab->FilterState->HideFileMetadata;
+	Tab->FilterState->MetadataDisplay = ToggleFlag(Tab->FilterState->MetadataDisplay, FileMetadataDisplay_Basic);
+}
+
+PLORE_VIM_COMMAND(ToggleExtendedFileMetadata) {
+	Tab->FilterState->MetadataDisplay = ToggleFlag(Tab->FilterState->MetadataDisplay, FileMetadataDisplay_Extended);
 }
 
 PLORE_VIM_COMMAND(ExitPlore) {
 	DrawText("ExitPlore");
 	State->ShouldQuit = true;
-}
-
-PLORE_VIM_COMMAND(VerticalSplit) {
-	DrawText("VSplit");
-}
-
-PLORE_VIM_COMMAND(HorizontalSplit) {
-	DrawText("HSplit");
-	if (State->TabCount < PloreTab_Count) {
-		u64 NewTab = State->TabCount; 
-		State->SplitTabs[State->SplitTabCount++] = NewTab;
-		
-		plore_tab *TabToInit = State->Tabs + NewTab;
-		TabInit(State, TabToInit);
-		SynchronizeCurrentDirectory(&State->FrameArena, TabToInit);
-		SynchronizeCurrentDirectory(&State->FrameArena, Tab);
-	}
 }
 
 #define PLORE_X(Name, Ignored1, _Ignored2, _Ignored3) Do##Name,
