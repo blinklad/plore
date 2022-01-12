@@ -21,6 +21,8 @@ TabInit(plore_state *State, plore_tab *Tab) {
 	Tab->FilterState = PushStruct(&Tab->Arena, plore_file_filter_state);
 	Tab->FilterState->HideMask.HiddenFiles = true; 
 	
+	Tab->FilterState->MetadataDisplay = FileMetadataDisplay_Basic;
+	
 	Tab->DirectoryState = PushStruct(&Tab->Arena, plore_current_directory_state);
 	Tab->FileContext->FileInfo = MapInit(&Tab->Arena, plore_path, plore_file_listing_info, 512);
 	Tab->FileContext->Selected = MapInit(&Tab->Arena, plore_path, void, 256);
