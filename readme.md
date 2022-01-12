@@ -45,7 +45,6 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 - Multiple tabs, each with their own state (selection, filter, etc)
 - Searching, sorting, filtering
 - Basic global font scaling.
-- Proof-of-concept horizontal/vertical split tabs.
 
 ### TODOS
 * Linux porting.
@@ -66,9 +65,9 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
    - ~~Paste~~, ~~Paste between tabs~~
    - ~~Interactive make directory~~
    - ~~Interactive make file~~
-   - ISearch: ~~Jump to result on return~~, ~~navigate between results~~
+   - ISearch: ~~Jump to result on return~~, ~~navigate between results~~, recursive ISearch
    - ~~Open file, from list of candidate extension handlers~~
-   - Tabs: ~~create tab~~, ~~close tab~~, create tab in specified directory, ~~split tabs~~
+   - Tabs: ~~create tab~~, ~~close tab~~, create tab in specified directory. Split tabs have been removed.
    - ~~Toggle hidden file display~~
    - ~~Sorting by various file metadata~~
    - ~~Filter any files matching substring~~
@@ -93,7 +92,6 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 - Smooth scrolling - maybe.
 - Robust photo preview - BMP doesn't handle top-to-bottom, stb_image doesn't handle DEFLATE. _Probably_ `libpng` and/or `libjpg`.
 - ~~Text-like ASCII file preview~~
-- ~~Split tabs.~~
 - Clipboard handling.
 - Undo for: Rename, Paste, Delete (PLORE_TRASH/Recycle Bin only). 
 - Persistent: Undo, command history, marked files/directories, bookmarks. Requires plore.history.
@@ -118,8 +116,8 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 
 ### Robustness TODOs:
 * Changing assertions to error codes to prevent crashing when a stabler version is made.
-* `temp_string` bits.
 * ... Many more ...
+* Speed improvements for recursive directory traversals.
 
 ## Building
 Currently, there is only a Windows implementation, but the application's design doesn't maintain any OS-specific logic.
