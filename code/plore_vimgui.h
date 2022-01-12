@@ -98,10 +98,14 @@ typedef struct vimgui_window {
 	widget_colour BackgroundColour;
 	text_colour TextColour;
 	char *Title;
-	u64 RowMax;
-	u64 RowCountLastFrame;
-	u64 RowCountThisFrame; // NOTE(Evan): ThisFrame
-	u64 Layer;             // NOTE(Evan): ThisFrame
+	
+	// NOTE(Evan): For row layout mode, all per-frame.
+	f32 HeightLeft;
+	f32 HeightTotal;
+	u64 RowCount;
+	
+	u64 Layer; // NOTE(Evan): Per-frame
+	
 	b64 Hidden;
 	b64 NeverFocus;
 } vimgui_window;
