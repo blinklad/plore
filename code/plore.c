@@ -78,6 +78,13 @@ typedef enum file_sort_mask {
 	_FileSort_ForceU64 = 0xffffffffull,
 } file_sort_mask;
 
+typedef enum file_metadata_display {
+	FileMetadataDisplay_None,
+	FileMetadataDisplay_Basic,
+	FileMetadataDisplay_Extended,
+	_FileMetadataMask_ForceU64 = 0xffffffffull,
+} file_metadata_display;
+
 typedef struct plore_file_filter_state {
 	// NOTE(Evan): This is used to temporarily match against files during ISearch, including files processed by TextFilter.
 	text_filter ISearchFilter;
@@ -98,7 +105,7 @@ typedef struct plore_file_filter_state {
 		b64 HiddenFiles;
 	} HideMask;
 	
-	b64 HideFileMetadata;
+	file_metadata_display MetadataDisplay;
 	
 } plore_file_filter_state;
 
@@ -141,10 +148,6 @@ typedef struct plore_state {
 	
 	// NOTE(Evan): Cache of recent recursive directory queries. Invalidated after 1 minute.
 	plore_map DirectorySizes;
-	
-	// NOTE(Evan): Essentially unused except for proof-of-concept splits.
-	u64 SplitTabs[PloreTab_Count];
-	u64 SplitTabCount;
 	
 	plore_vim_context *VimContext;
 	plore_vimgui_context *VimguiContext; // TODO(Evan): Move this so it's a per-tab thing.
@@ -375,8 +378,6 @@ PloreInit(memory_arena *Arena) {
 	}
 	
 	TabInit(State, &State->Tabs[0]);
-	State->SplitTabs[State->SplitTabCount++] = 0;
-	
 	State->Font = FontInit(&State->Arena, "data/fonts/Inconsolata-Light.ttf");
 	
 #if defined(PLORE_INTERNAL)
@@ -586,652 +587,652 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	
 	SynchronizeCurrentDirectory(&State->FrameArena, GetCurrentTab(State));
 	
-	for (u64 Split = 0; Split < State->SplitTabCount; Split++) {
-		Tab = GetCurrentTab(State);
+	Tab = GetCurrentTab(State);
+	
+	//
+	// NOTE(Evan): GUI stuff.
+	//
+	u64 Cols = 3;
+	
+	f32 FontHeight = State->Font->Data[State->Font->CurrentFont]->Height;
+	f32 FontWidth = State->Font->Data[State->Font->CurrentFont]->Data[0].xadvance;
+	
+	f32 FileRowHeight = FontHeight + 4.0f;//36.0f;
+	f32 CursorFileRowHeight = FileRowHeight * 2.0f;
+	f32 FooterPad = 0;
+	f32 FooterHeight = FontHeight*2 - 4.0f;//60;
+	f32 fCols = (f32) Cols;
+	f32 PadX = 10.0f;
+	f32 PadY = 10.0f;
+	v2 WindowDimensions = PlatformAPI->WindowDimensions;
+	
+	f32 StartW = (((WindowDimensions.X  - 0)            - (fCols + 1) * PadX) / fCols);
+	f32 StartH = ((WindowDimensions.Y   - FooterHeight) - (1     + 1) * PadY) / 1;
+	f32 W = StartW;
+	f32 H = StartH;
+	f32 X = PadX;
+	f32 Y = 0;
+	
+	typedef struct plore_viewable_directory {
+		plore_file_listing *File;
+		b64 Focus;
+	} plore_viewable_directory;
+	
+	plore_viewable_directory ViewDirectories[3] = {
+		[0] = {
+			.File = !Tab->FileContext->InTopLevelDirectory ? &Tab->DirectoryState->Parent : 0,
+		},
+		[1] = {
+			.File = &Tab->DirectoryState->Current,
+			.Focus = true,
+		}, 
+		[2] = {
+			.File = Tab->DirectoryState->Cursor.Valid ? &Tab->DirectoryState->Cursor : 0,
+		},
 		
-		//
-		// NOTE(Evan): GUI stuff.
-		//
-		u64 Cols = 3;
+	};
+	
+	typedef struct image_preview_handle {
+		plore_path Path;
+		platform_texture_handle Texture;
+		b64 Allocated;
+		b64 LoadedOkay;
+	} image_preview_handle;
+	
+	b64 StoleFocus = false;
+	
+	b64 ExclusiveListerMode = State->VimContext->Mode == VimMode_Lister && State->VimContext->ListerState.HideFiles;
+	
+	if (Window(State->VimguiContext, (vimgui_window_desc) {
+				   .ID = (u64) Tab->DirectoryState->Current.File.Path.Absolute,
+				   .Rect = { 
+					   .P = V2(X, 0), 
+					   .Span = { 
+						   WindowDimensions.X, 
+						   WindowDimensions.Y, 
+					   } 
+				   },
+				   .BackgroundColour = WidgetColour_Black,
+				   .NeverFocus = true,
+			   })) {
 		
-		f32 FontHeight = State->Font->Data[State->Font->CurrentFont]->Height;
-		f32 FontWidth = State->Font->Data[State->Font->CurrentFont]->Data[0].xadvance;
+		// NOTE(Evan): Tabs.
+		f32 TabWidth = FontWidth*16;//240;
+		f32 TabHeight = FontHeight*1.6f;//48;
+		u64 TabCount = 0;
 		
-		f32 FileRowHeight = FontHeight + 4.0f;//36.0f;
-		f32 FooterPad = 0;
-		f32 FooterHeight = FontHeight*2 - 4.0f;//60;
-		f32 fCols = (f32) Cols;
-		f32 PadX = 10.0f;
-		f32 PadY = 10.0f;
-		v2 SplitDimensions = V2(PlatformAPI->WindowDimensions.X / State->SplitTabCount, PlatformAPI->WindowDimensions.Y);
-		
-		f32 StartW = (((SplitDimensions.X  - 0)            - (fCols + 1) * PadX) / fCols);
-		f32 StartH = ((SplitDimensions.Y   - FooterHeight) - (1     + 1) * PadY) / 1;
-		f32 W = StartW;
-		f32 H = StartH;
-		f32 X = Split*SplitDimensions.X + 10;
-		f32 Y = 0;
-		
-		typedef struct plore_viewable_directory {
-			plore_file_listing *File;
-			b64 Focus;
-		} plore_viewable_directory;
-		
-		plore_viewable_directory ViewDirectories[3] = {
-			[0] = {
-				.File = !Tab->FileContext->InTopLevelDirectory ? &Tab->DirectoryState->Parent : 0,
-			},
-			[1] = {
-				.File = &Tab->DirectoryState->Current,
-				.Focus = true,
-			}, 
-			[2] = {
-				.File = Tab->DirectoryState->Cursor.Valid ? &Tab->DirectoryState->Cursor : 0,
-			},
-			
-		};
-		
-		typedef struct image_preview_handle {
-			plore_path Path;
-			platform_texture_handle Texture;
-			b64 Allocated;
-			b64 LoadedOkay;
-		} image_preview_handle;
-		
-		b64 StoleFocus = false;
-		
-		b64 ExclusiveListerMode = State->VimContext->Mode == VimMode_Lister && State->VimContext->ListerState.HideFiles;
-		
-		if (Window(State->VimguiContext, (vimgui_window_desc) {
-					   .ID = (u64) Tab->DirectoryState->Current.File.Path.Absolute,
-					   .Rect = { 
-						   .P = V2(X, 0), 
-						   .Span = { 
-							   SplitDimensions.X, 
-							   SplitDimensions.Y, 
-						   } 
-					   },
-					   .BackgroundColour = WidgetColour_Black,
-					   .NeverFocus = true,
-				   })) {
-			
-			// NOTE(Evan): Tabs.
-			f32 TabWidth = FontWidth*16;//240;
-			f32 TabHeight = FontHeight*1.6f;//48;
-			u64 TabCount = 0;
-			
-			plore_tab *Active = GetCurrentTab(State);
-			if (!ExclusiveListerMode) {
-				for (u64 T = 0; T < ArrayCount(State->Tabs); T++) {
-					plore_tab *Tab = State->Tabs + T;
-					if (Tab->Active) {
-						TabCount++;
-						
-						widget_colour_flags BackgroundColourFlags = WidgetColourFlags_Default;
-						widget_colour BackgroundColour = WidgetColour_Default;
-						
-						if (Tab == Active) BackgroundColourFlags = WidgetColourFlags_Focus;
-						
-						temp_string Number = TempString(&State->FrameArena, 32);
-						TempPrint(Number, "%d", T+1);
-						
-						if (Button(State->VimguiContext, (vimgui_button_desc) {
-									   .ID = (u64) Tab,
-									   .Rect = { 
-										   .P =    { (TabCount-1)*(TabWidth+PadX), PadY },
-										   .Span = { TabWidth, TabHeight },
-									   },
-									   .Title = {
-										   .Text = Tab->CurrentDirectory.FilePart, 
-										   .Colour = (Tab == Active) ? TextColour_TabActive : TextColour_Tab,
-										   .Pad = V2(0, 6),
-										   .Alignment = VimguiLabelAlignment_CenterHorizontal,
-									   },
-									   .Secondary = {
-										   .Text = Number.Buffer,
-										   .Alignment = VimguiLabelAlignment_Left,
-										   .Colour = (Tab == Active) ? TextColour_TabActive : TextColour_Tab,
-										   .Pad = V2(10, 6),
-									   },
-									   .BackgroundColourFlags = BackgroundColourFlags,
-									   .BackgroundColour = BackgroundColour,
-								   })) {
-							SetCurrentTab(State, T);
-						}
-					}
-				}
-			}
-			
-			if (State->TabCount) {
-				Y += TabHeight+2*PadY;
-				H -= TabHeight-PadY;
-			}
-			// NOTE(Evan): Cursor state.
-			local f64 Tick = 0;
-			local b64 DoBlink = false; 
-			
-			Tick += PloreInput->DT;
-			if (Tick > 0.3f) {
-				DoBlink = !DoBlink;
-				Tick = 0;
-			}
-			
-			if (DidInput) {
-				DoBlink = true;
-				Tick = 0;
-			}
-			
-			
-			// NOTE(Evan): Interactive Mode, appears at bottom of screen.
-			// @Cleanup, this is overloaded between "global" insert and lister insert to prevent copypasta; maybe that would be preferable.
-			if (VimContext->Mode == VimMode_Insert || VimContext->ListerState.Mode == VimListerMode_ISearch) {
-				char *InsertPrompt = 0;
-				if (VimContext->Mode == VimMode_Insert) {
-					InsertPrompt = VimCommandInsertPrompts[VimContext->ActiveCommand.Type];
-				} else if (VimContext->ListerState.Mode == VimListerMode_ISearch) {
-					InsertPrompt = "ISearch: "; 
-				}
-				
-				if (!InsertPrompt) InsertPrompt = "YOU SHOULD NOT SEE THIS.";
-				
-				temp_string Insert = TempString(&State->FrameArena, 128);
-				u64 Size = 128;
-				TempCat(Insert, "%s ", InsertPrompt);
-				TempCat(Insert, "%s", VimKeysToString(PushBytes(&State->FrameArena, Size), Size, VimContext->CommandKeys).Buffer);
-				
-				H -= (FooterHeight + 2*PadY);
-				
-				StoleFocus = true;
-				
-				Button(State->VimguiContext, (vimgui_button_desc) {
-							   .ID = (u64) Insert.Buffer,
-							   .Title = {
-								   .Text = Insert.Buffer, 
-								   .Colour = TextColour_Prompt,
-								   .Pad = V2(16, 12),
-								   .Alignment = VimguiLabelAlignment_Left,
-							   },
-							   .Secondary = {
-								   .Text = DoBlink ? "|" : "",
-								   .Colour = TextColour_PromptCursor,
-								   .Alignment = VimguiLabelAlignment_Left,
-								   .Pad = V2(-4, 12),
-							   },
-							   
-							   .Rect = { 
-								   .P    = V2(0, SplitDimensions.Y - 2*FooterHeight - 2*PadY), 
-								   .Span = V2(SplitDimensions.X-2*PadX, FooterHeight + PadY)
-							   },
-							   .BackgroundColourFlags = WidgetColourFlags_Focus,
-			    });
-			}
-			
-			if (VimContext->Mode == VimMode_Lister) {
-				Assert(VimContext->ActiveCommand.Type);
-				
-				u64 ListerCount = 0;
-				vim_lister_state *Lister = &VimContext->ListerState;
-				
-				u64 MaybeInsertHeight = 0;
-				f32 ListerArea = (SplitDimensions.Y - (FooterHeight+PadY));
-				if (VimContext->ListerState.Mode == VimListerMode_ISearch) {
-					ListerArea -= FooterHeight+PadY;
-					MaybeInsertHeight = FooterHeight+2*PadY;
-				}
-				
-				u64 RowMax = ListerArea / FooterHeight;
-				u64 ListStart = ((((Lister->Cursor)/RowMax))*RowMax) % Lister->Count;
-				
-				char *ListerFilter = 0;
-				if (VimContext->CommandKeyCount) {
-					u64 FilterSize = 256;
-					ListerFilter = PushBytes(&State->FrameArena, FilterSize);
-					VimKeysToString(ListerFilter, FilterSize, VimContext->CommandKeys);
-				}
-				
-				for (u64 L = ListStart; L < Lister->Count; L++) {
-					if (ListerCount >= RowMax) break;
-					char *Title = Lister->Titles[L];
-					char *Secondary = Lister->Secondaries[L];
-					if (!Secondary) Secondary = "";
+		plore_tab *Active = GetCurrentTab(State);
+		if (!ExclusiveListerMode) {
+			for (u64 T = 0; T < ArrayCount(State->Tabs); T++) {
+				plore_tab *Tab = State->Tabs + T;
+				if (Tab->Active) {
+					TabCount++;
 					
-					if (Title) {
-						u64 ID = (u64) Title;
-						ListerCount++;
-						
-						// NOTE(Evan): We left-justify here because there's VIMGUI has no alignment option to allow for it!
-						temp_string Lister = TempString(&State->FrameArena, 512);
-						TempPrint(Lister, "%-30s", Title);
-						
-						text_colour TextColour = TextColour_Default;
-						if (ListerFilter) {
-							if (SubstringNoCase(Title, ListerFilter).IsContained) TextColour = TextColour_PromptCursor;
-						}
-						
-						
-						// FIXME(Evan): Lister movement is backwards if drawn top-to-bottom.
-						v2 RowP = V2(0, SplitDimensions.Y - MaybeInsertHeight - FooterHeight - (RowMax-ListerCount+1)*FooterHeight - PadY);
-						if (!ExclusiveListerMode) {
-							RowP.Y = SplitDimensions.Y - FooterHeight - ListerCount*FooterHeight; 
-						}
-						
-						if (Button(State->VimguiContext, (vimgui_button_desc) {
-									   .ID = ID,
-									   .Title = {
-										   .Text = Lister.Buffer,
-										   .Pad = V2(16, 8),
-										   .Alignment = VimguiLabelAlignment_Left,
-										   .Colour = TextColour,
-									   },
-									   .Secondary = {
-										   .Text = Secondary,
-										   .Pad = V2(16, 8),
-										   .Alignment = VimguiLabelAlignment_Left,
-										   .Colour = TextColour_PromptCursor,
-									   },
-									   .Rect = {
-										   .P = RowP,
-										   .Span = V2(SplitDimensions.X-2*PadX, FooterHeight)
-									   },
-									   .BackgroundColour = (L == VimContext->ListerState.Cursor) ? WidgetColour_Secondary : WidgetColour_Primary,
-									   .BackgroundColourFlags = WidgetColourFlags_Focus,
-									   })) {
-							ListerEnd(State, L);
-						}
-						
-						H -= FooterHeight;
-					}
-				}
-				
-				H -= 20;
-				
-				StoleFocus = true;
-			}
-			// NOTE(Evan): Draw cursor info or candidate list!
-			
-			// NOTE(Evan): If we didn't eat the command and there are candidates, list them!
-			if (VimContext->Mode == VimMode_Normal && VimContext->CommandKeyCount && CommandCandidates.CandidateCount) {
-				u64 CandidateCount = 0;
-				for (u64 C = 0; C < ArrayCount(CommandCandidates.Candidates); C++) {
-					vim_binding *Candidate = 0;
-					if (CommandCandidates.Candidates[C]) {
-						Candidate = VimBindings + C;
-						CandidateCount++;
-					}
+					widget_colour_flags BackgroundColourFlags = WidgetColourFlags_Default;
+					widget_colour BackgroundColour = WidgetColour_Default;
 					
-					if (Candidate) {
-						u64 BindingSize = 32;
-						char *BindingString = PushBytes(&State->FrameArena, BindingSize);
-						BindingString = VimBindingToString(BindingString, BindingSize, Candidate);
-						
-						temp_string CandidateString = TempString(&State->FrameArena, 256);
-						
-						if (Candidate->Shell) {
-							TempPrint(CandidateString, "%s, arg: %s",
-									  VimCommandDescriptions[Candidate->Type],
-									  Candidate->Shell
-									  );
-						} else {
-							TempPrint(CandidateString, "%s", VimCommandDescriptions[Candidate->Type]);
-						}
-						
-						u64 ID = Candidate->Shell ? (u64) Candidate->Shell : (u64) CandidateString.Buffer + Candidate->Type;
-						
-						if (Button(State->VimguiContext, (vimgui_button_desc) {
-									   .ID = ID,
-									   .Title = {
-										   .Text = BindingString,
-										   .Pad = V2(16, 16),
-										   .Alignment = VimguiLabelAlignment_Left,
-									   },
-									   .Secondary = {
-										   .Text = CandidateString.Buffer,
-										   .Pad = V2(32, 16),
-										   .Alignment = VimguiLabelAlignment_Left,
-										   .Colour = TextColour_PromptCursor,
-									   },
-									   .Rect = {
-										   .P = V2(0, SplitDimensions.Y - FooterHeight - CandidateCount*(FooterHeight + PadY) + PadY - 20),
-										   .Span = V2(SplitDimensions.X-2*PadX, FooterHeight + PadY)
-									   },
-									   .BackgroundColour =  WidgetColour_Primary,
-									   .BackgroundColourFlags = WidgetColourFlags_Focus,
-								   })) {
-							
-							ClearCommands(State->VimContext);
-							vim_command Command = {
-							    .Type = Candidate->Type,
-								.Shell = Candidate->Shell,
-								.Scalar = 1,
-								.State = VimCommandState_Start,
-							};
-							VimCommands[Command.Type](State, Tab, State->VimContext, Tab->FileContext, Command);
-						}
-						
-						H -= FooterHeight + PadY;
-					}
-				}
-				
-				H -= 20-PadY;
-				
-				StoleFocus = true;
-			}
-			
-			
-			// NOTE(Evan): Cursor information, appears at bottom of screen.
-			
-			temp_string CursorInfoString = TempString(&State->FrameArena, 512);
-			char *CommandString = "";
-			
-			// NOTE(Evan): Only show incomplete command key buffer!
-			switch (VimContext->Mode) {
-				case VimMode_Normal: {
-					CommandString = PloreKeysToString(&State->FrameArena, VimContext->CommandKeys, VimContext->CommandKeyCount);
-				} break;
-			}
-			
-			// NOTE(Evan): Prompt string.
-			char *FilterText = 0;
-			if (Tab->FilterState->GlobalListingFilter.TextCount) {
-				u64 FilterTextSize = 256;
-				
-				FilterText = PushBytes(&State->FrameArena, FilterTextSize);
-				StringPrintSized(FilterText, FilterTextSize, "Filter: %s ", Tab->FilterState->GlobalListingFilter.Text);
-			}
-			
-			u64 BufferSize = 256;
-			char *Buffer = PushBytes(&State->FrameArena, BufferSize);
-			b64 ShowOrBlink = DoBlink || VimContext->CommandKeyCount || VimContext->Mode != VimMode_Normal || DidInput;
-			StringPrintSized(Buffer, BufferSize, "%s%s%s", (FilterText ? FilterText : ""), (ShowOrBlink ? ">>" : ""), CommandString);
-			
-			
-			if (Tab->DirectoryState->Cursor.Valid) {
-				plore_file *CursorFile = &Tab->DirectoryState->Cursor.File;
-				TempPrint(CursorInfoString, 
-					      "[%s] %s %s", 
-					      (CursorFile->Type == PloreFileNode_Directory) ? "directory" : "file", 
-						  CursorFile->Path.FilePart,
-						  PloreTimeFormat(&State->FrameArena, CursorFile->LastModification, "%a %b %d/%m/%y")
-						  );
-			} else {
-				TempPrint(CursorInfoString, 
-					      "[no selection]"
-						  );
-			}
-			
-			if (Button(State->VimguiContext, (vimgui_button_desc) {
-					   .Title     = { 
-						   .Text = CursorInfoString.Buffer, 
-						   .Alignment = VimguiLabelAlignment_Left, 
-						   .Colour = TextColour_CursorInfo,
-						   .Pad = V2(8, FontHeight/4),
-					   },
-					   .Secondary = { 
-						   .Text = Buffer,
-						   .Alignment = VimguiLabelAlignment_Left,
-						   .Pad = V2(0, FontHeight/4),
-						   .Colour = TextColour_Prompt
-					   },
-					   .Rect = { 
-						   .P    = V2(0, SplitDimensions.Y - FooterHeight + FooterPad), 
-						   .Span = V2(SplitDimensions.X-2*PadX, FooterHeight + PadY-20)
-					   },
-						   })) {
-				DoShowCommandList(State, GetCurrentTab(State), State->VimContext, Tab->FileContext, (vim_command) {
-									  .State = VimCommandState_Start,
-									  .Type = VimCommandType_ShowCommandList,
-								  });
-			}
-			
-			
-			if (!ExclusiveListerMode) {
-				for (u64 Col = 0; Col < Cols; Col++) {
-					v2 P      = V2(X, Y);
-					v2 Span   = V2(W-3, H-24);
+					if (Tab == Active) BackgroundColourFlags = WidgetColourFlags_Focus;
 					
-					plore_viewable_directory *Directory = ViewDirectories + Col;
-					plore_file_listing *Listing = Directory->File;
-					if (!Listing) continue; /* Parent can be null, if we are currently looking at a top-level directory. */
-					plore_file_listing_info *RowCursor = MapGet(&Tab->FileContext->FileInfo, &Listing->File.Path).Value;
-					char *Title = Listing->File.Path.FilePart;
+					temp_string Number = TempString(&State->FrameArena, 32);
+					TempPrint(Number, "%d", T+1);
 					
-					widget_colour_flags WindowColourFlags = WidgetColourFlags_Default;
-					if (Directory->Focus) {
-						if (!StoleFocus) {
-							WindowColourFlags = WidgetColourFlags_Focus;
-						} else {
-							WindowColourFlags = WidgetColourFlags_Hot;
-						}
-					}
-					if (Window(State->VimguiContext, (vimgui_window_desc) {
-								   .ID = (u64)Title+(u64)Tab,
-								   .Title                 = Title,
-								   .Rect                  = {P, Span}, 
-								   .BackgroundColour      = WidgetColour_Window,
-								   .BackgroundColourFlags = WindowColourFlags,
+					if (Button(State->VimguiContext, (vimgui_button_desc) {
+								   .ID = (u64) Tab,
+								   .Rect = { 
+									   .P =    { (TabCount-1)*(TabWidth+PadX), PadY },
+									   .Span = { TabWidth, TabHeight },
+								   },
+								   .Title = {
+									   .Text = Tab->CurrentDirectory.FilePart, 
+									   .Colour = (Tab == Active) ? TextColour_TabActive : TextColour_Tab,
+									   .Pad = V2(0, 6),
+									   .Alignment = VimguiLabelAlignment_CenterHorizontal,
+								   },
+								   .Secondary = {
+									   .Text = Number.Buffer,
+									   .Alignment = VimguiLabelAlignment_Left,
+									   .Colour = (Tab == Active) ? TextColour_TabActive : TextColour_Tab,
+									   .Pad = V2(10, 6),
+								   },
+								   .BackgroundColourFlags = BackgroundColourFlags,
+								   .BackgroundColour = BackgroundColour,
 							   })) {
-						u64 PageMax = (u64) Floor(H / FileRowHeight)-1;
-						u64 Cursor = 0;
-						u64 RowStart = Cursor;
-						u64 RowEnd = Listing->Count;
-						if (RowCursor) {
-							Cursor = RowCursor->Cursor;
-							u64 Page = (u64) (Cursor / PageMax);
-							RowStart = Page*PageMax;
-							
-							u64 RowsAfter = Min(Cursor+PageMax, Listing->Count);
-							RowEnd = Clamp(Cursor + RowsAfter, 0, Listing->Count);
-						}
-						
-						switch (Listing->File.Type) {
-							case PloreFileNode_Directory: {
-								for (u64 Row = RowStart; Row < RowEnd; Row++) {
-									plore_file *RowEntry = Listing->Entries + Row;
-									
-									widget_colour BackgroundColour = WidgetColour_RowPrimary;
-									widget_colour_flags WidgetColourFlags = WidgetColourFlags_Default;
-									text_colour TextColour = 0;
-									text_colour_flags TextColourFlags = 0;
-									
-									b64 CursorHover = RowCursor && RowCursor->Cursor == Row;
-									if (CursorHover) WidgetColourFlags = WidgetColourFlags_Focus;
-									
-									if (MapGet(&State->Yanked, &RowEntry->Path).Exists) {
-										BackgroundColour = WidgetColour_RowSecondary;
-									} else if (MapGet(&Tab->FileContext->Selected, &RowEntry->Path).Exists) {
-										BackgroundColour = WidgetColour_RowTertiary;
-									} 
-									
-									// TODO(Evan): Hidden files could have a slightly different colour while we're viewing them.
-									b64 PassesFilter = true;
-									if (Tab->FilterState->ISearchFilter.TextCount) {
-										PassesFilter = SubstringNoCase(RowEntry->Path.FilePart, Tab->FilterState->ISearchFilter.Text).IsContained;
-									}
-									
-									if (RowEntry->Type == PloreFileNode_Directory) {
-										TextColour = TextColour_Primary;								
-										if (!PassesFilter) TextColour = TextColour_PrimaryFade;
-									} else {
-										TextColour = TextColour_Secondary;								
-										if (!PassesFilter) TextColour = TextColour_SecondaryFade;
-									}
-									
-									
-									b64 DisplayFileNumbers = false;
-									u64 FileNameSize = 256;
-									temp_string FileName = TempString(&State->FrameArena, 256);
-									if (DisplayFileNumbers) {
-										TempPrint(FileName, "%-3d %s", Row, Listing->Entries[Row].Path.FilePart);
-									} else {
-										TempPrint(FileName, "%s", Listing->Entries[Row].Path.FilePart);
-										
-									}
-									
-									temp_string SecondaryText = TempString(&State->FrameArena, 256);
-									if (!Tab->FilterState->HideFileMetadata) {
-										
-										u64 EntrySize = RowEntry->Bytes;
-										if (RowEntry->Type == PloreFileNode_File || CursorHover) {
-											char *EntrySizeLabel = " b";
-											
-											if (RowEntry->Type == PloreFileNode_Directory) {
-												EntrySize = GetDirectorySize(State, &RowEntry->Path);
-											}
-											
-											if (EntrySize > Gigabytes(1)) {
-												EntrySize /= Gigabytes(1);
-												EntrySizeLabel = "gB";
-											} else if (EntrySize > Megabytes(1)) {
-												EntrySize /= Megabytes(1); 
-												EntrySizeLabel = "mB";
-											} else if (EntrySize > Kilobytes(1)) {
-												EntrySize /= Kilobytes(1);
-												EntrySizeLabel = "kB";
-											}
-											
-											TempPrint(SecondaryText, "%s %4d%s", PloreTimeFormat(&State->FrameArena, RowEntry->LastModification, "%b %d/%m/%y"), EntrySize, EntrySizeLabel);
-										} else {
-											TempPrint(SecondaryText, "%s%7s", PloreTimeFormat(&State->FrameArena, RowEntry->LastModification, "%b %d/%m/%y"), "-");
-										}
-										
-									}
-									
-									if (Button(State->VimguiContext, (vimgui_button_desc) {
-												   .Title     = { 
-													   .Text = FileName.Buffer,
-													   .Alignment = VimguiLabelAlignment_Left ,
-													   .Colour = TextColour,
-													   .Pad = V2(4, 0),
-													   .ColourFlags = TextColourFlags,
-												   },
-												   .Secondary = { 
-													   .Text = SecondaryText.Buffer, 
-													   .Alignment = VimguiLabelAlignment_Right,
-													   .Colour = TextColour_Tertiary,
-													   .ColourFlags = TextColourFlags,
-												   },
-												   .FillWidth = true,
-												   .BackgroundColour = BackgroundColour,
-												   .BackgroundColourFlags = WidgetColourFlags,
-												   .Rect = { 
-													   .Span = 
-													   { 
-														   .H = FileRowHeight, 
-													   } 
-												   },
-											   })) {
-										if (Listing->Entries[Row].Type == PloreFileNode_Directory) {
-											Platform->SetCurrentDirectory(Listing->Entries[Row].Path.Absolute);
-										} else {
-											Platform->SetCurrentDirectory(Listing->File.Path.Absolute);
-										}
-										plore_file_listing_info_get_or_create_result CursorResult = GetOrCreateFileInfo(Tab->FileContext, &Listing->File.Path);
-										CursorResult.Info->Cursor = Row;
-									}
-								}
-							} break;
-							case PloreFileNode_File: {
-								
-								local image_preview_handle ImagePreviewHandles[32] = {0};
-								local u64 ImagePreviewHandleCursor = 0;
-								
-								image_preview_handle *MyHandle = 0;
-								
-								// TODO(Evan): Make file loading asynchronous!
-								// TODO(Evan): Make preview work for other image types.
-								switch (Listing->File.Extension) {
-									case PloreFileExtension_BMP:
-									case PloreFileExtension_PNG:
-									case PloreFileExtension_JPG: {
-										for (u64 I = 0; I < ArrayCount(ImagePreviewHandles); I++) {
-											image_preview_handle *Handle = ImagePreviewHandles + I;
-											if (StringsAreEqual(Handle->Path.Absolute, Listing->File.Path.Absolute)) {
-												MyHandle = Handle;
-												break;
-											}
-										}
-										if (!MyHandle) {
-											MyHandle = ImagePreviewHandles + ImagePreviewHandleCursor;
-											ImagePreviewHandleCursor = (ImagePreviewHandleCursor + 1) % ArrayCount(ImagePreviewHandles);
-											
-											// NOTE(Evan): Evict old handles if we need room.
-											if (MyHandle->Allocated) {
-												Platform->DestroyTextureHandle(MyHandle->Texture);
-												MyHandle->Texture = ClearStruct(platform_texture_handle);
-											}
-											MyHandle->Path = Listing->File.Path;
-											
-											load_image_result ImageResult = LoadImage(&State->FrameArena, Listing->File.Path.Absolute, 1024, 1024);
-											
-											if (ImageResult.LoadedSuccessfully) MyHandle->Texture = ImageResult.Texture;
-										}
-										
-										Assert(MyHandle);
-										
-										if (MyHandle->Texture.Opaque) { 
-											Image(State->VimguiContext, (vimgui_image_desc) { 
-														  .ID = (u64) MyHandle,
-														  .Texture = MyHandle->Texture,
-														  .Rect = {
-															  .Span = V2(512, 512),
-														  }, 
-														  .Centered = true, // @Cleanup
-												  });
-										} else {
-											Button(State->VimguiContext, (vimgui_button_desc) {
-														   .Rect = {
-															   .P = V2(FontHeight, H/2),
-															   .Span = V2(W-2*FontHeight, FontHeight*4),
-														   },
-														   .Title = {
-															   .Text = "Could not load image.",
-															   .Alignment = VimguiLabelAlignment_Center,
-														   },
-												   });
-										}
-									} break;
-									
-									// TODO(Evan): Easier way to specify inclusion/exclusion of extensions.
-									default: {
-										platform_readable_file TheFile = Platform->DebugOpenFile(Listing->File.Path.Absolute);
-										if (TheFile.OpenedSuccessfully) {
-											temp_string Text = TempString(&State->FrameArena, Kilobytes(8));
-											platform_read_file_result ReadResult = Platform->DebugReadFileSize(TheFile, Text.Buffer, Text.Capacity);
-											Text.Buffer[ReadResult.BytesRead] = '\0';
-											Assert(ReadResult.ReadSuccessfully);
-											
-											u64 TextBoxID = (u64)HashString(Listing->File.Path.Absolute);
-											
-											TextBox(State->VimguiContext, (vimgui_text_box_desc) {
-														.ID = TextBoxID,
-														.Text = Text.Buffer,
-														.Rect = {
-															.P = V2(2*PadX, FontHeight+4),
-															.Span = V2(W-4*PadX, H-FooterHeight-2*PadY),
-														},
-											});
-											
-											Platform->DebugCloseFile(TheFile);
-										}
-									} break;
-								}
-								
-							} break;
-							
-							InvalidDefaultCase;
-						}
-						WindowEnd(State->VimguiContext);
+						SetCurrentTab(State, T);
+					}
+				}
+			}
+		}
+		
+		if (State->TabCount) {
+			Y += TabHeight+2*PadY;
+			H -= TabHeight-PadY;
+		}
+		// NOTE(Evan): Cursor state.
+		local f64 Tick = 0;
+		local b64 DoBlink = false; 
+		
+		Tick += PloreInput->DT;
+		if (Tick > 0.3f) {
+			DoBlink = !DoBlink;
+			Tick = 0;
+		}
+		
+		if (DidInput) {
+			DoBlink = true;
+			Tick = 0;
+		}
+		
+		
+		// NOTE(Evan): Interactive Mode, appears at bottom of screen.
+		// @Cleanup, this is overloaded between "global" insert and lister insert to prevent copypasta; maybe that would be preferable.
+		if (VimContext->Mode == VimMode_Insert || VimContext->ListerState.Mode == VimListerMode_ISearch) {
+			char *InsertPrompt = 0;
+			if (VimContext->Mode == VimMode_Insert) {
+				InsertPrompt = VimCommandInsertPrompts[VimContext->ActiveCommand.Type];
+			} else if (VimContext->ListerState.Mode == VimListerMode_ISearch) {
+				InsertPrompt = "ISearch: "; 
+			}
+			
+			if (!InsertPrompt) InsertPrompt = "YOU SHOULD NOT SEE THIS.";
+			
+			temp_string Insert = TempString(&State->FrameArena, 128);
+			u64 Size = 128;
+			TempCat(Insert, "%s ", InsertPrompt);
+			TempCat(Insert, "%s", VimKeysToString(PushBytes(&State->FrameArena, Size), Size, VimContext->CommandKeys).Buffer);
+			
+			H -= (FooterHeight + 2*PadY);
+			
+			StoleFocus = true;
+			
+			Button(State->VimguiContext, (vimgui_button_desc) {
+						   .ID = (u64) Insert.Buffer,
+						   .Title = {
+							   .Text = Insert.Buffer, 
+							   .Colour = TextColour_Prompt,
+							   .Pad = V2(16, 12),
+							   .Alignment = VimguiLabelAlignment_Left,
+						   },
+						   .Secondary = {
+							   .Text = DoBlink ? "|" : "",
+							   .Colour = TextColour_PromptCursor,
+							   .Alignment = VimguiLabelAlignment_Left,
+							   .Pad = V2(-4, 12),
+						   },
+						   
+						   .Rect = { 
+							   .P    = V2(0, WindowDimensions.Y - 2*FooterHeight - 2*PadY), 
+							   .Span = V2(WindowDimensions.X-2*PadX, FooterHeight + PadY)
+						   },
+						   .BackgroundColourFlags = WidgetColourFlags_Focus,
+		    });
+		}
+		
+		if (VimContext->Mode == VimMode_Lister) {
+			Assert(VimContext->ActiveCommand.Type);
+			
+			u64 ListerCount = 0;
+			vim_lister_state *Lister = &VimContext->ListerState;
+			
+			u64 MaybeInsertHeight = 0;
+			f32 ListerArea = (WindowDimensions.Y - (FooterHeight+PadY));
+			if (VimContext->ListerState.Mode == VimListerMode_ISearch) {
+				ListerArea -= FooterHeight+PadY;
+				MaybeInsertHeight = FooterHeight+2*PadY;
+			}
+			
+			u64 RowMax = ListerArea / FooterHeight;
+			u64 ListStart = ((((Lister->Cursor)/RowMax))*RowMax) % Lister->Count;
+			
+			char *ListerFilter = 0;
+			if (VimContext->CommandKeyCount) {
+				u64 FilterSize = 256;
+				ListerFilter = PushBytes(&State->FrameArena, FilterSize);
+				VimKeysToString(ListerFilter, FilterSize, VimContext->CommandKeys);
+			}
+			
+			for (u64 L = ListStart; L < Lister->Count; L++) {
+				if (ListerCount >= RowMax) break;
+				char *Title = Lister->Titles[L];
+				char *Secondary = Lister->Secondaries[L];
+				if (!Secondary) Secondary = "";
+				
+				if (Title) {
+					u64 ID = (u64) Title;
+					ListerCount++;
+					
+					// NOTE(Evan): We left-justify here because there's VIMGUI has no alignment option to allow for it!
+					temp_string Lister = TempString(&State->FrameArena, 512);
+					TempPrint(Lister, "%-30s", Title);
+					
+					text_colour TextColour = TextColour_Default;
+					if (ListerFilter) {
+						if (SubstringNoCase(Title, ListerFilter).IsContained) TextColour = TextColour_PromptCursor;
 					}
 					
-					X += W + PadX;
+					
+					// FIXME(Evan): Lister movement is backwards if drawn top-to-bottom.
+					v2 RowP = V2(0, WindowDimensions.Y - MaybeInsertHeight - FooterHeight - (RowMax-ListerCount+1)*FooterHeight - PadY);
+					if (!ExclusiveListerMode) {
+						RowP.Y = WindowDimensions.Y - FooterHeight - ListerCount*FooterHeight; 
+					}
+					
+					if (Button(State->VimguiContext, (vimgui_button_desc) {
+								   .ID = ID,
+								   .Title = {
+									   .Text = Lister.Buffer,
+									   .Pad = V2(16, 8),
+									   .Alignment = VimguiLabelAlignment_Left,
+									   .Colour = TextColour,
+								   },
+								   .Secondary = {
+									   .Text = Secondary,
+									   .Pad = V2(16, 8),
+									   .Alignment = VimguiLabelAlignment_Left,
+									   .Colour = TextColour_PromptCursor,
+								   },
+								   .Rect = {
+									   .P = RowP,
+									   .Span = V2(WindowDimensions.X-2*PadX, FooterHeight)
+								   },
+								   .BackgroundColour = (L == VimContext->ListerState.Cursor) ? WidgetColour_Secondary : WidgetColour_Primary,
+								   .BackgroundColourFlags = WidgetColourFlags_Focus,
+								   })) {
+						ListerEnd(State, L);
+					}
+					
+					H -= FooterHeight;
 				}
 			}
 			
-			WindowEnd(State->VimguiContext);
+			H -= 20;
+			
+			StoleFocus = true;
 		}
+		// NOTE(Evan): Draw cursor info or candidate list!
+		
+		// NOTE(Evan): If we didn't eat the command and there are candidates, list them!
+		if (VimContext->Mode == VimMode_Normal && VimContext->CommandKeyCount && CommandCandidates.CandidateCount) {
+			u64 CandidateCount = 0;
+			for (u64 C = 0; C < ArrayCount(CommandCandidates.Candidates); C++) {
+				vim_binding *Candidate = 0;
+				if (CommandCandidates.Candidates[C]) {
+					Candidate = VimBindings + C;
+					CandidateCount++;
+				}
+				
+				if (Candidate) {
+					u64 BindingSize = 32;
+					char *BindingString = PushBytes(&State->FrameArena, BindingSize);
+					BindingString = VimBindingToString(BindingString, BindingSize, Candidate);
+					
+					temp_string CandidateString = TempString(&State->FrameArena, 256);
+					
+					if (Candidate->Shell) {
+						TempPrint(CandidateString, "%s, arg: %s",
+								  VimCommandDescriptions[Candidate->Type],
+								  Candidate->Shell
+								  );
+					} else {
+						TempPrint(CandidateString, "%s", VimCommandDescriptions[Candidate->Type]);
+					}
+					
+					u64 ID = Candidate->Shell ? (u64) Candidate->Shell : (u64) CandidateString.Buffer + Candidate->Type;
+					
+					if (Button(State->VimguiContext, (vimgui_button_desc) {
+								   .ID = ID,
+								   .Title = {
+									   .Text = BindingString,
+									   .Pad = V2(16, 16),
+									   .Alignment = VimguiLabelAlignment_Left,
+								   },
+								   .Secondary = {
+									   .Text = CandidateString.Buffer,
+									   .Pad = V2(32, 16),
+									   .Alignment = VimguiLabelAlignment_Left,
+									   .Colour = TextColour_PromptCursor,
+								   },
+								   .Rect = {
+									   .P = V2(0, WindowDimensions.Y - FooterHeight - CandidateCount*(FooterHeight + PadY) + PadY - 20),
+									   .Span = V2(WindowDimensions.X-2*PadX, FooterHeight + PadY)
+								   },
+								   .BackgroundColour =  WidgetColour_Primary,
+								   .BackgroundColourFlags = WidgetColourFlags_Focus,
+							   })) {
+						
+						ClearCommands(State->VimContext);
+						vim_command Command = {
+						    .Type = Candidate->Type,
+							.Shell = Candidate->Shell,
+							.Scalar = 1,
+							.State = VimCommandState_Start,
+						};
+						VimCommands[Command.Type](State, Tab, State->VimContext, Tab->FileContext, Command);
+					}
+					
+					H -= FooterHeight + PadY;
+				}
+			}
+			
+			H -= 20-PadY;
+			
+			StoleFocus = true;
+		}
+		
+		
+		// NOTE(Evan): Cursor information, appears at bottom of screen.
+		
+		temp_string CursorInfoString = TempString(&State->FrameArena, 512);
+		char *CommandString = "";
+		
+		// NOTE(Evan): Only show incomplete command key buffer!
+		switch (VimContext->Mode) {
+			case VimMode_Normal: {
+				CommandString = PloreKeysToString(&State->FrameArena, VimContext->CommandKeys, VimContext->CommandKeyCount);
+			} break;
+		}
+		
+		// NOTE(Evan): Prompt string.
+		char *FilterText = 0;
+		if (Tab->FilterState->GlobalListingFilter.TextCount) {
+			u64 FilterTextSize = 256;
+			
+			FilterText = PushBytes(&State->FrameArena, FilterTextSize);
+			StringPrintSized(FilterText, FilterTextSize, "Filter: %s ", Tab->FilterState->GlobalListingFilter.Text);
+		}
+		
+		u64 BufferSize = 256;
+		char *Buffer = PushBytes(&State->FrameArena, BufferSize);
+		b64 ShowOrBlink = DoBlink || VimContext->CommandKeyCount || VimContext->Mode != VimMode_Normal || DidInput;
+		StringPrintSized(Buffer, BufferSize, "%s%s%s", (FilterText ? FilterText : ""), (ShowOrBlink ? ">>" : ""), CommandString);
+		
+		
+		if (Tab->DirectoryState->Cursor.Valid) {
+			plore_file *CursorFile = &Tab->DirectoryState->Cursor.File;
+			TempPrint(CursorInfoString, 
+				      "[%s] %s %s", 
+				      (CursorFile->Type == PloreFileNode_Directory) ? "directory" : "file", 
+					  CursorFile->Path.FilePart,
+					  PloreTimeFormat(&State->FrameArena, CursorFile->LastModification, "%a %b %d/%m/%y")
+					  );
+		} else {
+			TempPrint(CursorInfoString, 
+				      "[no selection]"
+					  );
+		}
+		
+		if (Button(State->VimguiContext, (vimgui_button_desc) {
+				   .Title     = { 
+					   .Text = CursorInfoString.Buffer, 
+					   .Alignment = VimguiLabelAlignment_Left, 
+					   .Colour = TextColour_CursorInfo,
+					   .Pad = V2(8, FontHeight/4),
+				   },
+				   .Secondary = { 
+					   .Text = Buffer,
+					   .Alignment = VimguiLabelAlignment_Left,
+					   .Pad = V2(0, FontHeight/4),
+					   .Colour = TextColour_Prompt
+				   },
+				   .Rect = { 
+					   .P    = V2(0, WindowDimensions.Y - FooterHeight + FooterPad), 
+					   .Span = V2(WindowDimensions.X-2*PadX, FooterHeight + PadY-20)
+				   },
+					   })) {
+			DoShowCommandList(State, GetCurrentTab(State), State->VimContext, Tab->FileContext, (vim_command) {
+								  .State = VimCommandState_Start,
+								  .Type = VimCommandType_ShowCommandList,
+							  });
+		}
+		
+		
+		if (!ExclusiveListerMode) {
+			for (u64 Col = 0; Col < Cols; Col++) {
+				v2 P      = V2(X, Y);
+				v2 Span   = V2(W-3, H-24);
+				
+				plore_viewable_directory *Directory = ViewDirectories + Col;
+				plore_file_listing *Listing = Directory->File;
+				if (!Listing) continue; /* Parent can be null, if we are currently looking at a top-level directory. */
+				plore_file_listing_info *RowCursor = MapGet(&Tab->FileContext->FileInfo, &Listing->File.Path).Value;
+				char *Title = Listing->File.Path.FilePart;
+				
+				widget_colour_flags WindowColourFlags = WidgetColourFlags_Default;
+				if (Directory->Focus) {
+					if (!StoleFocus) {
+						WindowColourFlags = WidgetColourFlags_Focus;
+					} else {
+						WindowColourFlags = WidgetColourFlags_Hot;
+					}
+				}
+				if (Window(State->VimguiContext, (vimgui_window_desc) {
+							   .ID = (u64)Title+(u64)Tab,
+							   .Title                 = Title,
+							   .Rect                  = {P, Span}, 
+							   .BackgroundColour      = WidgetColour_Window,
+							   .BackgroundColourFlags = WindowColourFlags,
+						   })) {
+					u64 PageMax = (u64) Floor(H / FileRowHeight)-1;
+					u64 Cursor = 0;
+					u64 RowStart = Cursor;
+					u64 RowEnd = Listing->Count;
+					if (RowCursor) {
+						Cursor = RowCursor->Cursor;
+						u64 Page = (u64) (Cursor / PageMax);
+						RowStart = Page*PageMax;
+						
+						u64 RowsAfter = Min(Cursor+PageMax, Listing->Count);
+						RowEnd = Clamp(Cursor + RowsAfter, 0, Listing->Count);
+					}
+					
+					switch (Listing->File.Type) {
+						case PloreFileNode_Directory: {
+							for (u64 Row = RowStart; Row < RowEnd; Row++) {
+								plore_file *RowEntry = Listing->Entries + Row;
+								
+								widget_colour BackgroundColour = WidgetColour_RowPrimary;
+								widget_colour_flags WidgetColourFlags = WidgetColourFlags_Default;
+								text_colour TextColour = 0;
+								text_colour_flags TextColourFlags = 0;
+								
+								b64 WeAreOnCursor = RowCursor && RowCursor->Cursor == Row;
+								if (WeAreOnCursor) WidgetColourFlags = WidgetColourFlags_Focus;
+								
+								if (MapGet(&State->Yanked, &RowEntry->Path).Exists) {
+									BackgroundColour = WidgetColour_RowSecondary;
+								} else if (MapGet(&Tab->FileContext->Selected, &RowEntry->Path).Exists) {
+									BackgroundColour = WidgetColour_RowTertiary;
+								} 
+								
+								// TODO(Evan): Hidden files could have a slightly different colour while we're viewing them.
+								b64 PassesFilter = true;
+								if (Tab->FilterState->ISearchFilter.TextCount) {
+									PassesFilter = SubstringNoCase(RowEntry->Path.FilePart, Tab->FilterState->ISearchFilter.Text).IsContained;
+								}
+								
+								if (RowEntry->Type == PloreFileNode_Directory) {
+									TextColour = TextColour_Primary;								
+									if (!PassesFilter) TextColour = TextColour_PrimaryFade;
+								} else {
+									TextColour = TextColour_Secondary;								
+									if (!PassesFilter) TextColour = TextColour_SecondaryFade;
+								}
+								
+								
+								b64 DisplayFileNumbers = false;
+								u64 FileNameSize = 256;
+								temp_string FileName = TempString(&State->FrameArena, 256);
+								if (DisplayFileNumbers) {
+									TempPrint(FileName, "%-3d %s", Row, Listing->Entries[Row].Path.FilePart);
+								} else {
+									TempPrint(FileName, "%s", Listing->Entries[Row].Path.FilePart);
+									
+								}
+								
+								// TODO(Evan): Extended file metadata!
+								temp_string SecondaryText = TempString(&State->FrameArena, 256);
+								if (Tab->FilterState->MetadataDisplay) {
+									u64 EntrySize = RowEntry->Bytes;
+									if (RowEntry->Type == PloreFileNode_File || WeAreOnCursor) {
+										char *EntrySizeLabel = " b";
+										
+										if (RowEntry->Type == PloreFileNode_Directory) {
+											EntrySize = GetDirectorySize(State, &RowEntry->Path);
+										}
+										
+										if (EntrySize > Gigabytes(1)) {
+											EntrySize /= Gigabytes(1);
+											EntrySizeLabel = "gB";
+										} else if (EntrySize > Megabytes(1)) {
+											EntrySize /= Megabytes(1); 
+											EntrySizeLabel = "mB";
+										} else if (EntrySize > Kilobytes(1)) {
+											EntrySize /= Kilobytes(1);
+											EntrySizeLabel = "kB";
+										}
+										
+										TempPrint(SecondaryText, "%s %4d%s", PloreTimeFormat(&State->FrameArena, RowEntry->LastModification, "%b %d/%m/%y"), EntrySize, EntrySizeLabel);
+									} else {
+										TempPrint(SecondaryText, "%s%7s", PloreTimeFormat(&State->FrameArena, RowEntry->LastModification, "%b %d/%m/%y"), "-");
+									}
+									
+								}
+								
+								if (Button(State->VimguiContext, (vimgui_button_desc) {
+											   .Title     = { 
+												   .Text = FileName.Buffer,
+												   .Alignment = VimguiLabelAlignment_Left,
+												   .Colour = TextColour,
+												   .Pad = V2(4, (WeAreOnCursor ? 4 : 0)),
+												   .ColourFlags = TextColourFlags,
+											   },
+											   .Secondary = { 
+												   .Text = SecondaryText.Buffer, 
+												   .Alignment = VimguiLabelAlignment_Right,
+												   .Pad = V2(4, (WeAreOnCursor ? 4 : 0)),
+												   .Colour = TextColour_Tertiary,
+												   .ColourFlags = TextColourFlags,
+											   },
+											   .FillWidth = true,
+											   .BackgroundColour = BackgroundColour,
+											   .BackgroundColourFlags = WidgetColourFlags,
+											   .Rect = { 
+												   .Span = 
+												   { 
+													   .H = WeAreOnCursor ? CursorFileRowHeight : FileRowHeight, 
+												   } 
+											   },
+											   .Pad = V2(0, 4),
+												   
+										   })) {
+									if (Listing->Entries[Row].Type == PloreFileNode_Directory) {
+										Platform->SetCurrentDirectory(Listing->Entries[Row].Path.Absolute);
+									} else {
+										Platform->SetCurrentDirectory(Listing->File.Path.Absolute);
+									}
+									plore_file_listing_info_get_or_create_result CursorResult = GetOrCreateFileInfo(Tab->FileContext, &Listing->File.Path);
+									CursorResult.Info->Cursor = Row;
+								}
+							}
+						} break;
+						case PloreFileNode_File: {
+							
+							local image_preview_handle ImagePreviewHandles[32] = {0};
+							local u64 ImagePreviewHandleCursor = 0;
+							
+							image_preview_handle *MyHandle = 0;
+							
+							// TODO(Evan): Make file loading asynchronous!
+							// TODO(Evan): Make preview work for other image types.
+							switch (Listing->File.Extension) {
+								case PloreFileExtension_BMP:
+								case PloreFileExtension_PNG:
+								case PloreFileExtension_JPG: {
+									for (u64 I = 0; I < ArrayCount(ImagePreviewHandles); I++) {
+										image_preview_handle *Handle = ImagePreviewHandles + I;
+										if (StringsAreEqual(Handle->Path.Absolute, Listing->File.Path.Absolute)) {
+											MyHandle = Handle;
+											break;
+										}
+									}
+									if (!MyHandle) {
+										MyHandle = ImagePreviewHandles + ImagePreviewHandleCursor;
+										ImagePreviewHandleCursor = (ImagePreviewHandleCursor + 1) % ArrayCount(ImagePreviewHandles);
+										
+										// NOTE(Evan): Evict old handles if we need room.
+										if (MyHandle->Allocated) {
+											Platform->DestroyTextureHandle(MyHandle->Texture);
+											MyHandle->Texture = ClearStruct(platform_texture_handle);
+										}
+										MyHandle->Path = Listing->File.Path;
+										
+										load_image_result ImageResult = LoadImage(&State->FrameArena, Listing->File.Path.Absolute, 1024, 1024);
+										
+										if (ImageResult.LoadedSuccessfully) MyHandle->Texture = ImageResult.Texture;
+									}
+									
+									Assert(MyHandle);
+									
+									if (MyHandle->Texture.Opaque) { 
+										Image(State->VimguiContext, (vimgui_image_desc) { 
+													  .ID = (u64) MyHandle,
+													  .Texture = MyHandle->Texture,
+													  .Rect = {
+														  .Span = V2(512, 512),
+													  }, 
+													  .Centered = true, // @Cleanup
+											  });
+									} else {
+										Button(State->VimguiContext, (vimgui_button_desc) {
+													   .Rect = {
+														   .P = V2(FontHeight, H/2),
+														   .Span = V2(W-2*FontHeight, FontHeight*4),
+													   },
+													   .Title = {
+														   .Text = "Could not load image.",
+														   .Alignment = VimguiLabelAlignment_Center,
+													   },
+											   });
+									}
+								} break;
+								
+								// TODO(Evan): Easier way to specify inclusion/exclusion of extensions.
+								default: {
+									platform_readable_file TheFile = Platform->DebugOpenFile(Listing->File.Path.Absolute);
+									if (TheFile.OpenedSuccessfully) {
+										temp_string Text = TempString(&State->FrameArena, Kilobytes(8));
+										platform_read_file_result ReadResult = Platform->DebugReadFileSize(TheFile, Text.Buffer, Text.Capacity);
+										Text.Buffer[ReadResult.BytesRead] = '\0';
+										Assert(ReadResult.ReadSuccessfully);
+										
+										u64 TextBoxID = (u64)HashString(Listing->File.Path.Absolute);
+										
+										TextBox(State->VimguiContext, (vimgui_text_box_desc) {
+													.ID = TextBoxID,
+													.Text = Text.Buffer,
+													.Rect = {
+														.P = V2(2*PadX, FontHeight+4),
+														.Span = V2(W-4*PadX, H-FooterHeight-2*PadY),
+													},
+										});
+										
+										Platform->DebugCloseFile(TheFile);
+									}
+								} break;
+							}
+							
+						} break;
+						
+						InvalidDefaultCase;
+					}
+					WindowEnd(State->VimguiContext);
+				}
+				
+				X += W + PadX;
+			}
+		}
+		
+		WindowEnd(State->VimguiContext);
 	}
-	
-	
 	
 	VimguiEnd(State->VimguiContext);
 	
