@@ -57,7 +57,8 @@ VimguiBegin(plore_vimgui_context *Context, keyboard_and_mouse Input, v2 WindowDi
 		 !It.Finished;
 		 It = MapIterNext(&Context->Windows, It)) {
 		vimgui_window *Window = It.Value;
-		Window->RowCountThisFrame = 0;
+		Window->HeightLeft = Window->Rect.Span.H;
+		Window->HeightTotal = Window->Rect.Span.H;
 		Window->Layer = 0;
 	}
 	
@@ -590,6 +591,7 @@ typedef struct vimgui_button_desc {
 	vimgui_label_desc Secondary;
 	u64 ID;
 	rectangle Rect;
+	v2 Pad;
 	widget_colour BackgroundColour;
 	widget_colour_flags BackgroundColourFlags;
 } vimgui_button_desc;
@@ -610,7 +612,6 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 	}
 	
 	vimgui_window *Window = GetLayoutWindow(Context);
-	if (Window->RowCountThisFrame > Window->RowMax) return false;
 	
 	// NOTE(Evan): Default args.
 	
@@ -618,25 +619,27 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 		f32 FontHeight = GetCurrentFontHeight(Context->Font);
 		f32 TitlePad = FontHeight+8.0f;
 		f32 ButtonStartY = Window->Rect.P.Y + TitlePad;
-		f32 RowPad = 4.0f;
 		f32 RowHeight = Desc.Rect.Span.H;
 		
 		
 		Desc.Rect.Span = (v2) {
 			.W = Window->Rect.Span.X-8.0f,
-			.H = RowHeight - RowPad,
+			.H = RowHeight - Desc.Pad.Y,
 		};
 		
 		Desc.Rect.P = (v2) {
 			.X = Window->Rect.P.X+4.0f,
-			.Y = ButtonStartY + Window->RowCountThisFrame*RowHeight+1,
+			.Y = ButtonStartY + (Window->HeightTotal - Window->HeightLeft),
 		};
-		Window->RowCountThisFrame++;
+		
 		
 	} else {
 		Desc.Rect.P.X += Window->Rect.P.X;
 		Desc.Rect.P.Y += Window->Rect.P.Y;
 	}
+	
+	if (Desc.Rect.Span.H > Window->HeightLeft) return(false);
+	Window->HeightLeft -= (Desc.Rect.Span.H + Desc.Pad.Y);
 	
 	Result = DoHitTest(Context, Window, MyID, Desc.Rect);
 	
@@ -724,9 +727,10 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 			}
 		}
 		MaybeWindow->Rect = Desc.Rect;
+		MaybeWindow->HeightTotal = Desc.Rect.Span.H;
+		MaybeWindow->HeightLeft = Desc.Rect.Span.H;
 		
 		f32 FontHeight = GetCurrentFontHeight(Context->Font);
-		MaybeWindow->RowMax = (Desc.Rect.Span.Y-4.0f) / FontHeight - 1; // @Hardcode
 		MaybeWindow->BackgroundColour = Desc.BackgroundColour;
 		Context->ThisFrame.WindowWeAreLayingOut = MyID;
 		
