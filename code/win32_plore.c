@@ -40,9 +40,9 @@ PLATFORM_DEBUG_ASSERT_HANDLER(WindowsDebugAssertHandler) {
 #include "win32_gl_loader.c"
 
 // NOTE(Evan): For GL bits!
-PLATFORM_DEBUG_PRINT_LINE(WindowsDebugPrintLine);
+PLATFORM_DEBUG_PRINT_LINE(WindowsPrintLine);
 PLATFORM_DEBUG_PRINT(WindowsDebugPrint);
-#define PrintLine WindowsDebugPrintLine
+#define PrintLine WindowsPrintLine
 #define Print WindowsDebugPrint
 
 #include "plore_string.h"
@@ -86,7 +86,7 @@ PLATFORM_DEBUG_PRINT(WindowsDebugPrint) {
     OutputDebugStringA(Buffer);
 }
 
-PLATFORM_DEBUG_PRINT_LINE(WindowsDebugPrintLine) {
+PLATFORM_DEBUG_PRINT_LINE(WindowsPrintLine) {
     va_list Args;
     va_start(Args, Format);
     local char Buffer[256];
@@ -236,7 +236,7 @@ PLATFORM_DESTROY_TEXTURE_HANDLE(WindowsGLDestroyTextureHandle) {
 PLATFORM_SHOW_CURSOR(WindowsShowCursor) {
 	GlobalPloreInput.ThisFrame.CursorIsShowing = Show;
 	DWORD CursorCount = ShowCursor(Show);
-	WindowsDebugPrintLine("CursorCount :: %d", CursorCount);
+	WindowsPrintLine("CursorCount :: %d", CursorCount);
 }
 
 
@@ -424,7 +424,7 @@ PLATFORM_GET_DIRECTORY_ENTRIES(WindowsGetDirectoryEntries) {
 	if (FindHandle != INVALID_HANDLE_VALUE) {
 		do {
 			if (Result.Count >= Result.Size) {
-				WindowsDebugPrintLine("Directory entry capacity reached when querying %s", SearchableDirectoryName);
+				WindowsPrintLine("Directory entry capacity reached when querying %s", SearchableDirectoryName);
 				break; // @Hack
 			}
 			
@@ -471,7 +471,7 @@ PLATFORM_GET_DIRECTORY_ENTRIES(WindowsGetDirectoryEntries) {
 		
 		FindClose(FindHandle);
 	} else {
-		WindowsDebugPrintLine("Could not open directory %s", SearchableDirectoryName);
+		WindowsPrintLine("Could not open directory %s", SearchableDirectoryName);
 	}
 	
 	Result.Succeeded = true;
@@ -597,7 +597,7 @@ PLATFORM_RUN_SHELL(WindowsRunShell) {
 		StringPrintSized(Buffer, PLORE_MAX_PATH, "cmd.exe /s /k \"%s\"", Desc.Command);
 	}
 	
-	WindowsDebugPrintLine("%s", Buffer);
+	WindowsPrintLine("%s", Buffer);
 	
 	EnterCriticalSection(&ProcessHandleTableGuard);
 	
@@ -606,7 +606,7 @@ PLATFORM_RUN_SHELL(WindowsRunShell) {
 	
 	// NOTE(Evan): If we have wrapped around and this process is not finished, we should clean it up first.
 	if (MyProcess->IsRunning) {
-		WindowsDebugPrintLine("Cleaned up process prematurely.");
+		WindowsPrintLine("Cleaned up process prematurely.");
 		
 		CloseHandle(MyProcess->ProcessInfo.hThread);
 		
@@ -654,11 +654,11 @@ PLATFORM_RUN_SHELL(WindowsRunShell) {
 														 WT_EXECUTEONLYONCE);
 														 
 	if (!DidRegisterCleanup) {
-		WindowsDebugPrintLine("Couldn't register %s for cleanup.", Desc.Args);
+		WindowsPrintLine("Couldn't register %s for cleanup.", Desc.Args);
 	}
 	
 	MyProcess->IsRunning = true;
-	WindowsDebugPrintLine("%s running command %s", Result ? "succeeded " : "failed ", Buffer);
+	WindowsPrintLine("%s running command %s", Result ? "succeeded " : "failed ", Buffer);
 	
 	LeaveCriticalSection(&ProcessHandleTableGuard);
 	
@@ -681,7 +681,7 @@ CleanupProcessHandle(void *Context, BOOLEAN WasTimedOut) {
 			}
 		}
 		CloseHandle(MyProcess->ProcessInfo.hProcess);
-		WindowsDebugPrintLine("Cleaned up process successfully.");
+		WindowsPrintLine("Cleaned up process successfully.");
 		
 		MyProcess->NeedsCallbackCleanup = true;
 		MyProcess->IsRunning = false;
@@ -699,7 +699,7 @@ OPENGL_DEBUG_CALLBACK(WindowsGLDebugMessageCallback)
 {
     if (true)//severity == GL_DEBUG_SEVERITY_HIGH || severity == GL_DEBUG_SEVERITY_MEDIUM)
     {
-        WindowsDebugPrintLine("OpenGL error!... Not sure what, just an error!");
+        WindowsPrintLine("OpenGL error!... Not sure what, just an error!");
     }
 }
 
@@ -856,7 +856,7 @@ WindowsCreateAndShowOpenGLWindow(HINSTANCE Instance) {
         WindowsContext.OpenGLContext = wglCreateContext(WindowsContext.DeviceContext);
 		
         if (!wglMakeCurrent(WindowsContext.DeviceContext, WindowsContext.OpenGLContext)) {
-            WindowsDebugPrintLine("Could not make context current!!!");
+            WindowsPrintLine("Could not make context current!!!");
         }
 		
         HMODULE opengl32_dll = LoadLibraryA("opengl32.dll");
@@ -925,13 +925,13 @@ WindowsCreateAndShowOpenGLWindow(HINSTANCE Instance) {
 									 1, 
 									 &PixelFormatIDARB, 
 									 &CountOfMatchingFormatsWindowsCanFind) || CountOfMatchingFormatsWindowsCanFind == 0) {
-            WindowsDebugPrintLine("oh no");
+            WindowsPrintLine("oh no");
         };
 		
         PIXELFORMATDESCRIPTOR SuggestedPixelFormatARB = {0};
         DescribePixelFormat(WindowsContext.DeviceContext, PixelFormatIDARB, sizeof(PIXELFORMATDESCRIPTOR), &SuggestedPixelFormatARB);
         if (!SetPixelFormat(WindowsContext.DeviceContext, PixelFormatIDARB, &SuggestedPixelFormatARB)) {
-            WindowsDebugPrintLine("Could not set pixel format!!");
+            WindowsPrintLine("Could not set pixel format!!");
         }
 		
         int OpenGLAttributes[] =  {
@@ -1108,7 +1108,7 @@ LRESULT CALLBACK WindowsMessagePumpCallback(HWND hwnd, UINT uMsg, WPARAM wParam,
 		} break;
 		
 		case WM_CLOSE: {
-			WindowsDebugPrintLine("WM_CLOSE");
+			WindowsPrintLine("WM_CLOSE");
 			GlobalRunning = false;
 		}
         default:  
@@ -1147,7 +1147,7 @@ WindowsLoadPloreCode(char *DLLPath, char *TempDLLPath, char *LockPath) {
 	b32 BuildLockFileExists = GetFileAttributesExA(LockPath, GetFileExInfoStandard, &Ignored);
 	
 	if (!BuildLockFileExists) {
-		WindowsDebugPrintLine("Trying to copy build lock file...");
+		WindowsPrintLine("Trying to copy build lock file...");
 		Result.DLLLastWriteTime = WindowsGetFileLastWriteTime(DLLPath);
 		
 		u32 CopyCount = 0;
@@ -1156,20 +1156,20 @@ WindowsLoadPloreCode(char *DLLPath, char *TempDLLPath, char *LockPath) {
 			if (GetLastError() == ERROR_FILE_NOT_FOUND) break;
 		}
 		
-		if (CopyCount > 10) WindowsDebugPrintLine("Copy attempts exceeded 10!");
+		if (CopyCount > 10) WindowsPrintLine("Copy attempts exceeded 10!");
 	} else {
-		WindowsDebugPrintLine("Build lock file found.");
+		WindowsPrintLine("Build lock file found.");
 	}
 	
 	
 	Result.DLL = LoadLibraryA(TempDLLPath);
 	if (Result.DLL) {
-		WindowsDebugPrintLine("Loaded DLL found at path :: %s", TempDLLPath);
+		WindowsPrintLine("Loaded DLL found at path :: %s", TempDLLPath);
 		Result.DoOneFrame = (plore_do_one_frame *) GetProcAddress(Result.DLL, "PloreDoOneFrame");
-		WindowsDebugPrintLine("Loaded proc address of procedure PloreDoOneFrame :: %x", Result.DoOneFrame);
+		WindowsPrintLine("Loaded proc address of procedure PloreDoOneFrame :: %x", Result.DoOneFrame);
 		Result.Valid = !!Result.DoOneFrame;
 	} else {
-		WindowsDebugPrintLine("Could not load DLL found at temporary path :: %s", TempDLLPath);
+		WindowsPrintLine("Could not load DLL found at temporary path :: %s", TempDLLPath);
 	}
 	
 	return(Result);
@@ -1250,7 +1250,7 @@ int WinMain (
         .DebugReadFileSize   = WindowsDebugReadFileSize,
 		.DebugCloseFile      = WindowsDebugCloseFile,
 		
-        .DebugPrintLine = WindowsDebugPrintLine,
+        .DebugPrintLine = WindowsPrintLine,
         .DebugPrint     = WindowsDebugPrint,
 #endif
 		
@@ -1345,9 +1345,9 @@ int WinMain (
 		GlobalPloreInput.DLLWasReloaded = false;
 		FILETIME DLLCurrentWriteTime = WindowsGetFileLastWriteTime(PloreDLLPath);
 		if (CompareFileTime(&DLLCurrentWriteTime, &PloreCode.DLLLastWriteTime) != 0) {
-			WindowsDebugPrintLine("Unloading plore DLL.");
+			WindowsPrintLine("Unloading plore DLL.");
 			WindowsUnloadPloreCode(PloreCode);
-			WindowsDebugPrintLine("Re-loading plore DLL.");
+			WindowsPrintLine("Re-loading plore DLL.");
 			GlobalPloreInput.DLLWasReloaded = true;
 		    PloreCode = WindowsLoadPloreCode(PloreDLLPath, TempDLLPath, LockPath);
 		}
@@ -1408,7 +1408,7 @@ int WinMain (
 		
     }
 	
-	WindowsDebugPrintLine("EXITED MAIN LOOP.");
+	WindowsPrintLine("EXITED MAIN LOOP.");
 
 	WindowsUnloadPloreCode(PloreCode);
     // TODO: Other cleanup!
