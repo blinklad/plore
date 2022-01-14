@@ -403,6 +403,9 @@ PLATFORM_GET_DIRECTORY_SIZE(WindowsGetDirectorySize) {
 	return(Result);
 }
 
+PLATFORM_DIRECTORY_SIZE_TASK_BEGIN(WindowsDirectorySizeTaskBegin) {
+}
+
 // NOTE(Evan): Directory name should not include trailing '\' nor any '*' or '?' wildcards.
 PLATFORM_GET_DIRECTORY_ENTRIES(WindowsGetDirectoryEntries) {
 	directory_entry_result Result = {
@@ -1198,6 +1201,20 @@ WindowsPushPath(char *Buffer, u64 BufferSize, char *Piece, u64 PieceSize, b64 Tr
 	return(true);
 }
 
+HANDLE WindowsSemaphore;
+
+DWORD WINAPI
+WindowsThreadStart(void *Param) {
+	for (;;) {
+		DWORD WaitResult = WaitForSingleObject(WindowsSemaphore,
+											   INFINITE);
+		if (WaitResult) {
+			int BreakHere = 5;
+			BreakHere;
+		}
+	}
+}
+
 int WinMain (
     HINSTANCE Instance,
     HINSTANCE PrevInstance,
@@ -1237,6 +1254,33 @@ int WinMain (
 	WindowsPushPath(TempDLLPath, ArrayCount(TempDLLPath), TempDLLPathString, StringLength(TempDLLPathString), false);
 	WindowsPushPath(LockPath, ArrayCount(LockPath), LockPathString, StringLength(LockPathString), false);
 	
+	SYSTEM_INFO SystemInfo = {0};
+	GetSystemInfo(&SystemInfo);
+	
+	enum { MaxThreads = 4 };
+	typedef struct win32_thread_info {
+		u64 ID;
+		HANDLE Handle;
+	} win32_thread_info;
+	
+	WindowsSemaphore = CreateSemaphore(NULL,
+									   0,
+									   MaxThreads,
+									   NULL);
+	Assert(WindowsSemaphore);
+	
+	win32_thread_info Threads[MaxThreads] = {0};
+	for (u64 T = 0; T < ArrayCount(Threads); T++) {
+		Threads[T] = (win32_thread_info) {
+			.ID = T,
+			.Handle = CreateThread(0,
+								   0,
+								   WindowsThreadStart,
+								   0,
+								   0,
+								   0)
+		};
+	}
 	
     platform_api WindowsPlatformAPI = {
         // TODO(Evan): Update these on resize!
@@ -1266,6 +1310,7 @@ int WinMain (
 #undef CreateFile          // @Hack
 #undef CreateDirectory     // @Hack
 #undef DeleteFile          // @Hack
+		.DirectorySizeTaskBegin  = WindowsDirectorySizeTaskBegin,
 		
 		.GetDirectoryEntries     = WindowsGetDirectoryEntries,
 		.GetDirectorySize        = WindowsGetDirectorySize,
