@@ -2,6 +2,9 @@
 #define PLORE_PLATFORM
 
 #include "plore_file.h"
+
+typedef struct platform_taskmaster platform_taskmaster;
+
 typedef struct platform_readable_file {
     void *Opaque;
     u64 FileSize;
@@ -122,6 +125,10 @@ typedef struct directory_entry_result {
 #define PLATFORM_GET_DIRECTORY_ENTRIES(name) directory_entry_result name(char *DirectoryName, plore_file *Buffer, u64 Size)
 typedef PLATFORM_GET_DIRECTORY_ENTRIES(platform_get_directory_entries);
 
+#define PLATFORM_DIRECTORY_SIZE_TASK_BEGIN(name) void name(platform_taskmaster *Taskmaster, plore_directory_query_state *State)
+typedef PLATFORM_DIRECTORY_SIZE_TASK_BEGIN(platform_directory_size_task_begin);
+
+// @Deprecated
 #define PLATFORM_GET_DIRECTORY_SIZE(name) u64 name(char *DirectoryName)
 typedef PLATFORM_GET_DIRECTORY_SIZE(platform_get_directory_size);
 
@@ -148,6 +155,8 @@ typedef PLATFORM_DEBUG_ASSERT_HANDLER(platform_debug_assert_handler);
 
 // NOTE(Evan): Platform API
 typedef struct platform_api {
+	platform_taskmaster *Taskmaster;
+	
 	union {
 		v2 WindowDimensions;
 		struct {
@@ -170,8 +179,10 @@ typedef struct platform_api {
     platform_debug_print_line            *DebugPrintLine;
     platform_debug_print                 *DebugPrint;
 	
+	platform_directory_size_task_begin   *DirectorySizeTaskBegin;
+	
 	platform_get_directory_entries       *GetDirectoryEntries;
-	platform_get_directory_size          *GetDirectorySize;
+	platform_get_directory_size          *GetDirectorySize; // @Deprecated
 	platform_get_current_directory       *GetCurrentDirectory;
 	platform_get_current_directory_path  *GetCurrentDirectoryPath;
 	platform_set_current_directory       *SetCurrentDirectory;
