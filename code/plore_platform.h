@@ -128,10 +128,6 @@ typedef PLATFORM_GET_DIRECTORY_ENTRIES(platform_get_directory_entries);
 #define PLATFORM_DIRECTORY_SIZE_TASK_BEGIN(name) void name(platform_taskmaster *Taskmaster, plore_directory_query_state *State)
 typedef PLATFORM_DIRECTORY_SIZE_TASK_BEGIN(platform_directory_size_task_begin);
 
-// @Deprecated
-#define PLATFORM_GET_DIRECTORY_SIZE(name) u64 name(char *DirectoryName)
-typedef PLATFORM_GET_DIRECTORY_SIZE(platform_get_directory_size);
-
 #define PLATFORM_MOVE_FILE(name) b64 name(char *sAbsolutePath, char *dAbsolutePath)
 typedef PLATFORM_MOVE_FILE(platform_move_file);
 
