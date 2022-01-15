@@ -355,12 +355,35 @@ WindowsMakePathSearchable(char *Directory, char *Buffer, u64 Size) {
 char ChildStack[MAX_SEARCH_DEPTH][PLORE_MAX_PATH];
 u64 ChildStackCount;
 
-PLATFORM_GET_DIRECTORY_SIZE(WindowsGetDirectorySize) {
+
+typedef void task_procedure (void *Param);
+
+typedef struct platform_task {
+	task_procedure *Procedure;
+	void *Data;
+	b64 Running;
+	char Pad[40]; // NOTE(Evan): Aligns to a cache boundary presumably of 64 bytes.
+} platform_task;
+
+enum { Taskmaster_MaxTasks = 32 };
+
+typedef struct platform_taskmaster {
+	platform_task volatile Tasks[32];
+	u64           volatile TaskCount;
+	u64           volatile TaskCursor;
+} platform_taskmaster;
+
+internal void
+WindowsGetDirectorySize(void *Param) {
 	u64 Result = 0;
 	
 	StringCopy(DirectoryName, ChildStack[ChildStackCount++], ArrayCount(ChildStack[0]));
 	
 	while (ChildStackCount) {
+		if (!AtomicRead(SearchActive)) {
+			break;
+		}
+		
 		WIN32_FIND_DATA FindData = {0};
 		
 		char ThisDirectory[PLORE_MAX_PATH] = {0};
@@ -378,9 +401,9 @@ PLATFORM_GET_DIRECTORY_SIZE(WindowsGetDirectorySize) {
 				if (FindData.cFileName[0] == '.' || FindData.cFileName[0] == '$') continue;
 				
 				DWORD FlagsToIgnore = FILE_ATTRIBUTE_DEVICE     |
-									   FILE_ATTRIBUTE_ENCRYPTED |
-									   FILE_ATTRIBUTE_OFFLINE   |
-									   FILE_ATTRIBUTE_TEMPORARY;
+					FILE_ATTRIBUTE_ENCRYPTED |
+					FILE_ATTRIBUTE_OFFLINE   |
+					FILE_ATTRIBUTE_TEMPORARY;
 				
 				if (FindData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
 					if (ChildStackCount < MAX_SEARCH_DEPTH) {
@@ -395,15 +418,43 @@ PLATFORM_GET_DIRECTORY_SIZE(WindowsGetDirectorySize) {
 					Result += (FindData.nFileSizeHigh * (MAXDWORD+1)) + FindData.nFileSizeLow;
 				}
 			} while (FindNextFile(FindHandle, &FindData));
-				
+			
 			FindClose(FindHandle);
 		}
+	}
+	
+	if (!AtomicRead(SearchActive)) {
+		SemaphorePost(SearchSemaphore);
+	} else {
+		AtomicWrite(SearchActive, false);
 	}
 	
 	return(Result);
 }
 
+internal void
+PushTask(platform_taskmaster *Taskmaster, task_procedure *Procedure, void *Param) {
+	u64 Index = AtomicIncrement(Taskmaster->TaskCount)-1;
+	u64 CircularIndex = Index % ArrayCount(Taskmaster->Tasks);
+	b64 Running = AtomicRead(Taskmaster->Tasks[Index].Running);
+	Assert(!Running);
+	
+	Taskmaster->Tasks[Index] = (platform_task) {
+		.Procedure = Procedure,
+		.Param = Param,
+	};
+	SemaphorePost(
+}
+
 PLATFORM_DIRECTORY_SIZE_TASK_BEGIN(WindowsDirectorySizeTaskBegin) {
+	b64 SearchIsActive = AtomicRead(SearchActive);
+	if (SearchIsActive) {
+		b64 SearchTransactionCompleted = AtomicCompareExchange(SearchActive, true, false);
+		if (SearchTransactionCompleted) {
+			SemaphoreWait(SearchSemaphore);
+		}
+	}
+	PushTask(Taskmaster, State);
 }
 
 // NOTE(Evan): Directory name should not include trailing '\' nor any '*' or '?' wildcards.
@@ -1201,17 +1252,17 @@ WindowsPushPath(char *Buffer, u64 BufferSize, char *Piece, u64 PieceSize, b64 Tr
 	return(true);
 }
 
-HANDLE WindowsSemaphore;
+HANDLE TaskAvailableSemaphore;
 
 DWORD WINAPI
 WindowsThreadStart(void *Param) {
+	platform_taskmaster *Taskmaster = (platform_taskmaster *)Param;
+	
 	for (;;) {
-		DWORD WaitResult = WaitForSingleObject(WindowsSemaphore,
+		DWORD WaitResult = WaitForSingleObject(TaskAvailableSemaphore,
 											   INFINITE);
-		if (WaitResult) {
-			int BreakHere = 5;
-			BreakHere;
-		}
+		u64 Index = AtomicIncrement(Taskmaster->Cursor)-1;
+		u64 CircularIndex = (Index + 1) % ArrayCount(Taskmaster->Tasks);
 	}
 }
 
@@ -1257,16 +1308,19 @@ int WinMain (
 	SYSTEM_INFO SystemInfo = {0};
 	GetSystemInfo(&SystemInfo);
 	
+	platform_taskmaster Taskmaster = {0};
+	
 	enum { MaxThreads = 4 };
 	typedef struct win32_thread_info {
 		u64 ID;
 		HANDLE Handle;
 	} win32_thread_info;
 	
-	WindowsSemaphore = CreateSemaphore(NULL,
-									   0,
-									   MaxThreads,
-									   NULL);
+	TaskAvailableSemaphore = CreateSemaphore(NULL,
+										     0,
+										     Taskmaster_MaxTasks,
+										     NULL);
+	
 	Assert(WindowsSemaphore);
 	
 	win32_thread_info Threads[MaxThreads] = {0};
@@ -1276,13 +1330,16 @@ int WinMain (
 			.Handle = CreateThread(0,
 								   0,
 								   WindowsThreadStart,
-								   0,
+								   &Taskmaster,
 								   0,
 								   0)
 		};
 	}
 	
+	
     platform_api WindowsPlatformAPI = {
+		.Taskmaster = &Taskmaster,
+		
         // TODO(Evan): Update these on resize!
         .WindowWidth = DEFAULT_WINDOW_WIDTH,
         .WindowHeight = DEFAULT_WINDOW_HEIGHT,
