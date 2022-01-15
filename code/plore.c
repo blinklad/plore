@@ -121,6 +121,7 @@ typedef struct plore_current_directory_state {
 	
 } plore_current_directory_state;
 
+
 typedef struct plore_tab {
 	memory_arena Arena;          // NOTE(Evan): Zeroed when tab is closed.
 	plore_path CurrentDirectory; // NOTE(Evan): Needs to be cached, as current directory is set for the entire process.
@@ -130,8 +131,8 @@ typedef struct plore_tab {
 	b64 Active;
 } plore_tab;
 
-
 enum { PloreTab_Count = 8 }; 
+
 typedef struct plore_state {
 	b64 Initialized;
 	b64 ShouldQuit;
@@ -147,8 +148,6 @@ typedef struct plore_state {
 	
 	// NOTE(Evan): Cache of recent recursive directory queries. Invalidated after 1 minute.
 	plore_map DirectorySizes;
-	
-	plore_directory_query_state DirectoryQuery;
 	
 	plore_vim_context *VimContext;
 	plore_vimgui_context *VimguiContext; // TODO(Evan): Move this so it's a per-tab thing.
@@ -256,10 +255,8 @@ GetKey(char C) {
 // NOTE(Evan): Caches recursive directory traversals, dirtying them after 1 minute.
 internal u64
 GetDirectorySize(plore_state *State, plore_path *Path) {
-	u64 Result = 0;
-	
-#if 0
 	plore_map *Sizes = &State->DirectorySizes;
+	u64 Result = 0;
 	plore_directory_size_info *Info = MapGet(Sizes, Path).Value;
 	if (Info) Result = Info->Size;
 	
@@ -283,15 +280,6 @@ GetDirectorySize(plore_state *State, plore_path *Path) {
 		}
 		
 	}
-#endif
-	
-	if (State->DirectoryQuery.Path && StringsAreEqual(State->DirectoryQuery.Path->Absolute, Path->Absolute)) {
-		Result = State->DirectoryQuery.SizeProgress;
-	} else {
-		Platform->DirectorySizeTaskBegin(Platform->Taskmaster, &State->DirectoryQuery);
-	}
-	
-	
 	
 	return(Result);
 }
@@ -1109,21 +1097,18 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 									
 								}
 								
-								// NOTE(Evan): If we are in extended file info mode, the active directories' cursor should be larger
-								// to accommodate extra space in the future(tm).
-								b64 BigCursorButton = WeAreOnCursor && Directory->Focus;
 								if (Button(State->VimguiContext, (vimgui_button_desc) {
 											   .Title     = { 
 												   .Text = FileName.Buffer,
 												   .Alignment = VimguiLabelAlignment_Left,
 												   .Colour = TextColour,
-												   .Pad = V2(4, (BigCursorButton ? 4 : 0)),
+												   .Pad = V2(4, (WeAreOnCursor ? 4 : 0)),
 												   .ColourFlags = TextColourFlags,
 											   },
 											   .Secondary = { 
 												   .Text = SecondaryText.Buffer, 
 												   .Alignment = VimguiLabelAlignment_Right,
-												   .Pad = V2(4, (BigCursorButton ? 4 : 0)),
+												   .Pad = V2(4, (WeAreOnCursor ? 4 : 0)),
 												   .Colour = TextColour_Tertiary,
 												   .ColourFlags = TextColourFlags,
 											   },
@@ -1133,7 +1118,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 											   .Rect = { 
 												   .Span = 
 												   { 
-													   .H = BigCursorButton ? CursorFileRowHeight : FileRowHeight, 
+													   .H = WeAreOnCursor ? CursorFileRowHeight : FileRowHeight, 
 												   } 
 											   },
 											   .Pad = V2(0, 4),
