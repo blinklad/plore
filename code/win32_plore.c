@@ -325,9 +325,7 @@ PLATFORM_IS_PATH_DIRECTORY(WindowsIsPathDirectory) {
 }
 
 PLATFORM_IS_PATH_TOP_LEVEL(WindowsIsPathTopLevel) {
-	b64 Result = PathIsRoot(Buffer);
-	return(Result);
-	
+	return(PathIsRoot(Buffer));
 }
 
 
