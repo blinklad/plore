@@ -96,7 +96,8 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 - Undo for: Rename, Paste, Delete (PLORE_TRASH/Recycle Bin only). 
 - Persistent: Undo, command history, marked files/directories, bookmarks. Requires plore.history.
 - Track: File ownership (not POSIX, but probably "owned by current user, system, or other")
-- Recursive: ISearch, ~~Directory size~~ (displayed for cursor only), accurate & performant directory size.
+- ISearch: ~~Basic~~, recursive, accurate and asynchronous,
+- Directory size queries: ~~Basic~~ (displayed for focused directory only), ~~asynchronous~~, loading indication, accurate, 
 - CursorInfo: Display cumulative size and number of files
 - Windows file handler: We can read registry entries to find out what programs are used to open an extension. This allows previewing the paths in a lister. Or, we can use `ShellExecute` with the `open` 'verb', which would be harder to provide feedback with, but require less registry reading nonsense.
 
@@ -117,7 +118,7 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 ### Robustness TODOs:
 * Changing assertions to error codes to prevent crashing when a stabler version is made.
 * ... Many more ...
-* Speed improvements for recursive directory traversals.
+* ~~Speed improvements for recursive directory traversals.~~
 
 ## Building
 Currently, there is only a Windows implementation, but the application's design doesn't maintain any OS-specific logic.
