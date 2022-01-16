@@ -1053,10 +1053,38 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								if (Tab->FilterState->MetadataDisplay) {
 									u64 EntrySize = RowEntry->Bytes;
 									if (RowEntry->Type == PloreFileNode_File || WeAreOnCursor) {
+										local f32 WiggleAccum = 0;
+										char *Wiggler = " ";
+										b64 DoWiggle = false;
+										
+										
 										char *EntrySizeLabel = " b";
 										
-										if (RowEntry->Type == PloreFileNode_Directory) {
-											EntrySize = GetDirectorySize(State, &RowEntry->Path);
+										plore_directory_query_state DirectoryQuery = {0};
+										if (RowEntry->Type == PloreFileNode_Directory && Directory->Focus) {
+											DirectoryQuery = GetDirectoryInfo(State, &RowEntry->Path);
+											EntrySize = DirectoryQuery.SizeProgress;
+											if (!DirectoryQuery.Completed) {
+												DoWiggle = true;
+											}
+											
+											if (DoWiggle) {
+												WiggleAccum += State->DT;
+												if (WiggleAccum < 0.25f) {
+													Wiggler = "|";
+												} else if (WiggleAccum < 0.5f) {
+													Wiggler = "/";
+												} else if (WiggleAccum < 0.75f) {
+													Wiggler = "-";
+												} else if (WiggleAccum <= 1.0f) {
+													Wiggler = "\\";
+												} else {
+													WiggleAccum = 0.0f;
+													Wiggler = "|";
+												}
+											} else {
+												Wiggler = "-";
+											}
 										}
 										
 										if (EntrySize > Gigabytes(1)) {
@@ -1070,9 +1098,16 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 											EntrySizeLabel = "kB";
 										}
 										
-										TempPrint(SecondaryText, "%s %4d%s", PloreTimeFormat(&State->FrameArena, RowEntry->LastModification, "%b %d/%m/%y"), EntrySize, EntrySizeLabel);
+										b64 DoDirectoryWiggle = DoWiggle && RowEntry->Type == PloreFileNode_Directory && Directory->Focus;
+										
+										TempPrint(SecondaryText, 
+												  "%s%4d%s %s", 
+												  PloreTimeFormat(&State->FrameArena, RowEntry->LastModification, "%b %d/%m/%y"), 
+												  EntrySize, 
+												  EntrySizeLabel,
+												  Wiggler);
 									} else {
-										TempPrint(SecondaryText, "%s%7s", PloreTimeFormat(&State->FrameArena, RowEntry->LastModification, "%b %d/%m/%y"), "-");
+										TempPrint(SecondaryText, "%s%8s", PloreTimeFormat(&State->FrameArena, RowEntry->LastModification, "%b %d/%m/%y"), "-");
 									}
 									
 								}
