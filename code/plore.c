@@ -145,9 +145,7 @@ typedef struct plore_state {
 	// NOTE(Evan): Globally yanked files, so files can be pasted/moved between tabs.
 	plore_map Yanked;
 	
-	// NOTE(Evan): Cache of recent recursive directory queries. Invalidated after 1 minute.
-	plore_map DirectorySizes;
-	
+	// Updated asynchronously with the metadata corresponding to a recursive traversal of the focused directories' cursor entry.
 	plore_directory_query_state DirectoryQuery;
 	
 	plore_vim_context *VimContext;
@@ -253,44 +251,15 @@ GetKey(char C) {
 #include "plore_time.c"
 #include "plore_tab.c"
 
-// NOTE(Evan): Caches recursive directory traversals, dirtying them after 1 minute.
-internal u64
-GetDirectorySize(plore_state *State, plore_path *Path) {
-	u64 Result = 0;
-	
-#if 0
-	plore_map *Sizes = &State->DirectorySizes;
-	plore_directory_size_info *Info = MapGet(Sizes, Path).Value;
-	if (Info) Result = Info->Size;
-	
-	if (!Info || PloreTimeDifferenceInSeconds(Info->LastQueryTime, PloreTimeNow()) > 1.0) {
-		plore_directory_size_info NewInfo = {
-			.Size = Platform->GetDirectorySize(Path->Absolute),
-			.LastQueryTime = PloreTimeNow(),
-		};
-		
-		if (Info) {
-			*Info = NewInfo;
-		} else if (Sizes->Count < Sizes->Capacity) {
-			MapInsert(Sizes, Path, &NewInfo);
-		} else {
-			// TODO(Evan): Move from a hash table to a LRU cache, otherwise this will spike frametimes when thrashing.
-			PrintLine("Capacity reached! %d/%d", Sizes->Count, Sizes->Capacity);
-			u64 Random = PloreRandom() % Sizes->Capacity;
-			plore_path *Old = _GetKey(Sizes, Random);
-			MapRemove(Sizes, Old);
-			MapInsert(Sizes, Path, &NewInfo);
-		}
-		
-	}
-#endif
+internal plore_directory_query_state
+GetDirectoryInfo(plore_state *State, plore_path *Path) {
+	plore_directory_query_state Result = {0};
 	
 	if (State->DirectoryQuery.Path && StringsAreEqual(State->DirectoryQuery.Path->Absolute, Path->Absolute)) {
-		Result = State->DirectoryQuery.SizeProgress;
+		Result = State->DirectoryQuery;
 	} else {
-		Platform->DirectorySizeTaskBegin(Platform->Taskmaster, &State->DirectoryQuery);
+		Platform->DirectorySizeTaskBegin(Platform->Taskmaster, Path, &State->DirectoryQuery);
 	}
-	
 	
 	
 	return(Result);
@@ -383,7 +352,6 @@ PloreInit(memory_arena *Arena) {
 	State->Arena = *Arena;
 	
 	State->Yanked = MapInit(&State->Arena, plore_path, void, 256);
-	State->DirectorySizes = MapInit(&State->Arena, plore_path, plore_directory_size_info, 256);
 	for (u64 T = 0; T < ArrayCount(State->Tabs); T++) {
 		plore_tab *Tab = State->Tabs + T;
 		Tab->Arena = SubArena(&State->Arena, Megabytes(2), 16);
@@ -1085,10 +1053,38 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								if (Tab->FilterState->MetadataDisplay) {
 									u64 EntrySize = RowEntry->Bytes;
 									if (RowEntry->Type == PloreFileNode_File || WeAreOnCursor) {
+										local f32 WiggleAccum = 0;
+										char *Wiggler = " ";
+										b64 DoWiggle = false;
+										
+										
 										char *EntrySizeLabel = " b";
 										
-										if (RowEntry->Type == PloreFileNode_Directory) {
-											EntrySize = GetDirectorySize(State, &RowEntry->Path);
+										plore_directory_query_state DirectoryQuery = {0};
+										if (RowEntry->Type == PloreFileNode_Directory && Directory->Focus) {
+											DirectoryQuery = GetDirectoryInfo(State, &RowEntry->Path);
+											EntrySize = DirectoryQuery.SizeProgress;
+											if (!DirectoryQuery.Completed) {
+												DoWiggle = true;
+											}
+											
+											if (DoWiggle) {
+												WiggleAccum += State->DT;
+												if (WiggleAccum < 0.25f) {
+													Wiggler = "|";
+												} else if (WiggleAccum < 0.5f) {
+													Wiggler = "/";
+												} else if (WiggleAccum < 0.75f) {
+													Wiggler = "-";
+												} else if (WiggleAccum <= 1.0f) {
+													Wiggler = "\\";
+												} else {
+													WiggleAccum = 0.0f;
+													Wiggler = "|";
+												}
+											} else {
+												Wiggler = "-";
+											}
 										}
 										
 										if (EntrySize > Gigabytes(1)) {
@@ -1102,9 +1098,16 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 											EntrySizeLabel = "kB";
 										}
 										
-										TempPrint(SecondaryText, "%s %4d%s", PloreTimeFormat(&State->FrameArena, RowEntry->LastModification, "%b %d/%m/%y"), EntrySize, EntrySizeLabel);
+										b64 DoDirectoryWiggle = DoWiggle && RowEntry->Type == PloreFileNode_Directory && Directory->Focus;
+										
+										TempPrint(SecondaryText, 
+												  "%s%4d%s %s", 
+												  PloreTimeFormat(&State->FrameArena, RowEntry->LastModification, "%b %d/%m/%y"), 
+												  EntrySize, 
+												  EntrySizeLabel,
+												  Wiggler);
 									} else {
-										TempPrint(SecondaryText, "%s%7s", PloreTimeFormat(&State->FrameArena, RowEntry->LastModification, "%b %d/%m/%y"), "-");
+										TempPrint(SecondaryText, "%s%8s", PloreTimeFormat(&State->FrameArena, RowEntry->LastModification, "%b %d/%m/%y"), "-");
 									}
 									
 								}

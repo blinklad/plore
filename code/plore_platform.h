@@ -125,12 +125,8 @@ typedef struct directory_entry_result {
 #define PLATFORM_GET_DIRECTORY_ENTRIES(name) directory_entry_result name(char *DirectoryName, plore_file *Buffer, u64 Size)
 typedef PLATFORM_GET_DIRECTORY_ENTRIES(platform_get_directory_entries);
 
-#define PLATFORM_DIRECTORY_SIZE_TASK_BEGIN(name) void name(platform_taskmaster *Taskmaster, plore_directory_query_state *State)
+#define PLATFORM_DIRECTORY_SIZE_TASK_BEGIN(name) void name(platform_taskmaster *Taskmaster, plore_path *Path, plore_directory_query_state *State)
 typedef PLATFORM_DIRECTORY_SIZE_TASK_BEGIN(platform_directory_size_task_begin);
-
-// @Deprecated
-#define PLATFORM_GET_DIRECTORY_SIZE(name) u64 name(char *DirectoryName)
-typedef PLATFORM_GET_DIRECTORY_SIZE(platform_get_directory_size);
 
 #define PLATFORM_MOVE_FILE(name) b64 name(char *sAbsolutePath, char *dAbsolutePath)
 typedef PLATFORM_MOVE_FILE(platform_move_file);
@@ -182,7 +178,6 @@ typedef struct platform_api {
 	platform_directory_size_task_begin   *DirectorySizeTaskBegin;
 	
 	platform_get_directory_entries       *GetDirectoryEntries;
-	platform_get_directory_size          *GetDirectorySize; // @Deprecated
 	platform_get_current_directory       *GetCurrentDirectory;
 	platform_get_current_directory_path  *GetCurrentDirectoryPath;
 	platform_set_current_directory       *SetCurrentDirectory;

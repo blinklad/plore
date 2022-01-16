@@ -325,9 +325,7 @@ PLATFORM_IS_PATH_DIRECTORY(WindowsIsPathDirectory) {
 }
 
 PLATFORM_IS_PATH_TOP_LEVEL(WindowsIsPathTopLevel) {
-	b64 Result = PathIsRoot(Buffer);
-	return(Result);
-	
+	return(PathIsRoot(Buffer));
 }
 
 
@@ -349,18 +347,53 @@ WindowsMakePathSearchable(char *Directory, char *Buffer, u64 Size) {
 	return(true);
 }
 
-// NOTE(Evan): A depth of 32 is not 100% accurate, but is a reasonable holdover until a better performing and more accurate solution
-// (parallel or otherwise) is implemented!
-#define MAX_SEARCH_DEPTH 32
-char ChildStack[MAX_SEARCH_DEPTH][PLORE_MAX_PATH];
-u64 ChildStackCount;
+typedef void task_procedure (void *Param);
 
-PLATFORM_GET_DIRECTORY_SIZE(WindowsGetDirectorySize) {
-	u64 Result = 0;
+typedef struct platform_task {
+	task_procedure *Procedure;
+	void *Param;
+	b64 Running;
+	char Pad[40]; // NOTE(Evan): Aligns to a cache boundary presumably of 64 bytes.
+} platform_task;
+
+enum { Taskmaster_MaxTasks = 32 };
+
+typedef struct platform_taskmaster {
+	platform_task Tasks[32];
+	LONG64        volatile TaskCount;
+	LONG64        volatile TaskCursor;
+} platform_taskmaster;
+
+#define FullMemoryBarrier MemoryBarrier(); _ReadWriteBarrier();
+HANDLE TaskAvailableSemaphore;
+
+// NOTE(Evan): This size is empirically validated to be pretty reasonable, although not 100% accurate.
+#define MAX_SEARCH_DIRECTORIES 1024
+char ChildStack[MAX_SEARCH_DIRECTORIES][PLORE_MAX_PATH];
+u64 ChildStackCount;
+HANDLE SearchSemaphore;
+volatile LONG64 SearchActive;
+
+// NOTE(Evan): This is okay because only one instance of this task is allowed to exist at a time.
+// If that invariant is broken, all bets are off anyway!
+static plore_path ActivePath = {0};
+internal void
+WindowsGetDirectorySize(void *Param) {
+	InterlockedExchange64(&SearchActive, true);
 	
-	StringCopy(DirectoryName, ChildStack[ChildStackCount++], ArrayCount(ChildStack[0]));
+	plore_directory_query_state *State = (plore_directory_query_state *)Param;
+	
+	StringCopy(ActivePath.Absolute, ChildStack[ChildStackCount++], ArrayCount(ChildStack[0]));
+	
+	u64 SizeAccum = 0;
+	u64 FileAccum = 0;
+	u64 DirectoryAccum = 0;
 	
 	while (ChildStackCount) {
+		if (!SearchActive) {
+			break;
+		}
+		
 		WIN32_FIND_DATA FindData = {0};
 		
 		char ThisDirectory[PLORE_MAX_PATH] = {0};
@@ -378,12 +411,13 @@ PLATFORM_GET_DIRECTORY_SIZE(WindowsGetDirectorySize) {
 				if (FindData.cFileName[0] == '.' || FindData.cFileName[0] == '$') continue;
 				
 				DWORD FlagsToIgnore = FILE_ATTRIBUTE_DEVICE     |
-									   FILE_ATTRIBUTE_ENCRYPTED |
-									   FILE_ATTRIBUTE_OFFLINE   |
-									   FILE_ATTRIBUTE_TEMPORARY;
+					FILE_ATTRIBUTE_ENCRYPTED |
+					FILE_ATTRIBUTE_OFFLINE   |
+					FILE_ATTRIBUTE_TEMPORARY;
 				
 				if (FindData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-					if (ChildStackCount < MAX_SEARCH_DEPTH) {
+					DirectoryAccum += 1;
+					if (ChildStackCount < MAX_SEARCH_DIRECTORIES) {
 						char *ChildStackEntry = ChildStack[ChildStackCount++];
 						
 						// NOTE(Evan): Make the file name an absolute path.
@@ -392,18 +426,63 @@ PLATFORM_GET_DIRECTORY_SIZE(WindowsGetDirectorySize) {
 						StringCopy(FindData.cFileName, ChildStackEntry+BytesWritten, PLORE_MAX_PATH-BytesWritten);
 					}
 				} else if (!(FindData.dwFileAttributes & FlagsToIgnore)) {
-					Result += (FindData.nFileSizeHigh * (MAXDWORD+1)) + FindData.nFileSizeLow;
+					FileAccum += 1;
+					SizeAccum += (FindData.nFileSizeHigh * (MAXDWORD+1)) + FindData.nFileSizeLow;
 				}
 			} while (FindNextFile(FindHandle, &FindData));
-				
+			
 			FindClose(FindHandle);
 		}
+		
+		State->SizeProgress = SizeAccum;
+		State->FileCount = FileAccum;
+		State->DirectoryCount = DirectoryAccum;
 	}
 	
-	return(Result);
+	ChildStackCount = 0;
+	State->Completed = true;
+	
+	// NOTE(Evan): If the search was cancelled by a new task, signal that we're done.
+	// Otherwise, toggle the search as usual.
+	if (!SearchActive) {
+		ReleaseSemaphore(SearchSemaphore, 1, NULL);
+	} else {
+		InterlockedExchange64(&SearchActive, false);
+	}
+}
+
+internal void
+PushTask(platform_taskmaster *Taskmaster, task_procedure *Procedure, void *Param) {
+	u64 Index = InterlockedIncrement(&(LONG)Taskmaster->TaskCount)-1;
+	u64 CircularIndex = Index % ArrayCount(Taskmaster->Tasks);
+	b64 Running = Taskmaster->Tasks[CircularIndex].Running;
+	Assert(!Running);
+	FullMemoryBarrier;
+	
+	Taskmaster->Tasks[CircularIndex] = (platform_task) {
+		.Procedure = Procedure,
+		.Param = Param,
+	};
+	ReleaseSemaphore(TaskAvailableSemaphore, 1, NULL);
 }
 
 PLATFORM_DIRECTORY_SIZE_TASK_BEGIN(WindowsDirectorySizeTaskBegin) {
+	// NOTE(Evan): Check if there is a search active, and if we interrupted it, wait until it signals completion
+	// before pushing a new search task.
+	if (SearchActive) {
+		b64 StoppedSearch = InterlockedCompareExchange64(&SearchActive, false, true);
+		if (StoppedSearch) {
+			WaitForSingleObject(SearchSemaphore, INFINITE);
+		}
+	}
+	
+	*State = (plore_directory_query_state) {
+		.Path = Path,
+	};
+	ActivePath = *State->Path;
+	FullMemoryBarrier;
+	
+	PushTask(Taskmaster, WindowsGetDirectorySize, State);
 }
 
 // NOTE(Evan): Directory name should not include trailing '\' nor any '*' or '?' wildcards.
@@ -1201,16 +1280,21 @@ WindowsPushPath(char *Buffer, u64 BufferSize, char *Piece, u64 PieceSize, b64 Tr
 	return(true);
 }
 
-HANDLE WindowsSemaphore;
 
 DWORD WINAPI
 WindowsThreadStart(void *Param) {
+	platform_taskmaster *Taskmaster = (platform_taskmaster *)Param;
+	
 	for (;;) {
-		DWORD WaitResult = WaitForSingleObject(WindowsSemaphore,
+		DWORD WaitResult = WaitForSingleObject(TaskAvailableSemaphore,
 											   INFINITE);
-		if (WaitResult) {
-			int BreakHere = 5;
-			BreakHere;
+		u64 Initial = Taskmaster->TaskCursor;
+		i64 MaybeNewCursor = InterlockedCompareExchange64(&Taskmaster->TaskCursor, (Initial + 1) % ArrayCount(Taskmaster->Tasks), Initial);
+		if ((u64)Taskmaster->TaskCursor != Initial) {
+			platform_task *Task = Taskmaster->Tasks + Initial;
+			Assert(!Task->Running);
+			Task->Procedure(Task->Param);
+			Task->Running = false;
 		}
 	}
 }
@@ -1257,17 +1341,27 @@ int WinMain (
 	SYSTEM_INFO SystemInfo = {0};
 	GetSystemInfo(&SystemInfo);
 	
+	platform_taskmaster Taskmaster = {0};
+	
 	enum { MaxThreads = 4 };
 	typedef struct win32_thread_info {
 		u64 ID;
 		HANDLE Handle;
 	} win32_thread_info;
 	
-	WindowsSemaphore = CreateSemaphore(NULL,
-									   0,
-									   MaxThreads,
-									   NULL);
-	Assert(WindowsSemaphore);
+	TaskAvailableSemaphore = CreateSemaphore(NULL,
+										     0,
+										     Taskmaster_MaxTasks,
+										     NULL);
+	
+	Assert(TaskAvailableSemaphore);
+	
+	SearchSemaphore = CreateSemaphore(NULL,
+								      0,
+								      1,
+								      NULL);
+	
+	Assert(SearchSemaphore);
 	
 	win32_thread_info Threads[MaxThreads] = {0};
 	for (u64 T = 0; T < ArrayCount(Threads); T++) {
@@ -1276,13 +1370,16 @@ int WinMain (
 			.Handle = CreateThread(0,
 								   0,
 								   WindowsThreadStart,
-								   0,
+								   &Taskmaster,
 								   0,
 								   0)
 		};
 	}
 	
+	
     platform_api WindowsPlatformAPI = {
+		.Taskmaster = &Taskmaster,
+		
         // TODO(Evan): Update these on resize!
         .WindowWidth = DEFAULT_WINDOW_WIDTH,
         .WindowHeight = DEFAULT_WINDOW_HEIGHT,
@@ -1313,7 +1410,6 @@ int WinMain (
 		.DirectorySizeTaskBegin  = WindowsDirectorySizeTaskBegin,
 		
 		.GetDirectoryEntries     = WindowsGetDirectoryEntries,
-		.GetDirectorySize        = WindowsGetDirectorySize,
 		.GetCurrentDirectory     = WindowsGetCurrentDirectory,
 		.GetCurrentDirectoryPath = WindowsGetCurrentDirectoryPath,
 		.SetCurrentDirectory     = WindowsSetCurrentDirectory,
