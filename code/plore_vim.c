@@ -664,13 +664,15 @@ PLORE_VIM_COMMAND(Paste)  {
 		u64 PastedCount = 0;
 		plore_file_listing *Current = &Tab->DirectoryState->Current;
 		u64 WeAreTopLevel = Platform->IsPathTopLevel(Current->File.Path.Absolute, PLORE_MAX_PATH);
+		
+		//task_with_memory_handle TaskHandle = Platform->CreateTaskWithMemory(State->Taskmaster);
 		for (plore_map_iterator It = MapIter(&State->Yanked);
 			 !It.Finished;
 			 It = MapIterNext(&State->Yanked, It)) {
 			
 			plore_path *Movee = It.Key;
 			
-			char NewPath[PLORE_MAX_PATH] = {0};
+			plore_path_buffer NewPath = {0};
 			u64 BytesWritten = StringCopy(Current->File.Path.Absolute, NewPath, PLORE_MAX_PATH);
 			Assert(BytesWritten < PLORE_MAX_PATH - 1);
 			if (!WeAreTopLevel) {
