@@ -95,10 +95,13 @@ plore_handler PloreFileExtensionHandlers[][PLORE_FILE_EXTENSION_HANDLER_MAX] = {
 };
 #undef PLORE_X
 
-#define PLORE_MAX_PATH 256
+// TODO(Evan): Size improvements.
+#define PLORE_MAX_PATH 260
+typedef char plore_path_buffer[PLORE_MAX_PATH];
+
 typedef struct plore_path {
-	char Absolute[PLORE_MAX_PATH];
-	char FilePart[PLORE_MAX_PATH];
+	plore_path_buffer Absolute;
+	plore_path_buffer FilePart; // TODO(Evan): Byte offset
 } plore_path;
 
 typedef struct plore_file {
