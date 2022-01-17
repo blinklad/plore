@@ -5,6 +5,7 @@
 #include "plore_platform.h"
 
 #include "win32_plore.h"
+
 global plore_input GlobalPloreInput;
 global windows_timer GlobalWindowsTimer;      // TODO(Evan): Timing!
 global windows_context *GlobalWindowsContext;
@@ -302,7 +303,7 @@ PLATFORM_SET_CURRENT_DIRECTORY(WindowsSetCurrentDirectory) {
 }
 
 PLATFORM_POP_PATH_NODE(WindowsPopPathNode) {
-	plore_pop_path_node_result Result = {
+	platform_pop_path_node_result Result = {
 		.DidRemoveSomething = true,
 		.AbsolutePath = Buffer,
 	};
@@ -317,6 +318,11 @@ PLATFORM_POP_PATH_NODE(WindowsPopPathNode) {
 	Result.FilePart = PathFindFileName(Result.AbsolutePath);
 	
 	return(Result);
+}
+
+PLATFORM_PUSH_PATH_NODE(WindowsPushPathNode) {
+	Assert((StringLength(Buffer)+1) >= PLORE_MAX_PATH);
+	PathAppendA(Buffer, Other);
 }
 
 PLATFORM_IS_PATH_DIRECTORY(WindowsIsPathDirectory) {
