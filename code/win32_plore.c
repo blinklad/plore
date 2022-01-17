@@ -353,17 +353,7 @@ WindowsMakePathSearchable(char *Directory, char *Buffer, u64 Size) {
 	return(true);
 }
 
-typedef void task_procedure (void *Param);
-
-typedef struct platform_task {
-	task_procedure *Procedure;
-	void *Param;
-	b64 Running;
-	char Pad[40]; // NOTE(Evan): Aligns to a cache boundary presumably of 64 bytes.
-} platform_task;
-
 enum { Taskmaster_MaxTasks = 32 };
-
 typedef struct platform_taskmaster {
 	platform_task Tasks[32];
 	LONG64        volatile TaskCount;
@@ -373,23 +363,73 @@ typedef struct platform_taskmaster {
 #define FullMemoryBarrier MemoryBarrier(); _ReadWriteBarrier();
 HANDLE TaskAvailableSemaphore;
 
+typedef struct platform_get_next_task_result {
+	platform_task *Task;
+	u64 Index;
+} platform_get_next_task_result;
+
+internal platform_get_next_task_result
+_GetNextTask(platform_taskmaster *Taskmaster) {
+	platform_get_next_task_result Result = {0};
+	
+	Result.Index = InterlockedIncrement(&(LONG)Taskmaster->TaskCount)-1;
+	u64 CircularIndex = Result.Index % ArrayCount(Taskmaster->Tasks);
+	b64 Running = Taskmaster->Tasks[CircularIndex].Running;
+	
+	// TODO(Evan): Upper bound for tasks and error handling for wraparound on full. We shouldn't have many after all.	
+	Assert(!Running); 
+	FullMemoryBarrier;
+	
+	Result.Task = Taskmaster->Tasks + CircularIndex;
+	memory_arena Old = Result.Task->Arena;
+	*Result.Task = ClearStruct(platform_task);
+	Result.Task->Arena = Old;
+	ClearArena(&Result.Task->Arena);
+	
+	return(Result);
+}
+
+
+PLATFORM_CREATE_TASK_WITH_MEMORY(WindowsCreateTaskWithMemory) {
+	platform_get_next_task_result NextTaskResult = _GetNextTask(Taskmaster);
+	task_with_memory_handle Result = {
+		.Arena = &NextTaskResult.Task->Arena,
+		.ID = NextTaskResult.Index,
+	};
+	
+	return(Result);
+}
+
+PLATFORM_START_TASK_WITH_MEMORY(WindowsStartTaskWithMemory) {
+	platform_task *NextTask = Taskmaster->Tasks + (Handle.ID % ArrayCount(Taskmaster->Tasks));
+	NextTask->Procedure = Procedure;
+	NextTask->Param = Param;
+	FullMemoryBarrier;
+	
+	ReleaseSemaphore(TaskAvailableSemaphore, 1, NULL);
+}
+
+PLATFORM_PUSH_TASK(WindowsPushTask) {
+	platform_task *NextTask = _GetNextTask(Taskmaster).Task;
+	NextTask->Procedure = Procedure;
+	NextTask->Param = Param;
+	FullMemoryBarrier;
+	
+	ReleaseSemaphore(TaskAvailableSemaphore, 1, NULL);
+}
+
 // NOTE(Evan): This size is empirically validated to be pretty reasonable, although not 100% accurate.
-#define MAX_SEARCH_DIRECTORIES 1024
+#define MAX_SEARCH_DIRECTORIES 2048
 char ChildStack[MAX_SEARCH_DIRECTORIES][PLORE_MAX_PATH];
 u64 ChildStackCount;
 HANDLE SearchSemaphore;
 volatile LONG64 SearchActive;
 
-// NOTE(Evan): This is okay because only one instance of this task is allowed to exist at a time.
-// If that invariant is broken, all bets are off anyway!
-static plore_path ActivePath = {0};
 internal void
 WindowsGetDirectorySize(void *Param) {
-	InterlockedExchange64(&SearchActive, true);
-	
 	plore_directory_query_state *State = (plore_directory_query_state *)Param;
 	
-	StringCopy(ActivePath.Absolute, ChildStack[ChildStackCount++], ArrayCount(ChildStack[0]));
+	StringCopy(State->Path->Absolute, ChildStack[ChildStackCount++], ArrayCount(ChildStack[0]));
 	
 	u64 SizeAccum = 0;
 	u64 FileAccum = 0;
@@ -457,38 +497,25 @@ WindowsGetDirectorySize(void *Param) {
 	}
 }
 
-internal void
-PushTask(platform_taskmaster *Taskmaster, task_procedure *Procedure, void *Param) {
-	u64 Index = InterlockedIncrement(&(LONG)Taskmaster->TaskCount)-1;
-	u64 CircularIndex = Index % ArrayCount(Taskmaster->Tasks);
-	b64 Running = Taskmaster->Tasks[CircularIndex].Running;
-	Assert(!Running);
-	FullMemoryBarrier;
-	
-	Taskmaster->Tasks[CircularIndex] = (platform_task) {
-		.Procedure = Procedure,
-		.Param = Param,
-	};
-	ReleaseSemaphore(TaskAvailableSemaphore, 1, NULL);
-}
+
 
 PLATFORM_DIRECTORY_SIZE_TASK_BEGIN(WindowsDirectorySizeTaskBegin) {
 	// NOTE(Evan): Check if there is a search active, and if we interrupted it, wait until it signals completion
 	// before pushing a new search task.
 	if (SearchActive) {
-		b64 StoppedSearch = InterlockedCompareExchange64(&SearchActive, false, true);
-		if (StoppedSearch) {
+		b64 SignalledStopSearch = InterlockedCompareExchange64(&SearchActive, false, true);
+		if (SignalledStopSearch) {
 			WaitForSingleObject(SearchSemaphore, INFINITE);
-		}
+		} // Otherwise, it happened to finish before we could toggle the flag.
 	}
 	
 	*State = (plore_directory_query_state) {
 		.Path = Path,
 	};
-	ActivePath = *State->Path;
+	InterlockedExchange64(&SearchActive, true);
 	FullMemoryBarrier;
 	
-	PushTask(Taskmaster, WindowsGetDirectorySize, State);
+	WindowsPushTask(Taskmaster, WindowsGetDirectorySize, State);
 }
 
 // NOTE(Evan): Directory name should not include trailing '\' nor any '*' or '?' wildcards.
@@ -1286,10 +1313,18 @@ WindowsPushPath(char *Buffer, u64 BufferSize, char *Piece, u64 PieceSize, b64 Tr
 	return(true);
 }
 
+typedef struct plore_thread_context {
+	u64 LogicalID;
+	void *Opaque;
+	memory_arena Arena;
+	platform_taskmaster *Taskmaster;
+	char Pad[24]; // NOTE(Evan): Pad out to 64 bytes.
+} plore_thread_context;
 
 DWORD WINAPI
 WindowsThreadStart(void *Param) {
-	platform_taskmaster *Taskmaster = (platform_taskmaster *)Param;
+	plore_thread_context *Context = (plore_thread_context *)Param;
+	platform_taskmaster *Taskmaster = Context->Taskmaster;
 	
 	for (;;) {
 		DWORD WaitResult = WaitForSingleObject(TaskAvailableSemaphore,
@@ -1315,6 +1350,7 @@ int WinMain (
 	DebugConsoleSetup();
 #endif
     
+	// NOTE(Evan): Find absolute runtime paths used to load Plore DLL and reload it on re-compilation.
 	DWORD BytesRequired = PLORE_MAX_PATH - 30;
 	// TODO(Evan): GetModuleDirectory(?)
 	char ExePath[PLORE_MAX_PATH] = {0}; 
@@ -1344,44 +1380,7 @@ int WinMain (
 	WindowsPushPath(TempDLLPath, ArrayCount(TempDLLPath), TempDLLPathString, StringLength(TempDLLPathString), false);
 	WindowsPushPath(LockPath, ArrayCount(LockPath), LockPathString, StringLength(LockPathString), false);
 	
-	SYSTEM_INFO SystemInfo = {0};
-	GetSystemInfo(&SystemInfo);
-	
 	platform_taskmaster Taskmaster = {0};
-	
-	enum { MaxThreads = 4 };
-	typedef struct win32_thread_info {
-		u64 ID;
-		HANDLE Handle;
-	} win32_thread_info;
-	
-	TaskAvailableSemaphore = CreateSemaphore(NULL,
-										     0,
-										     Taskmaster_MaxTasks,
-										     NULL);
-	
-	Assert(TaskAvailableSemaphore);
-	
-	SearchSemaphore = CreateSemaphore(NULL,
-								      0,
-								      1,
-								      NULL);
-	
-	Assert(SearchSemaphore);
-	
-	win32_thread_info Threads[MaxThreads] = {0};
-	for (u64 T = 0; T < ArrayCount(Threads); T++) {
-		Threads[T] = (win32_thread_info) {
-			.ID = T,
-			.Handle = CreateThread(0,
-								   0,
-								   WindowsThreadStart,
-								   &Taskmaster,
-								   0,
-								   0)
-		};
-	}
-	
 	
     platform_api WindowsPlatformAPI = {
 		.Taskmaster = &Taskmaster,
@@ -1429,23 +1428,79 @@ int WinMain (
 		.MoveFile                = WindowsMoveFile,
 		.RenameFile              = WindowsRenameFile,
 		.RunShell                = WindowsRunShell,
+		
+		.CreateTaskWithMemory   = WindowsCreateTaskWithMemory,
+		.StartTaskWithMemory    = WindowsStartTaskWithMemory,
+		.PushTask               = WindowsPushTask,
     };
+	
     plore_code PloreCode = WindowsLoadPloreCode(PloreDLLPath, TempDLLPath, LockPath);
+	
+	SYSTEM_INFO SystemInfo = {0};
+	GetSystemInfo(&SystemInfo);
+	enum { MaxThreads = 4, ThreadArenaSize = Megabytes(8), };
 	
 	
     plore_memory PloreMemory = {
-        .PermanentStorage ={
+        .PermanentStorage = {
            .Size = Megabytes(512),
         },
+		.ThreadStorage = {
+			.Size = 8*ThreadArenaSize,
+		},
     };
     
-    PloreMemory.PermanentStorage.Memory = VirtualAlloc(0, PloreMemory.PermanentStorage.Size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-	MemoryClear(PloreMemory.PermanentStorage.Memory, PloreMemory.PermanentStorage.Size);
-    Assert(PloreMemory.PermanentStorage.Memory);
+	// NOTE(Evan): Reserve, commit, and zero memory used for all dynamic allocation.
+	{
+	    PloreMemory.PermanentStorage.Memory = VirtualAlloc(0, PloreMemory.PermanentStorage.Size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+		MemoryClear(PloreMemory.PermanentStorage.Memory, PloreMemory.PermanentStorage.Size);
+	    Assert(PloreMemory.PermanentStorage.Memory);
+		
+		// NOTE(Evan): Right now we check if the base pointer is 16-byte aligned, instead of memory_arenas aligning on initialization,
+		// as there is no formal initialization for arenas, other then SubArena()
+		Assert(((u64)PloreMemory.PermanentStorage.Memory % 16) == 0);
+	}
+	{
+	    PloreMemory.ThreadStorage.Memory = VirtualAlloc(0, PloreMemory.ThreadStorage.Size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+		MemoryClear(PloreMemory.ThreadStorage.Memory, PloreMemory.ThreadStorage.Size);
+	    Assert(PloreMemory.ThreadStorage.Memory);
+		
+		Assert(((u64)PloreMemory.ThreadStorage.Memory % 16) == 0);
+	}
 	
-	// NOTE(Evan): Right now we check if the base pointer is 16-byte aligned, instead of memory_arenas aligning on initialization,
-	// as there is no initialization for arenas.
-	Assert(((u64)PloreMemory.PermanentStorage.Memory % 16) == 0);
+	// NOTE(Evan): Thread creation.
+	
+	TaskAvailableSemaphore = CreateSemaphore(NULL,
+										     0,
+										     Taskmaster_MaxTasks,
+										     NULL);
+	
+	Assert(TaskAvailableSemaphore);
+	
+	SearchSemaphore = CreateSemaphore(NULL,
+								      0,
+								      1,
+								      NULL);
+	
+	Assert(SearchSemaphore);
+	
+	plore_thread_context Threads[MaxThreads] = {0};
+	for (u64 T = 0; T < ArrayCount(Threads); T++) {
+		// NOTE(Evan): Create thread in suspended state then immediately resume it, so we can guarantee its context has a valid handle before it kicks off.
+		Threads[T] = (plore_thread_context) {
+			.LogicalID = T,
+			.Opaque = CreateThread(0,
+								   0,
+								   WindowsThreadStart,
+								   Threads+T,
+								   CREATE_SUSPENDED,
+								   0),
+			.Taskmaster = &Taskmaster,
+			.Arena = SubArena(&PloreMemory.ThreadStorage, Megabytes(8), 16),
+		};
+		
+		ResumeThread(Threads[T].Opaque);
+	}
 
     windows_context WindowsContext = WindowsCreateAndShowOpenGLWindow(Instance);
 	GlobalWindowsContext = &WindowsContext;
