@@ -15,11 +15,6 @@
 #include <stdlib.h> 
 #endif
 
-// NOTE(Evan): This constant is used in plore.h, as although the size is platform-specific, there's no platform-specific semantics required,
-//             other than the size being known in all translation units at compile-time.
-#undef PLORE_MAX_PATH
-#define PLORE_MAX_PATH MAX_PATH
-
 #ifdef Assert
 #undef Assert
 #define Assert(X) if (!(X)) { if (WindowsDebugAssertHandler("Assert fired in Windows platform layer.")) Debugger; }
