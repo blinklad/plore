@@ -147,6 +147,37 @@ typedef struct platform_run_shell_desc {
 typedef PLATFORM_RUN_SHELL(platform_run_shell);
 
 
+// NOTE(Evan): Task bits.
+
+typedef struct memory_arena memory_arena;
+typedef struct platform_taskmaster platform_taskmaster; 
+
+#define PLORE_TASK(name) void name(void *Param)
+typedef PLORE_TASK(task_procedure);
+
+typedef struct platform_task {
+	task_procedure *Procedure;
+	void *Param;
+	memory_arena Arena; // NOTE(Evan): platform_tasks and thread_contexts have arenas for task-creation-time and runtime respectively.
+	b64 Running;
+	char Pad[24]; // NOTE(Evan): Align to cache size assumably of 64 bytes. This could be determined more rigorously.
+} platform_task;
+
+typedef struct task_with_memory_handle {
+	memory_arena *Arena;
+	u64 ID;
+} task_with_memory_handle;
+
+#define PLATFORM_CREATE_TASK_WITH_MEMORY(name) task_with_memory_handle name(platform_taskmaster *Taskmaster)
+typedef PLATFORM_CREATE_TASK_WITH_MEMORY(platform_create_task_with_memory);
+
+#define PLATFORM_START_TASK_WITH_MEMORY(name) void name(platform_taskmaster *Taskmaster, task_with_memory_handle Handle, task_procedure *Procedure, void *Param)
+typedef PLATFORM_START_TASK_WITH_MEMORY(platform_start_task_with_memory);
+
+#define PLATFORM_PUSH_TASK(name) void name(platform_taskmaster *Taskmaster, task_procedure *Procedure, void *Param)
+typedef PLATFORM_PUSH_TASK(platform_push_task);
+
+
 // NOTE(Evan): Returns whether to execute debug trap.
 #define PLATFORM_DEBUG_ASSERT_HANDLER(name) b64 name(char *Message)
 typedef PLATFORM_DEBUG_ASSERT_HANDLER(platform_debug_assert_handler);
@@ -184,6 +215,7 @@ typedef struct platform_api {
 	platform_get_current_directory_path  *GetCurrentDirectoryPath;
 	platform_set_current_directory       *SetCurrentDirectory;
 	platform_pop_path_node               *PopPathNode;
+	platform_push_path_node              *PushPathNode;
 	platform_is_path_directory           *IsPathDirectory;
 	platform_is_path_top_level           *IsPathTopLevel;
 	
@@ -193,6 +225,10 @@ typedef struct platform_api {
 	platform_rename_file                 *RenameFile;
 	platform_delete_file                 *DeleteFile;
 	platform_run_shell                   *RunShell;
+	
+	platform_create_task_with_memory     *CreateTaskWithMemory;
+	platform_start_task_with_memory      *StartTaskWithMemory;
+	platform_push_task                   *PushTask;
 } platform_api;
 
 #endif
