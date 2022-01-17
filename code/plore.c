@@ -156,6 +156,7 @@ typedef struct plore_state {
 	memory_arena FrameArena; // NOTE(Evan): Freed at the beginning of each frame.
 	
 	plore_font *Font;
+	platform_taskmaster *Taskmaster;
 } plore_state;
 
 
@@ -373,6 +374,8 @@ PloreInit(memory_arena *Arena) {
 	State->VimguiContext = PushStruct(&State->Arena, plore_vimgui_context);
 	VimguiInit(&State->Arena, State->VimguiContext, State->RenderList);
 	
+	State->Taskmaster = Platform->Taskmaster;
+	
 	return(State);
 }
 
@@ -393,6 +396,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	if (PloreInput->DLLWasReloaded) {
 		PlatformInit(PlatformAPI);
 		STBIFrameArena = &State->FrameArena;
+		State->Taskmaster = Platform->Taskmaster;
 		DebugInit(State);
 		
 		for (u64 F = 0; F < PloreBakedFont_Count; F++) {
