@@ -97,14 +97,17 @@ typedef PLATFORM_GET_CURRENT_DIRECTORY_PATH(platform_get_current_directory_path)
 #define PLATFORM_SET_CURRENT_DIRECTORY(name) b64 name(char *Name)
 typedef PLATFORM_SET_CURRENT_DIRECTORY(platform_set_current_directory);
 
-typedef struct plore_pop_path_node_result {
+typedef struct platform_pop_path_node_result {
 	b64 DidRemoveSomething;
 	char *AbsolutePath;
 	char *FilePart;
-} plore_pop_path_node_result;
+} platform_pop_path_node_result;
 
-#define PLATFORM_POP_PATH_NODE(name) plore_pop_path_node_result name(char *Buffer, u64 BufferSize, b64 AddTrailingSlash)
+#define PLATFORM_POP_PATH_NODE(name) platform_pop_path_node_result name(char *Buffer, u64 BufferSize, b64 AddTrailingSlash)
 typedef PLATFORM_POP_PATH_NODE(platform_pop_path_node);
+
+#define PLATFORM_PUSH_PATH_NODE(name) void name(char *Buffer, char *Other, u64 BufferSize, b64 AddTrailingSlash)
+typedef PLATFORM_PUSH_PATH_NODE(platform_push_path_node);
 
 #define PLATFORM_IS_PATH_DIRECTORY(name) b64 name(char *Buffer, u64 BufferSize)
 typedef PLATFORM_IS_PATH_DIRECTORY(platform_is_path_directory);
@@ -133,7 +136,6 @@ typedef PLATFORM_MOVE_FILE(platform_move_file);
 
 #define PLATFORM_RENAME_FILE(name) b64 name(char *sAbsolutePath, char *dAbsolutePath)
 typedef PLATFORM_RENAME_FILE(platform_rename_file);
-
 
 typedef struct platform_run_shell_desc {
 	char *Command;
