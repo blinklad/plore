@@ -662,31 +662,31 @@ PLORE_VIM_COMMAND(ClearYank)  {
 PLORE_VIM_COMMAND(Paste)  {
 	if (State->Yanked.Count) { // @Cleanup
 		u64 PastedCount = 0;
-		plore_file_listing *Current = &Tab->DirectoryState->Current;
-		u64 WeAreTopLevel = Platform->IsPathTopLevel(Current->File.Path.Absolute, PLORE_MAX_PATH);
+		char *NewDirectory = Tab->DirectoryState->Current.File.Path.Absolute;
 		
-		//task_with_memory_handle TaskHandle = Platform->CreateTaskWithMemory(State->Taskmaster);
+		task_with_memory_handle TaskHandle = Platform->CreateTaskWithMemory(State->Taskmaster);
+		plore_move_files_header *Header = PushStruct(TaskHandle.Arena, plore_move_files_header);
+		Header->sAbsolutePaths = PushBytes(TaskHandle.Arena, sizeof(char *)*State->Yanked.Count);
+		Header->dAbsolutePaths = PushBytes(TaskHandle.Arena, sizeof(char *)*State->Yanked.Count);
+		for (u64 P = 0; P < State->Yanked.Count; P++) {
+			Header->sAbsolutePaths[P] = PushBytes(TaskHandle.Arena, PLORE_MAX_PATH);
+			Header->dAbsolutePaths[P] = PushBytes(TaskHandle.Arena, PLORE_MAX_PATH);
+		}
+		
+		Header->Count = 0;
 		for (plore_map_iterator It = MapIter(&State->Yanked);
 			 !It.Finished;
 			 It = MapIterNext(&State->Yanked, It)) {
 			
 			plore_path *Movee = It.Key;
 			
-			plore_path_buffer NewPath = {0};
-			u64 BytesWritten = StringCopy(Current->File.Path.Absolute, NewPath, PLORE_MAX_PATH);
-			Assert(BytesWritten < PLORE_MAX_PATH - 1);
-			if (!WeAreTopLevel) {
-				NewPath[BytesWritten++] = '\\';
-			}
-			StringCopy(Movee->FilePart, NewPath + BytesWritten, PLORE_MAX_PATH);
-			
-			b64 DidMoveOk = Platform->MoveFile(Movee->Absolute, NewPath);
-			if (DidMoveOk) {
-				PastedCount++;
-			} else {
-				DrawText("Couldn't paste `%s`", Movee->FilePart);
-			}
+			PathCopy(Movee->Absolute, Header->sAbsolutePaths[Header->Count]);
+			char *NewPath = Header->dAbsolutePaths[Header->Count];
+			Platform->PathJoin(NewPath, NewDirectory, Movee->FilePart);
+			Header->Count += 1;
 		}
+		
+		Platform->StartTaskWithMemory(State->Taskmaster, TaskHandle, MoveFiles, Header);
 		
 		MapReset(&State->Yanked);
 		MapReset(&FileContext->Selected);
