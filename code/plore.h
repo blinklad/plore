@@ -236,5 +236,11 @@ enum {
     DEFAULT_WINDOW_HEIGHT = 1080,
 };
 
+typedef struct plore_move_files_header {
+	char **sAbsolutePaths;
+	char **dAbsolutePaths;
+	u64 Count;
+} plore_move_files_header;
+
 
 #endif
