@@ -182,7 +182,7 @@ typedef enum text_filter_state {
 } text_filter_state;
 
 typedef struct text_filter {
-	char Text[PLORE_MAX_PATH];
+	plore_path_buffer Text;
 	u64 TextCount;
 	text_filter_state State;
 } text_filter;
