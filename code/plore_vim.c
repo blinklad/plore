@@ -524,17 +524,17 @@ PLORE_VIM_COMMAND(OpenFile) {
 PLORE_VIM_COMMAND(MoveLeft) {
 	u64 ScalarCount = 0;
 	while (Command.Scalar--) {
-		char Buffer[PLORE_MAX_PATH] = {0};
+		plore_path_buffer Buffer = {0};
 		Platform->GetCurrentDirectory(Buffer, PLORE_MAX_PATH);
 		
 		Print("Moving up a directory, from %s ", Buffer);
-		Platform->PopPathNode(Buffer, PLORE_MAX_PATH, false);
+		Platform->PathPop(Buffer, PLORE_MAX_PATH, false);
 		PrintLine("to %s", Buffer);
 		
 		Platform->SetCurrentDirectory(Buffer);
 		ScalarCount++;
 		
-		if (Platform->IsPathTopLevel(Buffer, PLORE_MAX_PATH)) break;
+		if (Platform->PathIsTopLevel(Buffer)) break;
 	}
 	Command.Scalar = ScalarCount;
 }
@@ -555,7 +555,7 @@ PLORE_VIM_COMMAND(MoveRight) {
 			
 			ScalarCount++;
 			
-			if (Platform->IsPathTopLevel(CursorEntry->Path.Absolute, PLORE_MAX_PATH)) return;
+			if (Platform->PathIsTopLevel(CursorEntry->Path.Absolute)) return;
 			else SynchronizeCurrentDirectory(&State->FrameArena, GetCurrentTab(State));
 		} else if (!WasGivenScalar) {
 			if (CursorEntry->Extension) {
@@ -880,9 +880,9 @@ PLORE_VIM_COMMAND(RenameFile) {
 		
 		case VimCommandState_Finish: {
 			if (Command.Shell && *Command.Shell) {
-				char Buffer[PLORE_MAX_PATH] = {0};
+				plore_path_buffer Buffer = {0};
 				StringCopy(Selected->Absolute, Buffer, ArrayCount(Buffer));
-				Platform->PopPathNode(Buffer, ArrayCount(Buffer), true);
+				Platform->PathPop(Buffer, ArrayCount(Buffer), true);
 				char *NewAbsolute = StringConcatenate(Buffer, ArrayCount(Buffer), Command.Shell);
 				if (Platform->RenameFile(Selected->Absolute, NewAbsolute)) MapReset(&FileContext->Selected);
 			}

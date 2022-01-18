@@ -93,7 +93,7 @@ typedef struct plore_file_filter_state {
 	// Matching/non-matching is given by the flag below.
 	text_filter GlobalListingFilter;
 	
-	char ExtensionFilter[PLORE_MAX_PATH];
+	plore_path_buffer ExtensionFilter;
 	u64 ExtensionFilterCount;
 	
 	file_sort_mask SortMask;
@@ -247,6 +247,7 @@ GetKey(char C) {
 
 
 #include "plore_table.c"
+#include "plore_task.c"
 #include "plore_vim.c"
 #include "plore_vimgui.c"
 #include "plore_time.c"
@@ -1403,7 +1404,7 @@ StringMatchesFilter(char *S, char *Pattern, text_filter *Filter) {
 internal void
 FilterFileListing(memory_arena *Arena, plore_tab *Tab, plore_file_listing *Listing) {
 	text_filter *TabFilter = 0;
-	char TabTextFilterPattern[PLORE_MAX_PATH] = {0};
+	plore_path_buffer TabTextFilterPattern = {0};
 	if (Tab->FilterState->GlobalListingFilter.TextCount) {
 		TabFilter = &Tab->FilterState->GlobalListingFilter;
 		StringCopy(TabFilter->Text, TabTextFilterPattern, ArrayCount(TabTextFilterPattern));
@@ -1411,7 +1412,7 @@ FilterFileListing(memory_arena *Arena, plore_tab *Tab, plore_file_listing *Listi
 	}
 	
 	text_filter *DirectoryFilter = 0;
-	char DirectoryTextFilterPattern[PLORE_MAX_PATH] = {0};
+	plore_path_buffer DirectoryTextFilterPattern = {0};
 	plore_file_listing_info *Info = GetOrCreateFileInfo(Tab->FileContext, &Listing->File.Path).Info;
 	
 	if (Info->Filter.TextCount) {
@@ -1433,7 +1434,7 @@ FilterFileListing(memory_arena *Arena, plore_tab *Tab, plore_file_listing *Listi
 		(File->Hidden && Tab->FilterState->HideMask.HiddenFiles);
 		
 		if (HasTextFilter) {
-			char FileNamePattern[PLORE_MAX_PATH] = {0};
+			plore_path_buffer FileNamePattern = {0};
 			StringCopy(File->Path.FilePart, FileNamePattern, ArrayCount(FileNamePattern));
 			RemoveSeparators(FileNamePattern, ArrayCount(FileNamePattern));
 			
@@ -1462,7 +1463,7 @@ SynchronizeCurrentDirectory(memory_arena *FrameArena, plore_tab *Tab) {
 #define PloreSortPredicate(A, B) PloreFileSortHelper(&A, &B, Tab->FilterState->SortMask, Tab->FilterState->SortAscending)
 	
 	CreateFileListing(&CurrentState->Current, ListingFromDirectoryPath(&Tab->CurrentDirectory));
-	FileContext->InTopLevelDirectory = Platform->IsPathTopLevel(CurrentState->Current.File.Path.Absolute, PLORE_MAX_PATH);
+	FileContext->InTopLevelDirectory = Platform->PathIsTopLevel(CurrentState->Current.File.Path.Absolute);
 	FilterFileListing(FrameArena, Tab, &CurrentState->Current);
 	
 	if (CurrentState->Current.Count) PloreSort(CurrentState->Current.Entries, CurrentState->Current.Count, plore_file)
@@ -1482,11 +1483,11 @@ SynchronizeCurrentDirectory(memory_arena *FrameArena, plore_tab *Tab) {
 	if (!FileContext->InTopLevelDirectory) {
 		// CLEANUP(Evan): Doesn't need to copy twice!
 		plore_file_listing CurrentCopy = CurrentState->Current;
-		char *FilePart = Platform->PopPathNode(CurrentCopy.File.Path.Absolute, ArrayCount(CurrentCopy.File.Path.Absolute), false).FilePart;
-		StringCopy(FilePart, CurrentCopy.File.Path.FilePart, ArrayCount(CurrentCopy.File.Path.FilePart));
+		char *FilePart = Platform->PathPop(CurrentCopy.File.Path.Absolute, ArrayCount(CurrentCopy.File.Path.Absolute), false).FilePart;
+		PathCopy(FilePart, CurrentCopy.File.Path.FilePart);
 		
-		if (Platform->IsPathTopLevel(CurrentCopy.File.Path.Absolute, PLORE_MAX_PATH)) {
-			StringCopy(CurrentCopy.File.Path.Absolute, CurrentCopy.File.Path.FilePart, PLORE_MAX_PATH);
+		if (Platform->PathIsTopLevel(CurrentCopy.File.Path.Absolute)) {
+			PathCopy(CurrentCopy.File.Path.Absolute, CurrentCopy.File.Path.FilePart);
 		}
 		CreateFileListing(&CurrentState->Parent, ListingFromDirectoryPath(&CurrentCopy.File.Path));
 		
