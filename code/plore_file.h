@@ -99,6 +99,7 @@ plore_handler PloreFileExtensionHandlers[][PLORE_FILE_EXTENSION_HANDLER_MAX] = {
 #define PLORE_MAX_PATH 260
 typedef char plore_path_buffer[PLORE_MAX_PATH];
 
+
 typedef struct plore_path {
 	plore_path_buffer Absolute;
 	plore_path_buffer FilePart; // TODO(Evan): Byte offset
@@ -158,6 +159,13 @@ typedef struct plore_directory_query_state {
 	u64 DirectoryCount;
 	b64 Completed;
 } plore_directory_query_state;
+
+internal u64
+PathCopy(char *Source, char *Destination) {
+	u64 BytesWritten = StringCopy(Source, Destination, PLORE_MAX_PATH);
+	return(BytesWritten);
+}
+
 
 // TODO(Evan): Generate this from metaprogram!
 internal u64
