@@ -97,23 +97,26 @@ typedef PLATFORM_GET_CURRENT_DIRECTORY_PATH(platform_get_current_directory_path)
 #define PLATFORM_SET_CURRENT_DIRECTORY(name) b64 name(char *Name)
 typedef PLATFORM_SET_CURRENT_DIRECTORY(platform_set_current_directory);
 
-typedef struct platform_pop_path_node_result {
+typedef struct platform_path_pop_result {
 	b64 DidRemoveSomething;
 	char *AbsolutePath;
 	char *FilePart;
-} platform_pop_path_node_result;
+} platform_path_pop_result;
 
-#define PLATFORM_POP_PATH_NODE(name) platform_pop_path_node_result name(char *Buffer, u64 BufferSize, b64 AddTrailingSlash)
-typedef PLATFORM_POP_PATH_NODE(platform_pop_path_node);
+#define PLATFORM_PATH_POP(name) platform_path_pop_result name(char *Buffer, u64 BufferSize, b64 AddTrailingSlash)
+typedef PLATFORM_PATH_POP(platform_path_pop);
 
-#define PLATFORM_PUSH_PATH_NODE(name) void name(char *Buffer, char *Other, u64 BufferSize, b64 AddTrailingSlash)
-typedef PLATFORM_PUSH_PATH_NODE(platform_push_path_node);
+#define PLATFORM_PATH_PUSH(name) void name(char *Buffer, char *Other, u64 BufferSize, b64 AddTrailingSlash)
+typedef PLATFORM_PATH_PUSH(platform_push_path);
 
-#define PLATFORM_IS_PATH_DIRECTORY(name) b64 name(char *Buffer, u64 BufferSize)
-typedef PLATFORM_IS_PATH_DIRECTORY(platform_is_path_directory);
+#define PLATFORM_PATH_IS_DIRECTORY(name) b64 name(char *Buffer)
+typedef PLATFORM_PATH_IS_DIRECTORY(platform_path_is_directory);
 
-#define PLATFORM_IS_PATH_TOP_LEVEL(name) b64 name(char *Buffer, u64 BufferSize)
-typedef PLATFORM_IS_PATH_TOP_LEVEL(platform_is_path_top_level);
+#define PLATFORM_PATH_IS_TOP_LEVEL(name) b64 name(char *Buffer)
+typedef PLATFORM_PATH_IS_TOP_LEVEL(platform_path_is_top_level);
+
+#define PLATFORM_PATH_JOIN(name) void name(char *Buffer, char *First, char *Second)
+typedef PLATFORM_PATH_JOIN(platform_path_join);
 
 typedef struct directory_entry_result {
 	char *Name;         // NOTE(Evan): Alias to the string passed in.
@@ -219,10 +222,12 @@ typedef struct platform_api {
 	platform_get_current_directory       *GetCurrentDirectory;
 	platform_get_current_directory_path  *GetCurrentDirectoryPath;
 	platform_set_current_directory       *SetCurrentDirectory;
-	platform_pop_path_node               *PopPathNode;
-	platform_push_path_node              *PushPathNode;
-	platform_is_path_directory           *IsPathDirectory;
-	platform_is_path_top_level           *IsPathTopLevel;
+	
+	platform_path_pop                    *PathPop;
+	platform_push_path                   *PathPush;
+	platform_path_is_directory           *PathIsDirectory;
+	platform_path_is_top_level           *PathIsTopLevel;
+	platform_path_join                   *PathJoin;
 	
 	platform_create_file                 *CreateFile;
 	platform_create_directory            *CreateDirectory;

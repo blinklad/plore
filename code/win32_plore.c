@@ -302,8 +302,8 @@ PLATFORM_SET_CURRENT_DIRECTORY(WindowsSetCurrentDirectory) {
 	return(Result);
 }
 
-PLATFORM_POP_PATH_NODE(WindowsPopPathNode) {
-	platform_pop_path_node_result Result = {
+PLATFORM_PATH_POP(WindowsPathPop) {
+	platform_path_pop_result Result = {
 		.DidRemoveSomething = true,
 		.AbsolutePath = Buffer,
 	};
@@ -320,18 +320,28 @@ PLATFORM_POP_PATH_NODE(WindowsPopPathNode) {
 	return(Result);
 }
 
-PLATFORM_PUSH_PATH_NODE(WindowsPushPathNode) {
+PLATFORM_PATH_PUSH(WindowsPathPush) {
 	Assert((StringLength(Buffer)+1) >= PLORE_MAX_PATH);
 	PathAppendA(Buffer, Other);
 }
 
-PLATFORM_IS_PATH_DIRECTORY(WindowsIsPathDirectory) {
+PLATFORM_PATH_IS_DIRECTORY(WindowsPathIsDirectory) {
 	b64 Result = PathIsDirectory(Buffer);
 	return(Result);
 }
 
-PLATFORM_IS_PATH_TOP_LEVEL(WindowsIsPathTopLevel) {
+PLATFORM_PATH_IS_TOP_LEVEL(WindowsPathIsTopLevel) {
 	return(PathIsRoot(Buffer));
+}
+
+
+PLATFORM_PATH_JOIN(WindowsPathJoin) {
+	b64 WeAreTopLevel = WindowsPathIsTopLevel(First);
+	
+	u64 BytesWritten = StringCopy(First, Buffer, PLORE_MAX_PATH);
+	if (!WeAreTopLevel) Buffer[BytesWritten++] = '\\';
+	
+	BytesWritten += StringCopy(Second, Buffer + BytesWritten, PLORE_MAX_PATH-BytesWritten);
 }
 
 
@@ -1354,7 +1364,7 @@ WindowsUnloadPloreCode(plore_code PloreCode) {
 }
 
 internal b64
-WindowsPushPath(char *Buffer, u64 BufferSize, char *Piece, u64 PieceSize, b64 TrailingSlash) {
+_WindowsPathPush(char *Buffer, u64 BufferSize, char *Piece, u64 PieceSize, b64 TrailingSlash) {
 	u64 TrailingParts = TrailingSlash ? 1 : 0;
 	if (PieceSize + TrailingParts > BufferSize) {
 		return(false);
@@ -1494,21 +1504,24 @@ int WinMain (
 		.ShowCursor = WindowsShowCursor,
 		.ToggleFullscreen = WindowsToggleFullscreen,
 		
-#undef GetCurrentDirectory // @Hack
-#undef SetCurrentDirectory // @Hack
-#undef MoveFile            // @Hack
-#undef CreateFile          // @Hack
-#undef CreateDirectory     // @Hack
-#undef DeleteFile          // @Hack
+#undef GetCurrentDirectory
+#undef SetCurrentDirectory
+#undef MoveFile           
+#undef CreateFile         
+#undef CreateDirectory    
+#undef DeleteFile         
+#undef PathIsDirectory    
 		.DirectorySizeTaskBegin  = WindowsDirectorySizeTaskBegin,
 		
 		.GetDirectoryEntries     = WindowsGetDirectoryEntries,
 		.GetCurrentDirectory     = WindowsGetCurrentDirectory,
 		.GetCurrentDirectoryPath = WindowsGetCurrentDirectoryPath,
 		.SetCurrentDirectory     = WindowsSetCurrentDirectory,
-		.PopPathNode             = WindowsPopPathNode,
-		.IsPathDirectory         = WindowsIsPathDirectory,
-		.IsPathTopLevel          = WindowsIsPathTopLevel,
+		.PathPush                = WindowsPathPush,
+		.PathPop                 = WindowsPathPop,
+		.PathIsDirectory         = WindowsPathIsDirectory,
+		.PathIsTopLevel          = WindowsPathIsTopLevel,
+		.PathJoin                = WindowsPathJoin,
 		
 		.CreateFile              = WindowsCreateFile,
 		.CreateDirectory         = WindowsCreateDirectory,
