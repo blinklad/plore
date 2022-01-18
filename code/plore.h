@@ -168,7 +168,7 @@ typedef struct plore_input {
 
 typedef struct plore_memory {
     memory_arena PermanentStorage;
-	memory_arena ThreadStorage;
+	memory_arena TaskStorage;
 } plore_memory;
 
 enum { PloreFileListing_Count = 256 };

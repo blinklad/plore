@@ -152,8 +152,13 @@ typedef PLATFORM_RUN_SHELL(platform_run_shell);
 typedef struct memory_arena memory_arena;
 typedef struct platform_taskmaster platform_taskmaster; 
 
-#define PLORE_TASK(name) void name(void *Param)
-typedef PLORE_TASK(task_procedure);
+typedef struct platform_task_info {
+	u64 ThreadID;
+	memory_arena *TaskArena;
+} platform_task_info;
+
+#define PLATFORM_TASK(name) void name(platform_task_info Info, void *Param)
+typedef PLATFORM_TASK(task_procedure);
 
 typedef struct platform_task {
 	task_procedure *Procedure;
