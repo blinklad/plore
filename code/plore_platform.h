@@ -107,7 +107,7 @@ typedef struct platform_path_pop_result {
 typedef PLATFORM_PATH_POP(platform_path_pop);
 
 #define PLATFORM_PATH_PUSH(name) void name(char *Buffer, char *Other, u64 BufferSize, b64 AddTrailingSlash)
-typedef PLATFORM_PATH_PUSH(platform_push_path);
+typedef PLATFORM_PATH_PUSH(platform_path_push);
 
 #define PLATFORM_PATH_IS_DIRECTORY(name) b64 name(char *Buffer)
 typedef PLATFORM_PATH_IS_DIRECTORY(platform_path_is_directory);
@@ -224,7 +224,7 @@ typedef struct platform_api {
 	platform_set_current_directory       *SetCurrentDirectory;
 	
 	platform_path_pop                    *PathPop;
-	platform_push_path                   *PathPush;
+	platform_path_push                   *PathPush;
 	platform_path_is_directory           *PathIsDirectory;
 	platform_path_is_top_level           *PathIsTopLevel;
 	platform_path_join                   *PathJoin;
