@@ -97,9 +97,10 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 - Persistent: Undo, command history, marked files/directories, bookmarks. Requires plore.history.
 - Track: File ownership (not POSIX, but probably "owned by current user, system, or other")
 - ISearch: ~~Basic~~, recursive, accurate and asynchronous,
-- Directory size queries: ~~Basic~~ (displayed for focused directory only), ~~asynchronous~~, loading indication, accurate, 
-- CursorInfo: Display cumulative size and number of files
+- Directory queries: ~~Recursive size~~ (displayed for focused directory only), ~~File/directory count~~, ~~Asynchronous~~, ~~loading indication~~,  accurate: depth-first would be a lot slower but require less space.
+- CursorInfo: ~~Display cumulative size~~, ~~number of files and directories~~
 - Windows file handler: We can read registry entries to find out what programs are used to open an extension. This allows previewing the paths in a lister. Or, we can use `ShellExecute` with the `open` 'verb', which would be harder to provide feedback with, but require less registry reading nonsense.
+- Linux file handler: Only pseudo-standards exist for this, but _maybe_ we could query the output of running scripts like xdg-open.
 
 ### VIMGUI TODOs:
    - ~~Actual alpha blending~~
