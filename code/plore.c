@@ -498,27 +498,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		CommandCandidates = CommandThisFrame;
 		vim_command Command = CommandThisFrame.Command;
 		
-		if (Command.Mode) {
-			switch (Command.Mode) {
-				// NOTE(Evan): We need to cleanup the active command at one point, but it's not clear exactly where.
-				// Right now we are just using the mode switch boundary.
-				case VimMode_Normal: {
-					VimContext->Mode = VimMode_Normal;
-					SetActiveCommand(VimContext, Command);
-				} break;
-				case VimMode_Insert: {
-					VimContext->Mode = VimMode_Insert;
-					SetActiveCommand(VimContext, Command);
-				} break;
-				
-				case VimMode_Lister: {
-					DrawText("Lister");
-				} break;
-			}
-			
-			ClearCommands(VimContext);
-		}
-		
 		if (Command.Type) {
 			switch (VimContext->Mode) {
 				case VimMode_Normal: {

@@ -527,9 +527,7 @@ PLORE_VIM_COMMAND(MoveLeft) {
 		plore_path_buffer Buffer = {0};
 		Platform->GetCurrentDirectory(Buffer, PLORE_MAX_PATH);
 		
-		Print("Moving up a directory, from %s ", Buffer);
 		Platform->PathPop(Buffer, PLORE_MAX_PATH, false);
-		PrintLine("to %s", Buffer);
 		
 		Platform->SetCurrentDirectory(Buffer);
 		ScalarCount++;
@@ -548,9 +546,6 @@ PLORE_VIM_COMMAND(MoveRight) {
 		plore_file *CursorEntry = Tab->DirectoryState->Current.Entries + CursorResult.Info->Cursor;
 		
 		if (CursorEntry->Type == PloreFileNode_Directory) {
-			PrintLine("Moving down a directory, from %s to %s", 
-					  Tab->DirectoryState->Current.File.Path.Absolute, 
-					  CursorEntry->Path.Absolute);
 			Platform->SetCurrentDirectory(CursorEntry->Path.Absolute);
 			
 			ScalarCount++;
@@ -571,7 +566,7 @@ PLORE_VIM_COMMAND(MoveRight) {
 				} 
 			} else {
 				if (Tab->DirectoryState->Current.Valid) {
-					DrawText("Unknown extension for `%s`", CursorEntry->Path.FilePart);
+					PrintLine("Unknown extension for `%s`", CursorEntry->Path.FilePart);
 				}
 			}
 		}
@@ -648,7 +643,7 @@ PLORE_VIM_COMMAND(Yank)  {
 				}
 			}
 		} else {
-			plore_path *Selected = GetImpliedSelection(State);
+			plore_path *Selected = GetImpliedSelectionPath(State);
 			if (Selected) ToggleYanked(&State->Yanked, Selected);
 		}
 	}
@@ -723,7 +718,6 @@ PLORE_VIM_COMMAND(SelectUp)  {
 }
 
 PLORE_VIM_COMMAND(SelectDown)  {
-	DrawText("!!!!");
 	DoSelectHelper(State, Command, +1);
 }
 PLORE_VIM_COMMAND(JumpTop)  {
@@ -865,7 +859,7 @@ PLORE_VIM_COMMAND(ChangeDirectory) {
 }
 
 PLORE_VIM_COMMAND(RenameFile) {
-	plore_path *Selected = GetImpliedSelection(State);
+	plore_path *Selected = GetImpliedSelectionPath(State);
 	if (!Selected) return;
 	
 	switch (Command.State) {
@@ -964,9 +958,7 @@ PLORE_VIM_COMMAND(OpenShell) {
 PLORE_VIM_COMMAND(CreateFile) {
 	if (Command.Shell) {
 		char *FilePath = PushBytes(&State->FrameArena, PLORE_MAX_PATH);
-		u64 BytesWritten = StringCopy(Tab->DirectoryState->Current.File.Path.Absolute, FilePath, PLORE_MAX_PATH);
-		FilePath[BytesWritten++] = '\\';
-		StringCopy(Command.Shell, FilePath+BytesWritten, PLORE_MAX_PATH);
+		Platform->PathJoin(FilePath, Tab->DirectoryState->Current.File.Path.Absolute, Command.Shell);
 		
 		// TODO(Evan): Validate file name.
 		Platform->CreateFile(FilePath, false);
@@ -1001,7 +993,7 @@ PLORE_VIM_COMMAND(DeleteFile) {
 		char *MaybeConfirmation = VimKeysToString(Buffer, Size, VimContext->CommandKeys).Buffer;
 		
 		if (Confirmation(MaybeConfirmation)) {
-			plore_path *Selection = GetImpliedSelection(State);
+			plore_path *Selection = GetImpliedSelectionPath(State);
 			if (Selection) {
 				Platform->DeleteFile(Selection->Absolute, (platform_delete_file_desc) { 
 											  .Recursive = false,
@@ -1124,15 +1116,11 @@ PLORE_VIM_COMMAND(ShowCommandList) {
 }
 
 PLORE_VIM_COMMAND(FontScaleIncrease) {
-	if (State->Font->CurrentFont < PloreBakedFont_Count-1) {
-		State->Font->CurrentFont += 1;
-	}
+	if (State->Font->CurrentFont < PloreBakedFont_Count-1) State->Font->CurrentFont += 1;
 }
 
 PLORE_VIM_COMMAND(FontScaleDecrease) {
-	if (State->Font->CurrentFont > 0) {
-		State->Font->CurrentFont -= 1;
-	}
+	if (State->Font->CurrentFont > 0) State->Font->CurrentFont -= 1;
 }
 
 PLORE_VIM_COMMAND(ToggleFileMetadata) {
@@ -1153,5 +1141,3 @@ vim_command_function *VimCommands[] = {
 	VIM_COMMANDS
 };
 #undef PLORE_X
-
-
