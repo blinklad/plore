@@ -492,7 +492,7 @@ volatile LONG64 SearchActive;
 PLATFORM_TASK(WindowsGetDirectorySize) {
 	plore_directory_query_state *State = (plore_directory_query_state *)Param;
 	
-	StringCopy(State->Path->Absolute, ChildStack[ChildStackCount++], ArrayCount(ChildStack[0]));
+	StringCopy(State->Path.Absolute, ChildStack[ChildStackCount++], ArrayCount(ChildStack[0]));
 	
 	u64 SizeAccum = 0;
 	u64 FileAccum = 0;
@@ -573,7 +573,7 @@ PLATFORM_DIRECTORY_SIZE_TASK_BEGIN(WindowsDirectorySizeTaskBegin) {
 	}
 	
 	*State = (plore_directory_query_state) {
-		.Path = Path,
+		.Path = *Path,
 	};
 	InterlockedExchange64(&SearchActive, true);
 	FullMemoryBarrier;
@@ -1414,7 +1414,7 @@ int WinMain (
 	// NOTE(Evan): Find absolute runtime paths used to load Plore DLL and reload it on re-compilation.
 	DWORD BytesRequired = PLORE_MAX_PATH - 30;
 	// TODO(Evan): GetModuleDirectory(?)
-	char ExePath[PLORE_MAX_PATH] = {0}; 
+	plore_path_buffer ExePath = {0}; 
 	DWORD BytesWritten = GetModuleFileName(NULL, ExePath, ArrayCount(ExePath));
 	Assert(BytesWritten < BytesRequired); // NOTE(Evan): Requires our .exe to near the top of a root directory.
 	
@@ -1422,9 +1422,9 @@ int WinMain (
 	char *TempDLLPathString = "data\\plore_temp.dll";
 	char *LockPathString = "lock.tmp";
 	
-	char PloreDLLPath[PLORE_MAX_PATH] = {0}; // "build/plore.dll";
-	char TempDLLPath[PLORE_MAX_PATH] = {0};  //  = "data/plore_temp.dll";
-	char LockPath[PLORE_MAX_PATH] = {0};     //  = "build/lock.tmp";
+	plore_path_buffer PloreDLLPath = {0}; // "build/plore.dll";
+	plore_path_buffer TempDLLPath = {0};  //  = "data/plore_temp.dll";
+	plore_path_buffer LockPath = {0};     //  = "build/lock.tmp";
 	
 	
 	StringCopy(ExePath, PloreDLLPath, ArrayCount(PloreDLLPath));

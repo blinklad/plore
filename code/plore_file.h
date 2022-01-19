@@ -153,7 +153,7 @@ GetFileExtension(char *FilePart) {
 }
 
 typedef struct plore_directory_query_state {
-	plore_path *Path;
+	plore_path Path;
 	u64 SizeProgress;
 	u64 FileCount;
 	u64 DirectoryCount;

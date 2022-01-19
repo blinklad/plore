@@ -257,12 +257,11 @@ internal plore_directory_query_state
 GetDirectoryInfo(plore_state *State, plore_path *Path) {
 	plore_directory_query_state Result = {0};
 	
-	if (State->DirectoryQuery.Path && StringsAreEqual(State->DirectoryQuery.Path->Absolute, Path->Absolute)) {
+	if (StringsAreEqual(State->DirectoryQuery.Path.Absolute, Path->Absolute)) {
 		Result = State->DirectoryQuery;
 	} else {
 		Platform->DirectorySizeTaskBegin(Platform->Taskmaster, Path, &State->DirectoryQuery);
 	}
-	
 	
 	return(Result);
 }
@@ -1312,8 +1311,8 @@ CreateFileListing(plore_file_listing *Listing, plore_file_listing_desc Desc) {
 	
 	Listing->File.Type = Desc.Type;
 	Listing->File.LastModification = Desc.LastModification;
-	StringCopy(Desc.Path.Absolute, Listing->File.Path.Absolute, PLORE_MAX_PATH);
-	StringCopy(Desc.Path.FilePart, Listing->File.Path.FilePart, PLORE_MAX_PATH);
+	PathCopy(Desc.Path.Absolute, Listing->File.Path.Absolute);
+	PathCopy(Desc.Path.FilePart, Listing->File.Path.FilePart);
 	if (Desc.Type == PloreFileNode_Directory) {
 		directory_entry_result CurrentDirectory = Platform->GetDirectoryEntries(Listing->File.Path.Absolute, 
 																				Listing->Entries, 
