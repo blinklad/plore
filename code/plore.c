@@ -206,7 +206,13 @@ internal plore_file *
 GetCursorFile(plore_state *State);
 
 internal plore_path *
-GetImpliedSelection(plore_state *State);
+GetImpliedSelectionPath(plore_state *State);
+
+internal f32
+GetFontHeight(plore_font *Font, u64 ID);
+
+internal f32
+GetFontWidth(plore_font *Font, u64 ID);
 
 internal f32
 GetCurrentFontHeight(plore_font *Font);
@@ -275,9 +281,8 @@ GetCursorFile(plore_state *State) {
 	return(CursorEntry);
 }
 
-// @Rename
 internal plore_path *
-GetImpliedSelection(plore_state *State) {
+GetImpliedSelectionPath(plore_state *State) {
 	plore_path *Result = 0;
 	
 	plore_tab *Tab = GetCurrentTab(State);
@@ -303,13 +308,30 @@ PlatformInit(platform_api *PlatformAPI) {
 	Print = PlatformAPI->DebugPrint;
 }
 
+
+//
+// NOTE(Evan): Font metric helpers.
+//
+internal f32
+GetFontHeight(plore_font *Font, u64 ID) {
+	Assert(ID < PloreBakedFont_Count);
+	f32 Result = Font->Data[ID]->Height;
+	return(Result);
+}
+
+internal f32
+GetFontWidth(plore_font *Font, u64 ID) {
+	Assert(ID < PloreBakedFont_Count);
+	f32 Result = Font->Data[ID]->Data[0].xadvance;
+	return(Result);
+}
+
 internal f32
 GetCurrentFontHeight(plore_font *Font) {
 	f32 Result = Font->Data[Font->CurrentFont]->Height;
 	return(Result);
 }
 
-// NOTE(Evan): Requires a monospace font.
 internal f32
 GetCurrentFontWidth(plore_font *Font) {
 	f32 Result = Font->Data[Font->CurrentFont]->Data[0].xadvance;
@@ -1152,6 +1174,13 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 												   .Pad = V2(4, (BigCursorButton ? 4 : 0)),
 												   .Colour = TextColour_Tertiary,
 												   .ColourFlags = TextColourFlags,
+											   },
+											   .Body = {
+												   .Text = BodyText.Buffer,
+												   .Colour = TextColour_Tertiary,
+												   .ColourFlags = TextColourFlags,
+												   .Alignment = VimguiLabelAlignment_Right,
+												   .Pad = V2(4, CursorFileRowHeight/2),
 											   },
 											   .FillWidth = true,
 											   .BackgroundColour = BackgroundColour,

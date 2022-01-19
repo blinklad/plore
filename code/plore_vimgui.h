@@ -152,6 +152,8 @@ typedef struct vimgui_widget {
 	
 	vimgui_label_desc Title;
 	vimgui_label_desc Secondary;
+	vimgui_label_desc Body;
+	
 	vimgui_label_alignment Alignment;
 	
 	platform_texture_handle Texture; // NOTE(Evan): Images only.

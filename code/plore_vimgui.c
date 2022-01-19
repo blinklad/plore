@@ -270,11 +270,16 @@ VimguiEnd(plore_vimgui_context *Context) {
 		u64 MaxTextRows = Widget->Rect.Span.H / FontHeight;
 		
 		//
-		// @Cleanup
-		// NOTE(Evan): Dodgy text layout ahead!
-		// Text length truncation within a single widget works for these combinations: { 1. title: left, 2. title: right, 3. title: left, secondary: right }
+		// CLEANUP(Evan): Dodgy text layout ahead!
+		// Text length truncation within a single widget works for these combinations: 
+		// { 1. title: left, 2. title: right, 3. title: left, secondary: right }
 		//
 		u64 TextCount = 0;
+		u64 SmallerFont = Max(0, Context->Font->CurrentFont-6);
+		if (SmallerFont > PloreBakedFont_Count-1) {
+			SmallerFont = 0;
+		}
+		
 		if (Widget->Title.Text) {
 			// NOTE(Evan): Grab a bigger font for the title.
 			rectangle TitleRect = Widget->Rect;
@@ -309,6 +314,25 @@ VimguiEnd(plore_vimgui_context *Context) {
 						   });
 			
 		}
+		
+		if (Widget->Body.Text) {
+			vimgui_label_alignment Alignment = 0;
+			if (Widget->Body.Alignment) Alignment = Widget->Body.Alignment;
+			else if (Widget->Alignment) Alignment = Widget->Alignment;
+			PushRenderText(Context->RenderList, 
+						   (vimgui_render_text_desc) {
+							   .Rect = Widget->Rect,
+							   .Text = {
+								   .Text = Widget->Body.Text,
+								   .Alignment = Alignment,
+								   .Colour = Widget->Body.Colour,
+								   .Pad = Widget->Body.Pad,
+								   .ColourFlags = Widget->Title.ColourFlags,
+							   },
+							   .FontID = SmallerFont,
+						   });
+		}
+		
 		if (Widget->Secondary.Text) {
 			// NOTE(Evan): Clip the secondary text against the title, only if the title is left aligned.
 			if (Widget->Title.Text && Widget->Title.Alignment == VimguiLabelAlignment_Left) {
@@ -363,6 +387,7 @@ VimguiEnd(plore_vimgui_context *Context) {
 								   });
 			}
 		}
+		
 		
 		if (Widget->Type == WidgetType_TextBox) {
 			rectangle TextPad = Widget->Rect;
@@ -589,6 +614,7 @@ typedef struct vimgui_button_desc {
 	b64 FillWidth;
 	vimgui_label_desc Title;
 	vimgui_label_desc Secondary;
+	vimgui_label_desc Body;
 	u64 ID;
 	rectangle Rect;
 	v2 Pad;
@@ -654,6 +680,7 @@ Button(plore_vimgui_context *Context, vimgui_button_desc Desc) {
 				   .BackgroundColourFlags = Desc.BackgroundColourFlags,
 				   .Title = Desc.Title,
 				   .Secondary = Desc.Secondary,
+				   .Body = Desc.Body,
 			   });
 	
 	
@@ -771,8 +798,8 @@ internal void
 PushRenderText(plore_render_list *RenderList, vimgui_render_text_desc Desc) {
 	Assert(RenderList && RenderList->CommandCount < ArrayCount(RenderList->Commands));
 	
-	f32 FontHeight = GetCurrentFontHeight(RenderList->Font);
-	f32 FontWidth = GetCurrentFontWidth(RenderList->Font);
+	f32 FontHeight = GetFontHeight(RenderList->Font, Desc.FontID);
+	f32 FontWidth = GetFontWidth(RenderList->Font, Desc.FontID);
 	
 	u64 MaxTextCount = Desc.Rect.Span.W / FontWidth - Desc.TextCount;
 	u64 ThisTextLength = StringLength(Desc.Text.Text);
