@@ -6,13 +6,13 @@ Graphical, vim-binding based file manager written in C99.
 
 Inspired by ranger and lf, with a design and implementation philosophy focusing on minimizing the number of dependencies, whether they are libraries, programming languages/versions, file encodings, OS-specific logic or otherwise.
 
-## Design Goals
+## Implementation and Design Goals
 * As simple and minimalistic of an implementation as possible. 
-* No complicated build systems, docker containers, or OS abstraction leakage.
-* Written in C99, with no dependencies besides the awesome stb header-only libraries.
+* No complicated build systems - or any build system besides a trivial script - nor docker containers, OS abstraction leakage or over-engineered future-proofing.
+* Written in C99, with no dependencies besides the awesome stb header-only libraries `stb_truetype`, `stb_image`, and `stb_sprintf`. libpng/libjpg are likely to be integrated at one point in the future, but there is a strong desire to keep everything very self contained.
 * Runs as a graphical application, not a terminal application using e.g., ncurses.
-* Software designed for personal, cross-platform use on Linux and Windows.
-* Potentially hackable by other programmers, via modifying header files.
+* Software designed primarily for personal, cross-platform use on Linux and Windows.
+* Configured through header files and/or a [small metaprogram](code/plore_meta.c), rather then config files, make flags, runtime, etc.
 
 ### Note
 Consider this repository to be a snapshot in time of whatever fire I am currently putting out, or feature I am hacking together, rather then a place to propose changes or nitpick very rough (and sometimes outright awful) prototype code.
