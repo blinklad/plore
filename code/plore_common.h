@@ -157,4 +157,32 @@ PloreRandom() {
 	return(Result);
 }
 
+
+typedef struct get_size_and_label_result {
+	u64 Size;
+	char *Label;
+} get_size_and_label_result;
+
+internal get_size_and_label_result
+GetSizeAndLabel(u64 Bytes) {
+	get_size_and_label_result Result = {
+		.Size = Bytes,
+		.Label = " b",
+	};
+	if (Result.Size > Gigabytes(1)) {
+		Result.Size /= Gigabytes(1);
+		Result.Label = "gB";
+	} else if (Result.Size > Megabytes(1)) {
+		Result.Size /= Megabytes(1); 
+		Result.Label = "mB";
+	} else if (Result.Size > Kilobytes(1)) {
+		Result.Size /= Kilobytes(1);
+		Result.Label = "kB";
+	}
+	
+	return(Result);
+	
+}
+
+
 #endif

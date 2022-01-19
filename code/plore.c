@@ -416,7 +416,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	State->DT = PloreInput->Time - LastTime;
 	LastTime = PloreInput->Time;
 	
-	// CLEANUP(Evan): We Begin() here as the render list is shared for debug draw purposes right now.
+	// NOTE(Evan): We Begin() here as the render list is shared for debug draw purposes.
 	VimguiBegin(State->VimguiContext, BufferedInput, PlatformAPI->WindowDimensions);
 	
 	b64 DidInput = false;
@@ -933,12 +933,29 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		
 		if (Tab->DirectoryState->Cursor.Valid) {
 			plore_file *CursorFile = &Tab->DirectoryState->Cursor.File;
-			TempPrint(CursorInfoString, 
-				      "[%s] %s %s", 
-				      (CursorFile->Type == PloreFileNode_Directory) ? "directory" : "file", 
-					  CursorFile->Path.FilePart,
-					  PloreTimeFormat(&State->FrameArena, CursorFile->LastModification, "%a %b %d/%m/%y")
-					  );
+																	 
+			if (CursorFile->Type == PloreFileNode_File) {
+				get_size_and_label_result SizeAndLabel = GetSizeAndLabel(CursorFile->Bytes);
+				TempPrint(CursorInfoString, 
+						  "[file] %s - %d%s - %s",
+						  CursorFile->Path.FilePart,
+						  SizeAndLabel.Size,
+						  SizeAndLabel.Label,
+						  PloreTimeFormat(&State->FrameArena, CursorFile->LastModification, "%a %b %d/%m/%y")
+						  );
+			} else {
+				plore_directory_query_state DirectoryQuery = GetDirectoryInfo(State, &CursorFile->Path);
+				get_size_and_label_result SizeAndLabel = GetSizeAndLabel(DirectoryQuery.SizeProgress);
+				TempPrint(CursorInfoString, 
+						  "[dir] %s - %d%s %d file/s %d dir/s - %s", 
+						  CursorFile->Path.FilePart,
+						  SizeAndLabel.Size,
+						  SizeAndLabel.Label,
+						  DirectoryQuery.FileCount,
+						  DirectoryQuery.DirectoryCount,
+						  PloreTimeFormat(&State->FrameArena, CursorFile->LastModification, "%a %b %d/%m/%y")
+						  );
+			}
 		} else {
 			TempPrint(CursorInfoString, 
 				      "[no selection]"
@@ -1055,9 +1072,12 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								
 								// TODO(Evan): Extended file metadata!
 								temp_string SecondaryText = TempString(&State->FrameArena, 256);
+								
+								temp_string BodyText = {0};
+								
 								if (Tab->FilterState->MetadataDisplay) {
 									u64 EntrySize = RowEntry->Bytes;
-									if (RowEntry->Type == PloreFileNode_File || WeAreOnCursor) {
+									if (RowEntry->Type == PloreFileNode_File || (Directory->Focus && WeAreOnCursor)) {
 										local f32 WiggleAccum = 0;
 										char *Wiggler = " ";
 										b64 DoWiggle = false;
@@ -1090,27 +1110,26 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 											} else {
 												Wiggler = "-";
 											}
+											
+											BodyText = TempString(&State->FrameArena, 256);
+											TempPrint(BodyText,
+													  "%d file/s, %d dir/s",
+													  DirectoryQuery.FileCount,
+													  DirectoryQuery.DirectoryCount);
 										}
 										
-										if (EntrySize > Gigabytes(1)) {
-											EntrySize /= Gigabytes(1);
-											EntrySizeLabel = "gB";
-										} else if (EntrySize > Megabytes(1)) {
-											EntrySize /= Megabytes(1); 
-											EntrySizeLabel = "mB";
-										} else if (EntrySize > Kilobytes(1)) {
-											EntrySize /= Kilobytes(1);
-											EntrySizeLabel = "kB";
-										}
+										get_size_and_label_result SizeAndLabel = GetSizeAndLabel(EntrySize);
 										
 										b64 DoDirectoryWiggle = DoWiggle && RowEntry->Type == PloreFileNode_Directory && Directory->Focus;
 										
 										TempPrint(SecondaryText, 
 												  "%s%4d%s %s", 
 												  PloreTimeFormat(&State->FrameArena, RowEntry->LastModification, "%b %d/%m/%y"), 
-												  EntrySize, 
-												  EntrySizeLabel,
+												  SizeAndLabel.Size, 
+												  SizeAndLabel.Label,
 												  Wiggler);
+										
+										
 									} else {
 										TempPrint(SecondaryText, "%s%8s", PloreTimeFormat(&State->FrameArena, RowEntry->LastModification, "%b %d/%m/%y"), "-");
 									}
