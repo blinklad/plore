@@ -163,6 +163,8 @@ typedef struct vim_binding {
 	char *Shell;
 } vim_binding;
 
+#define PAGE_MOVE_DISTANCE 10
+
 global vim_binding VimBindings[] = {
 	{
 		.Type = VimCommandType_Yank,

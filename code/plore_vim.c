@@ -613,11 +613,23 @@ PLORE_VIM_COMMAND(MoveDown)  {
 }
 
 PLORE_VIM_COMMAND(PageDown) {
-	DrawText("PageDown");
+	plore_file_listing_info *Info = GetOrCreateFileInfo(FileContext, &Tab->DirectoryState->Current.File.Path).Info;
+	u64 NewCursor = Info->Cursor + PAGE_MOVE_DISTANCE;
+	if (NewCursor < Tab->DirectoryState->Current.Count) {
+		Info->Cursor = NewCursor;
+	} else {
+		Info->Cursor = Tab->DirectoryState->Current.Count-1;
+	}
 }
 
 PLORE_VIM_COMMAND(PageUp) {
-	DrawText("PageUp");
+	plore_file_listing_info *Info = GetOrCreateFileInfo(FileContext, &Tab->DirectoryState->Current.File.Path).Info;
+	u64 NewCursor = Info->Cursor - PAGE_MOVE_DISTANCE;
+	if (Info->Cursor >= PAGE_MOVE_DISTANCE) {
+		Info->Cursor = NewCursor;
+	} else {
+		Info->Cursor = 0;
+	}
 }
 
 PLORE_VIM_COMMAND(Yank)  {

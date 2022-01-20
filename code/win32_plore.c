@@ -1228,7 +1228,7 @@ WindowsProcessMessages(windows_context *Context, keyboard_and_mouse *ThisFrame) 
 					WindowsToggleFullscreen();
 				} else {
 					// NOTE(Evan): We intercept numeric VK codes here because Windows is a PITA.
-					if (IsDown && ThisFrame->dKeys[PloreKey_Ctrl] && (Message.wParam >= 0x30 && Message.wParam <= 0x39)) {				
+					if (IsDown && ThisFrame->dKeys[PloreKey_Ctrl]) {// && (Message.wParam >= 0x30 && Message.wParam <= 0x39)) {				
 						WindowsPushTextInput(ThisFrame, Message);
 					} else {
 						WPARAM C = Message.wParam;
