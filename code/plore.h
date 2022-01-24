@@ -13,9 +13,9 @@
 #define PLORE_EXPORT __declspec(dllexport)
 
 #elif defined(PLORE_LINUX)
-#define PLORE_EXPORT __attribute__ ((dllexport))
-#else 
-#define PLORE_EXPORT 
+#define PLORE_EXPORT
+#else
+#define PLORE_EXPORT
 #endif
 
 typedef struct plore_state plore_state;
@@ -23,7 +23,7 @@ typedef struct plore_font plore_font;
 
 typedef enum interact_state {
 	InteractState_FileExplorer,
-	
+
 	_InteractState_ForceU64 = 0xFFFFFFFF,
 } interact_state;
 
@@ -105,14 +105,18 @@ PLORE_X(Escape,                              "<esc>",         131)   \
 PLORE_X(MouseLeft,                           "<mouse-left>",  132)   \
 PLORE_X(MouseRight,                          "<mouse-right>", 133)   \
 PLORE_X(Backspace,                           "<backspace>",   0x8)   \
-PLORE_X(Tab,                                 "<tab>",         0x9)   
+PLORE_X(Tab,                                 "<tab>",         0x9)
 
-// MAINTENANCE(Evan): None of the symbolic strings should be larger then 32 bytes, including the null terminator.
 #define PLORE_KEY_STRING_SIZE 32
+// MAINTENANCE(Evan): None of the symbolic strings should be larger then 32 bytes, including the null terminator.
+// CLEANUP(Evan): Get GCC to accept this static check.
+
+#if defined(PLORE_WINDOWS)
 #define PLORE_X(_Ignored1, String, _Ignored2) \
 StaticAssert(sizeof(String) < PLORE_KEY_STRING_SIZE, String " plore key string greater than allowed size");
 PLORE_KEYBOARD_AND_MOUSE
 #undef PLORE_X
+#endif
 
 #define PLORE_X(Name, _Ignored1, _Ignored2) \
 PloreKey_##Name,
@@ -209,7 +213,7 @@ typedef struct plore_file_listing_info {
 typedef struct plore_file_context {
 	plore_map Selected;
 	plore_map FileInfo;
-	
+
 	u64 FileCount;
 	b64 InTopLevelDirectory;
 } plore_file_context;
@@ -231,7 +235,7 @@ typedef PLORE_DO_ONE_FRAME(plore_do_one_frame);
 
 
 // TODO(Evan): Development constants file
-enum { 
+enum {
     DEFAULT_WINDOW_WIDTH = 1920,
     DEFAULT_WINDOW_HEIGHT = 1080,
 };
