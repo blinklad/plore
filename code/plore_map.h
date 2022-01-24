@@ -8,8 +8,8 @@
 // - Zero-sized values are allowed to e.g., use a map as a set of key types.
 // - Keys and values can be rvalues, but not string literals.
 //
-// - Iterable by "functional" style iterators: 
-//   for (plore_map_iterator It = MapIter(Map); !It.Finished; It = MapIterNext(&Map, It)) { 
+// - Iterable by "functional" style iterators:
+//   for (plore_map_iterator It = MapIter(Map); !It.Finished; It = MapIterNext(&Map, It)) {
 //       key_type *K = It.Key;
 //
 // - Open addressing and linear probing is used in conjunction with contiguous, data-oriented arrays for keys, values, and 'gravestones'.
@@ -18,9 +18,9 @@
 // - Hash function is optimized for ~256 bit or larger key spaces.
 //   In general, not a performance-oriented hash table by any stretch of the imagination.
 //
-// - Basic debug checks are provided in debug mode: 
-//   The size of keys/values passed into Get/Insert/Remove are compared against what the map was initialized with. 
-//   This does not work for a _lot_ of cases, but it better then nothing at all. 
+// - Basic debug checks are provided in debug mode:
+//   The size of keys/values passed into Get/Insert/Remove are compared against what the map was initialized with.
+//   This does not work for a _lot_ of cases, but it better then nothing at all.
 //   A strongly typed approach is greatly preferred, however, the trade-offs of the current design are sufficient for plore's use cases.
 //
 #ifndef PLORE_MAP_H
@@ -29,6 +29,7 @@
 typedef struct plore_map plore_map;
 
 
+#if defined(PLORE_WINDOWS)
 //
 // NOTE(Evan): Allow sizeof(void), which is obviously 0.
 // Use case: MapInit(&SomeArena, key_type, void, Count), using the map as a set of key_type's.
@@ -36,6 +37,7 @@ typedef struct plore_map plore_map;
 // CLEANUP(Evan): Disabling errors like this is a bit rude.
 //
 #pragma warning(disable: 4034)
+#endif
 
 
 //
@@ -44,7 +46,7 @@ typedef struct plore_map plore_map;
 
 
 //
-// NOTE(Evan): 
+// NOTE(Evan):
 // These macros are used for rudimentary *runtime* checking that pointer arguments can be of the same type, as using void * removes
 // all type information.
 // Obviously, checking pointer sizes does not work for different types of the same size, nor does it work at all in release builds.
@@ -99,7 +101,7 @@ MapClearMemory(plore_map *Map);
 // NOTE(Evan): Returns destination.
 internal plore_map *
 MapCopy(plore_map *Source, plore_map *Destination);
-	
+
 
 // NOTE(Evan): If Lookup[Index].Allocated, then the contiguous arrays Keys[Index]/Values[Index] are valid.
 typedef struct plore_map_key_lookup {
@@ -109,11 +111,11 @@ typedef struct plore_map_key_lookup {
 typedef struct plore_map {
 	u64 KeySize;
 	u64 ValueSize;
-	
+
 	plore_map_key_lookup *Lookup;
 	u64 Count;
 	u64 Capacity;
-	
+
 	void *Keys;
 	void *Values;
 } plore_map;
@@ -129,7 +131,7 @@ _MapGet(plore_map *Map, void *Key, u64 DEBUGKeySize);
 internal plore_map_remove_result
 _MapRemove(plore_map *Map, void *Key, u64 DEBUGKeySize);
 
-internal plore_map_insert_result 
+internal plore_map_insert_result
 _MapInsert(plore_map *Map, void *Key, void *Value, u64 DEBUGKeySize, u64 DEBUGValueSize);
 
 internal plore_map
@@ -148,7 +150,7 @@ _MapInit(memory_arena *Arena, u64 KeySize, u64 DataSize, u64 Count);
 plore_inline void *
 _GetKey(plore_map *Map, u64 Index) {
 	void *Result = (void *)((u8 *)Map->Keys + Index*Map->KeySize);
-	
+
 	return(Result);
 }
 
@@ -156,14 +158,14 @@ plore_inline void *
 _GetValue(plore_map *Map, u64 Index) {
 	Assert(Map->ValueSize);
 	void *Result = (void *)((u8 *)Map->Values + Index*Map->ValueSize);
-	
+
 	return(Result);
 }
 
 internal plore_map
 _MapInit(memory_arena *Arena, u64 KeySize, u64 ValueSize, u64 Capacity) {
 	Assert(Capacity);
-	
+
 	plore_map Result = {
 		.KeySize   = KeySize,
 		.ValueSize = ValueSize,
@@ -172,24 +174,24 @@ _MapInit(memory_arena *Arena, u64 KeySize, u64 ValueSize, u64 Capacity) {
 		.Values    = PushBytes(Arena, Capacity*ValueSize),
 		.Capacity  = Capacity,
 	};
-	
+
 	Assert(KeySize);
 	Assert(Result.Lookup);
 	Assert(Result.Keys);
-	
+
 	// NOTE(Evan): 0-sized values are legal for using maps as a set.
 	if (ValueSize) Assert(Result.Values);
-	
+
 	return(Result);
 }
 
-internal plore_map_insert_result 
+internal plore_map_insert_result
 _MapInsert(plore_map *Map, void *Key, void *Value, u64 DEBUGKeySize, u64 DEBUGValueSize) {
 	plore_map_insert_result Result = {0};
 	Assert(Map);
 	Assert(Map->Keys && Map->Lookup);
 	Assert(Map->Count < Map->Capacity);
-	
+
 #if defined(PLORE_INTERNAL)
 	Assert(DEBUGKeySize == Map->KeySize);
 	Assert(DEBUGValueSize == Map->ValueSize);
@@ -197,15 +199,15 @@ _MapInsert(plore_map *Map, void *Key, void *Value, u64 DEBUGKeySize, u64 DEBUGVa
 	(void)DEBUGKeySize;
 	(void)DEBUGValueSize;
 #endif
-	
+
 	u64 Index = HashBytes(Key, Map->KeySize) % Map->Capacity;
 	plore_map_key_lookup *Lookup = Map->Lookup+Index;
-	
+
 	if (Lookup->Allocated && !BytesMatch(Key, _GetKey(Map, Index), Map->KeySize)) {
 		for (;;) {
 			Index = (Index + 1) % Map->Capacity;
 			Lookup = Map->Lookup + Index;
-			
+
 			if (!Lookup->Allocated) {
 				Lookup->Allocated = true;
 				break;
@@ -215,31 +217,31 @@ _MapInsert(plore_map *Map, void *Key, void *Value, u64 DEBUGKeySize, u64 DEBUGVa
 			}
 		}
 	}
-	
+
 	if (!Result.DidAlreadyExist) {
 		Lookup->Allocated = true;
 		Map->Count++;
-		
+
 		MemoryCopy(Key, _GetKey(Map, Index), Map->KeySize);
 		if (Map->ValueSize) MemoryCopy(Value, _GetValue(Map, Index), Map->ValueSize);
-	} 
-	
+	}
+
 	Result.Key = _GetKey(Map, Index);
 	if (Map->ValueSize) Result.Value = _GetValue(Map, Index);
-	
+
 	return(Result);
 }
 
 internal plore_map_remove_result
 _MapRemove(plore_map *Map, void *Key, u64 DEBUGKeySize) {
 	plore_map_remove_result Result = {0};
-	
+
 #if defined(PLORE_INTERNAL)
 	Assert(Map->KeySize == DEBUGKeySize);
 #else
 	(void)DEBUGKeySize;
 #endif
-	
+
 	u64 Index = HashBytes(Key, Map->KeySize) % Map->Capacity;
 	plore_map_key_lookup *Lookup = Map->Lookup+Index;
 	u64 KeysChecked = 1;
@@ -248,18 +250,18 @@ _MapRemove(plore_map *Map, void *Key, u64 DEBUGKeySize) {
 			Index = (Index + 1) % Map->Capacity;
 			Lookup = Map->Lookup + Index;
 			KeysChecked++;
-			
+
 			if (Lookup->Allocated && BytesMatch(Key, _GetKey(Map, Index), Map->KeySize)) {
 				break;
-			} 
-			
+			}
+
 			if (KeysChecked == Map->Capacity) {
 				Result.KeyDidNotExist = true;
 				break;
 			}
 		}
 	}
-	
+
 	if (!Result.KeyDidNotExist) {
 		Assert(Map->Count);
 		Map->Count--;
@@ -267,23 +269,23 @@ _MapRemove(plore_map *Map, void *Key, u64 DEBUGKeySize) {
 		MemoryClear(_GetKey(Map, Index), Map->KeySize);
 		if (Map->ValueSize) MemoryClear(_GetValue(Map, Index), Map->ValueSize);
 	}
-	
+
 	return(Result);
 }
 
 internal plore_map_get_result
 _MapGet(plore_map *Map, void *Key, u64 DEBUGKeySize) {
 	plore_map_get_result Result = {0};
-	
+
 #if defined(PLORE_INTERNAL)
 	Assert(Map->KeySize == DEBUGKeySize);
 #else
 	(void)DEBUGKeySize;
 #endif
-	
+
 	u64 Index = HashBytes(Key, Map->KeySize) % Map->Capacity;
 	plore_map_key_lookup *Lookup = Map->Lookup+Index;
-	
+
 	u64 KeysChecked = 1;
 	if (Lookup->Allocated) {
 		if (!BytesMatch(Key, _GetKey(Map, Index), Map->KeySize)) {
@@ -291,7 +293,7 @@ _MapGet(plore_map *Map, void *Key, u64 DEBUGKeySize) {
 				Index = (Index + 1) % Map->Capacity;
 				Lookup = Map->Lookup+Index;
 				KeysChecked++;
-				
+
 				if (!Lookup->Allocated) break;
 				else if (BytesMatch(Key, _GetKey(Map, Index), Map->KeySize)) {
 					Result.Index = Index;
@@ -299,7 +301,7 @@ _MapGet(plore_map *Map, void *Key, u64 DEBUGKeySize) {
 					if (Map->ValueSize) Result.Value = _GetValue(Map, Index);
 					break;
 				}
-				
+
 				if (KeysChecked == Map->Capacity) break;
 			}
 		} else {
@@ -308,7 +310,7 @@ _MapGet(plore_map *Map, void *Key, u64 DEBUGKeySize) {
 			if (Map->ValueSize) Result.Value = _GetValue(Map, Index);
 		}
 	}
-	
+
 	return(Result);
 }
 
@@ -331,18 +333,18 @@ MapIterNext(plore_map *Map, plore_map_iterator It) {
 		Result.Finished = true;
 		return(Result);
 	}
-	
+
 	for (u64 L = It._Index; L < Map->Capacity; L++) {
 		if (Map->Lookup[L].Allocated) {
 			Result._Index = L;
 			Result.Key = _GetKey(Map, Result._Index);
 			if (Map->ValueSize) Result.Value = _GetValue(Map, Result._Index);
 			Result._Index++;
-			
+
 			return (Result);
 		}
 	}
-	
+
 	Result.Finished = true;
 	return(Result);
 }
@@ -361,12 +363,12 @@ MapCopy(plore_map *Source, plore_map *Destination) {
 	Assert(Source->Capacity == Destination->Capacity);
 	Assert(Source->KeySize == Destination->KeySize);
 	Assert(Source->ValueSize == Destination->ValueSize);
-	
+
 	MemoryCopy(Source->Lookup, Destination->Lookup, Source->Capacity*sizeof(plore_map_key_lookup));
 	MemoryCopy(Source->Keys, Destination->Keys, Source->Capacity*Source->KeySize);
 	MemoryCopy(Source->Values, Destination->Values, Source->Capacity*Source->ValueSize);
 	Destination->Count = Source->Count;
-	
+
 	return(Destination);
 }
 #endif // PLORE_MAP_IMPLEMENTATION
