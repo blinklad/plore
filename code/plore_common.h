@@ -68,10 +68,10 @@ ToggleFlag(b64 Flags, b64 Flag) {
 }
 
 #if defined(PLORE_INTERNAL)
-#define Assert(X) if (!(X)) { __debugbreak(); }
+#define Assert(X) if (!(X)) { Debugger; }
 #define StaticAssert(X, M) static_assert(X, M)
 #else
-#define Assert(X) 
+#define Assert(X)
 #define StaticAssert(X, M)
 #endif
 
@@ -85,6 +85,9 @@ ToggleFlag(b64 Flags, b64 Flag) {
 #if defined(PLORE_INTERNAL)
 	#if defined(PLORE_WINDOWS)
 	#define Debugger __debugbreak();
+
+    #elif defined(PLORE_LINUX)
+    #define Debugger __asm__ __volatile__("int3");
 	#endif
 #endif
 
@@ -94,7 +97,7 @@ plore_inline void *
 MemoryClear(void *Memory, u64 ByteCount) {
 	u8 *Bytes = (u8 *)Memory;
 	for (u64 Byte = 0; Byte < ByteCount; Byte++) *Bytes++ = 0;
-	
+
 	return(Memory);
 }
 
@@ -102,10 +105,10 @@ plore_inline void *
 MemoryCopy(void *Source, void *Destination, u64 ByteCount) {
 	u8 *S = (u8 *)Source;
 	u8 *D = (u8 *)Destination;
-	
+
 	u64 CopiedCount = 0;
 	while(CopiedCount++ < ByteCount) *D++ = *S++;
-	
+
 	return(Destination);
 }
 
@@ -113,7 +116,7 @@ plore_inline i64
 MemoryCompare(void *_A, void *_B, u64 ByteCount) {
 	u8 *A = (u8 *)_A;
 	u8 *B = (u8 *)_B;
-	
+
 	i64 Result = 0;
 	while(ByteCount--) {
 		if (*A != *B) {
@@ -123,7 +126,7 @@ MemoryCompare(void *_A, void *_B, u64 ByteCount) {
 			A++, B++;
 		}
 	}
-	
+
 	return(Result);
 }
 
@@ -173,15 +176,15 @@ GetSizeAndLabel(u64 Bytes) {
 		Result.Size /= Gigabytes(1);
 		Result.Label = "gB";
 	} else if (Result.Size > Megabytes(1)) {
-		Result.Size /= Megabytes(1); 
+		Result.Size /= Megabytes(1);
 		Result.Label = "mB";
 	} else if (Result.Size > Kilobytes(1)) {
 		Result.Size /= Kilobytes(1);
 		Result.Label = "kB";
 	}
-	
+
 	return(Result);
-	
+
 }
 
 
