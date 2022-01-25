@@ -55,11 +55,11 @@ typedef struct platform_texture_handle {
 	f32 Height;
 } platform_texture_handle;
 
-typedef enum pixel_format { 
-	PixelFormat_RGBA8, 
-	PixelFormat_RGB8, 
-	PixelFormat_BGRA8, 
-	PixelFormat_ALPHA 
+typedef enum pixel_format {
+	PixelFormat_RGBA8,
+	PixelFormat_RGB8,
+	PixelFormat_BGRA8,
+	PixelFormat_ALPHA
 } pixel_format;
 
 typedef struct platform_texture_handle_desc {
@@ -121,9 +121,9 @@ typedef PLATFORM_PATH_JOIN(platform_path_join);
 typedef struct directory_entry_result {
 	char *Name;         // NOTE(Evan): Alias to the string passed in.
 	plore_file *Buffer; // NOTE(Evan): Alias of the buffer passed in.
-	u64 Size; 
+	u64 Size;
 	u64 Count;
-	
+
 	u64 IgnoredCount;
 	b64 Succeeded;
 } directory_entry_result;
@@ -153,7 +153,7 @@ typedef PLATFORM_RUN_SHELL(platform_run_shell);
 // NOTE(Evan): Task bits.
 
 typedef struct memory_arena memory_arena;
-typedef struct platform_taskmaster platform_taskmaster; 
+typedef struct platform_taskmaster platform_taskmaster;
 
 typedef struct platform_task_info {
 	u64 ThreadID;
@@ -193,7 +193,7 @@ typedef PLATFORM_DEBUG_ASSERT_HANDLER(platform_debug_assert_handler);
 // NOTE(Evan): Platform API
 typedef struct platform_api {
 	platform_taskmaster *Taskmaster;
-	
+
 	union {
 		v2 WindowDimensions;
 		struct {
@@ -205,37 +205,37 @@ typedef struct platform_api {
 	platform_debug_assert_handler        *DebugAssertHandler;
 	platform_create_texture_handle       *CreateTextureHandle;
 	platform_destroy_texture_handle      *DestroyTextureHandle;
-	    
+
 	platform_show_cursor                 *ShowCursor;
 	platform_toggle_fullscreen           *ToggleFullscreen;
-	    
+
     platform_debug_open_file             *DebugOpenFile;
     platform_debug_read_entire_file      *DebugReadEntireFile;
     platform_debug_read_file_size        *DebugReadFileSize;
 	platform_debug_close_file            *DebugCloseFile;
     platform_debug_print_line            *DebugPrintLine;
     platform_debug_print                 *DebugPrint;
-	
+
 	platform_directory_size_task_begin   *DirectorySizeTaskBegin;
-	
+
 	platform_get_directory_entries       *GetDirectoryEntries;
 	platform_get_current_directory       *GetCurrentDirectory;
 	platform_get_current_directory_path  *GetCurrentDirectoryPath;
 	platform_set_current_directory       *SetCurrentDirectory;
-	
+
 	platform_path_pop                    *PathPop;
 	platform_path_push                   *PathPush;
 	platform_path_is_directory           *PathIsDirectory;
 	platform_path_is_top_level           *PathIsTopLevel;
 	platform_path_join                   *PathJoin;
-	
+
 	platform_create_file                 *CreateFile;
 	platform_create_directory            *CreateDirectory;
 	platform_move_file                   *MoveFile;
 	platform_rename_file                 *RenameFile;
 	platform_delete_file                 *DeleteFile;
 	platform_run_shell                   *RunShell;
-	
+
 	platform_create_task_with_memory     *CreateTaskWithMemory;
 	platform_start_task_with_memory      *StartTaskWithMemory;
 	platform_push_task                   *PushTask;
