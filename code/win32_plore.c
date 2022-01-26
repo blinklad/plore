@@ -13,29 +13,29 @@ global b64 GlobalRunning = true;
 
 PLATFORM_DEBUG_ASSERT_HANDLER(WindowsDebugAssertHandler) {
 	b64 Result = false;
-	int Action = MessageBox(GlobalWindowsContext->Window, 
-							Message, 
-							"Plore Assertion", 
+	int Action = MessageBox(GlobalWindowsContext->Window,
+							Message,
+							"Plore Assertion",
 							MB_ICONEXCLAMATION | MB_CANCELTRYCONTINUE | MB_DEFBUTTON2);
-	
+
 	switch (Action) {
 		case IDCANCEL: {
 			_exit(-1);
 		} break;
-		
+
 		case IDTRYAGAIN: {
 			Result = true;
 		} break;
-		
+
 		case IDCONTINUE: {
 			Result = false;
 		} break;
-		
+
 		InvalidDefaultCase;
 	}
-	
+
 	return(Result);
-	
+
 }
 
 #include "win32_gl_loader.c"
@@ -55,24 +55,24 @@ internal plore_time
 WindowsFiletimeToPloreTime(FILETIME Filetime) {
 	plore_time Result = {0};
 	ULARGE_INTEGER BigBoy = {0};
-	
+
 	BigBoy.LowPart  = Filetime.dwLowDateTime;
 	BigBoy.HighPart = Filetime.dwHighDateTime;
 	Result.T = BigBoy.QuadPart / 10000000ULL - 11644473600ULL;
-	
+
 	return(Result);
 }
 
-internal FILETIME 
+internal FILETIME
 PloreTimeToWindowsFiletime(plore_time Time)
 {
 	FILETIME Result = {0};
     ULARGE_INTEGER BigBoy = {0};
-	
+
     BigBoy.QuadPart = (Time.T * 10000000LL) + 116444736000000000LL;
     Result.dwLowDateTime = BigBoy.LowPart;
     Result.dwHighDateTime = BigBoy.HighPart;
-	
+
 	return(Result);
 }
 
@@ -108,7 +108,7 @@ PLATFORM_DEBUG_OPEN_FILE(WindowsDebugOpenFile) {
         .OpenedSuccessfully = (TheFile != INVALID_HANDLE_VALUE),
         .FileSize = FileSize,
     };
-    
+
     return(Result);
 
 }
@@ -120,47 +120,48 @@ PLATFORM_DEBUG_CLOSE_FILE(WindowsDebugCloseFile) {
 // NOTE(Evan): This does not work for files > 4gb!
 PLATFORM_DEBUG_READ_ENTIRE_FILE(WindowsDebugReadEntireFile) {
     platform_read_file_result Result = {0};
-    
+
     HANDLE FileHandle = File.Opaque;
     DWORD BytesRead;
-	
+
     Assert(BufferSize < UINT32_MAX);
     if (File.FileSize <= BufferSize) {
 	    DWORD BufferSize32 = (DWORD) BufferSize;
-	
+
 	    Result.ReadSuccessfully = ReadFile(FileHandle, Buffer, BufferSize32, &BytesRead, NULL);
 	    Assert(BytesRead == File.FileSize);
 	    Result.BytesRead = BytesRead;
 	    Result.Buffer = Buffer;
 	}
-    
+
     return(Result);
 }
 
 PLATFORM_DEBUG_READ_ENTIRE_FILE(WindowsDebugReadFileSize) {
     platform_read_file_result Result = {0};
-    
+
     HANDLE FileHandle = File.Opaque;
     DWORD BytesRead;
-	
+
     Assert(BufferSize < UINT32_MAX);
     DWORD BufferSize32 = (DWORD) BufferSize;
-	
+
     Result.ReadSuccessfully = ReadFile(FileHandle, Buffer, BufferSize32, &BytesRead, NULL);
     Result.BytesRead = BytesRead;
     Result.Buffer = Buffer;
-    
+
     return(Result);
 }
 
+// CLEANUP(Evan): Renderer bits.
 PLATFORM_CREATE_TEXTURE_HANDLE(WindowsGLCreateTextureHandle) {
 	platform_texture_handle Result = {
 		.Width = Desc.Width,
 		.Height = Desc.Height,
 	};
-	
+
 	glEnable(GL_TEXTURE_2D);
-	
+
 	GLenum GLProvidedPixelFormat = 0;
 	GLenum GLTargetPixelFormat = 0;
 	GLenum GLFilterMode = 0;
@@ -168,63 +169,63 @@ PLATFORM_CREATE_TEXTURE_HANDLE(WindowsGLCreateTextureHandle) {
 		case PixelFormat_RGBA8: {
 			GLTargetPixelFormat = GL_RGBA8;
 		} break;
-		
+
 		case PixelFormat_ALPHA: {
 			GLTargetPixelFormat = GL_ALPHA;
 		} break;
-		
+
 		case PixelFormat_BGRA8: {
 			GLTargetPixelFormat = GL_BGRA;
 		} break;
-		
+
 		InvalidDefaultCase;
 	}
 	switch (Desc.ProvidedPixelFormat) {
-		
+
 		case PixelFormat_RGBA8: {
 			GLProvidedPixelFormat = GL_RGBA;
 		} break;
-		
+
 		case PixelFormat_RGB8: {
 			GLProvidedPixelFormat = GL_RGB;
 		} break;
-		
+
 		case PixelFormat_ALPHA: {
 			GLProvidedPixelFormat = GL_ALPHA;
 		} break;
-		
+
 		case PixelFormat_BGRA8: {
 			GLProvidedPixelFormat = GL_BGRA;
 		} break;
-		
+
 		InvalidDefaultCase;
 	}
-	
+
 	switch (Desc.FilterMode) {
 		case FilterMode_Linear: {
 			GLFilterMode = GL_LINEAR;
 		} break;
-		
+
 		case FilterMode_Nearest: {
 			GLFilterMode = GL_NEAREST;
 		} break;
-		
+
 		InvalidDefaultCase;
 	}
-	
+
 	GLuint Handle;
 	glGenTextures(1, &Handle);
 	Result.Opaque = Handle;
 	glBindTexture(GL_TEXTURE_2D, Result.Opaque);
-	
+
 	glTexImage2D(GL_TEXTURE_2D, 0, GLTargetPixelFormat, Result.Width, Result.Height, 0, GLProvidedPixelFormat, GL_UNSIGNED_BYTE, Desc.Pixels);
-	
+
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);	
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GLFilterMode);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GLFilterMode);	
-	
-	
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GLFilterMode);
+
+
 	return(Result);
 }
 
@@ -232,7 +233,7 @@ PLATFORM_DESTROY_TEXTURE_HANDLE(WindowsGLDestroyTextureHandle) {
 	GLuint Opaque = (GLuint) Texture.Opaque;
 	glDeleteTextures(1, &Opaque);
 }
-	
+
 // NOTE(Evan): Windows decrements a signed counter whenever FALSE is provided, so there will be some weirdness to this.
 PLATFORM_SHOW_CURSOR(WindowsShowCursor) {
 	GlobalPloreInput.ThisFrame.CursorIsShowing = Show;
@@ -246,10 +247,10 @@ global WINDOWPLACEMENT GlobalWindowPlacement = { .length = sizeof(GlobalWindowPl
 PLATFORM_TOGGLE_FULLSCREEN(WindowsToggleFullscreen) {
 	HWND Window = GlobalWindowsContext->Window;
 	DWORD WindowStyle = GetWindowLong(Window, GWL_STYLE);
-	
+
 	if (WindowStyle & WS_OVERLAPPEDWINDOW) {
 		MONITORINFO MonitorInfo = { .cbSize = sizeof(MonitorInfo) };
-		
+
 		if(GetWindowPlacement(Window, &GlobalWindowPlacement)
 		   && GetMonitorInfo(MonitorFromWindow(Window, MONITOR_DEFAULTTOPRIMARY),
 							 &MonitorInfo)) {
@@ -276,29 +277,18 @@ PLATFORM_TOGGLE_FULLSCREEN(WindowsToggleFullscreen) {
 	}
 }
 
-PLATFORM_GET_CURRENT_DIRECTORY(WindowsGetCurrentDirectory) {
-	plore_get_current_directory_result Result = {
-		.Absolute = Buffer,
-	};
-	
-	GetCurrentDirectory(BufferSize, Result.Absolute);
-	Result.FilePart = PathFindFileName(Result.Absolute);
-	
-	return(Result);
-}
-
 PLATFORM_GET_CURRENT_DIRECTORY_PATH(WindowsGetCurrentDirectoryPath) {
 	plore_path Result = {0};
-	
+
 	GetCurrentDirectory(ArrayCount(Result.Absolute), Result.Absolute);
 	char *FilePart = PathFindFileName(Result.Absolute);
 	StringCopy(FilePart, Result.FilePart, ArrayCount(Result.FilePart));
-	
+
 	return(Result);
 }
 PLATFORM_SET_CURRENT_DIRECTORY(WindowsSetCurrentDirectory) {
-	b64 Result = SetCurrentDirectory(Name);
-	
+	b64 Result = SetCurrentDirectory(Path);
+
 	return(Result);
 }
 
@@ -316,7 +306,7 @@ PLATFORM_PATH_POP(WindowsPathPop) {
 		Buffer[Length++] = '\0';
 	}
 	Result.FilePart = PathFindFileName(Result.AbsolutePath);
-	
+
 	return(Result);
 }
 
@@ -337,15 +327,15 @@ PLATFORM_PATH_IS_TOP_LEVEL(WindowsPathIsTopLevel) {
 
 PLATFORM_PATH_JOIN(WindowsPathJoin) {
 	b64 WeAreTopLevel = WindowsPathIsTopLevel(First);
-	
+
 	u64 BytesWritten = StringCopy(First, Buffer, PLORE_MAX_PATH);
 	if (!WeAreTopLevel) Buffer[BytesWritten++] = '\\';
-	
+
 	BytesWritten += StringCopy(Second, Buffer + BytesWritten, PLORE_MAX_PATH-BytesWritten);
 }
 
 
-// NOTE(Evan): Returns whether the path 
+// NOTE(Evan): Returns whether the path
 internal b64
 WindowsMakePathSearchable(char *Directory, char *Buffer, u64 Size) {
 	u64 BytesWritten = StringCopy(Directory, Buffer, Size);
@@ -353,17 +343,17 @@ WindowsMakePathSearchable(char *Directory, char *Buffer, u64 Size) {
 	char SearchChars[] = {'\\', '*'};
 	b64 SearchCanFit = BytesWritten < (Size + sizeof(SearchChars));
 	if (!SearchCanFit) return(false);
-	
+
 	b64 IsDirectoryRoot = PathIsRoot(Buffer);
 	if (!IsDirectoryRoot) Buffer[BytesWritten + SearchBytesWritten++] = '\\';
-	
+
 	Buffer[BytesWritten + SearchBytesWritten++] = '*';
 	Buffer[BytesWritten + SearchBytesWritten++] = '\0';
-	
+
 	return(true);
 }
 
-enum { 
+enum {
 	Taskmaster_MaxThreads = 4,
 	Taskmaster_MaxTasks = 32,
 	Taskmaster_TaskArenaSize = Megabytes(1),
@@ -394,22 +384,22 @@ InitTaskmaster(memory_arena *Arena, platform_taskmaster *Taskmaster) {
 			.Arena = SubArena(Arena, Taskmaster_TaskArenaSize, 16),
 		};
 	}
-	
-	
+
+
 	TaskAvailableSemaphore = CreateSemaphore(NULL,
 										     0,
 										     Taskmaster_MaxTasks,
 										     NULL);
-	
+
 	Assert(TaskAvailableSemaphore);
-	
+
 	SearchSemaphore = CreateSemaphore(NULL,
 								      0,
 								      1,
 								      NULL);
-	
+
 	Assert(SearchSemaphore);
-	
+
 	plore_thread_context Threads[Taskmaster_MaxThreads] = {0};
 	for (u64 T = 0; T < ArrayCount(Threads); T++) {
 		// NOTE(Evan): Create thread in suspended state then immediately resume it, so we can guarantee its context has a valid handle before it kicks off.
@@ -423,10 +413,10 @@ InitTaskmaster(memory_arena *Arena, platform_taskmaster *Taskmaster) {
 								   0),
 			.Taskmaster = Taskmaster,
 		};
-		
+
 		ResumeThread(Threads[T].Opaque);
 	}
-	
+
 }
 
 typedef struct platform_get_next_task_result {
@@ -436,21 +426,21 @@ typedef struct platform_get_next_task_result {
 internal platform_get_next_task_result
 _GetNextTask(platform_taskmaster *Taskmaster) {
 	platform_get_next_task_result Result = {0};
-	
+
 	Result.Index = InterlockedIncrement(&(LONG)Taskmaster->TaskCount)-1;
 	u64 CircularIndex = Result.Index % ArrayCount(Taskmaster->Tasks);
 	b64 Running = Taskmaster->Tasks[CircularIndex].Running;
-	
-	// TODO(Evan): Upper bound for tasks and error handling for wraparound on full. We shouldn't have many after all.	
-	Assert(!Running); 
+
+	// TODO(Evan): Upper bound for tasks and error handling for wraparound on full. We shouldn't have many after all.
+	Assert(!Running);
 	FullMemoryBarrier;
-	
+
 	Result.Task = Taskmaster->Tasks + CircularIndex;
 	memory_arena Old = Result.Task->Arena;
 	*Result.Task = ClearStruct(platform_task);
 	Result.Task->Arena = Old;
 	ClearArena(&Result.Task->Arena);
-	
+
 	return(Result);
 }
 
@@ -461,7 +451,7 @@ PLATFORM_CREATE_TASK_WITH_MEMORY(WindowsCreateTaskWithMemory) {
 		.Arena = &NextTaskResult.Task->Arena,
 		.ID = NextTaskResult.Index,
 	};
-	
+
 	return(Result);
 }
 
@@ -470,7 +460,7 @@ PLATFORM_START_TASK_WITH_MEMORY(WindowsStartTaskWithMemory) {
 	NextTask->Procedure = Procedure;
 	NextTask->Param = Param;
 	FullMemoryBarrier;
-	
+
 	ReleaseSemaphore(TaskAvailableSemaphore, 1, NULL);
 }
 
@@ -479,7 +469,7 @@ PLATFORM_PUSH_TASK(WindowsPushTask) {
 	NextTask->Procedure = Procedure;
 	NextTask->Param = Param;
 	FullMemoryBarrier;
-	
+
 	ReleaseSemaphore(TaskAvailableSemaphore, 1, NULL);
 }
 
@@ -491,44 +481,44 @@ volatile LONG64 SearchActive;
 
 PLATFORM_TASK(WindowsGetDirectorySize) {
 	plore_directory_query_state *State = (plore_directory_query_state *)Param;
-	
+
 	StringCopy(State->Path.Absolute, ChildStack[ChildStackCount++], ArrayCount(ChildStack[0]));
-	
+
 	u64 SizeAccum = 0;
 	u64 FileAccum = 0;
 	u64 DirectoryAccum = 0;
-	
+
 	while (ChildStackCount) {
 		if (!SearchActive) {
 			break;
 		}
-		
+
 		WIN32_FIND_DATA FindData = {0};
-		
+
 		char ThisDirectory[PLORE_MAX_PATH] = {0};
 		StringCopy(ChildStack[--ChildStackCount], ThisDirectory, ArrayCount(ThisDirectory));
-		
+
 		char SearchableDirectory[PLORE_MAX_PATH] = {0};
 		if (!WindowsMakePathSearchable(ThisDirectory, SearchableDirectory, ArrayCount(SearchableDirectory))) {
 			break;
 		}
-		
+
 		HANDLE FindHandle = FindFirstFile(SearchableDirectory, &FindData);
 		u64 IgnoredCount = 0;
 		if (FindHandle != INVALID_HANDLE_VALUE) {
 			do {
 				if (FindData.cFileName[0] == '.' || FindData.cFileName[0] == '$') continue;
-				
+
 				DWORD FlagsToIgnore = FILE_ATTRIBUTE_DEVICE     |
 					FILE_ATTRIBUTE_ENCRYPTED |
 					FILE_ATTRIBUTE_OFFLINE   |
 					FILE_ATTRIBUTE_TEMPORARY;
-				
+
 				if (FindData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
 					DirectoryAccum += 1;
 					if (ChildStackCount < MAX_SEARCH_DIRECTORIES) {
 						char *ChildStackEntry = ChildStack[ChildStackCount++];
-						
+
 						// NOTE(Evan): Make the file name an absolute path.
 						u64 BytesWritten = StringCopy(ThisDirectory, ChildStackEntry, PLORE_MAX_PATH);
 						ChildStackEntry[BytesWritten++] = '\\';
@@ -539,18 +529,18 @@ PLATFORM_TASK(WindowsGetDirectorySize) {
 					SizeAccum += (FindData.nFileSizeHigh * (MAXDWORD+1)) + FindData.nFileSizeLow;
 				}
 			} while (FindNextFile(FindHandle, &FindData));
-			
+
 			FindClose(FindHandle);
 		}
-		
+
 		State->SizeProgress = SizeAccum;
 		State->FileCount = FileAccum;
 		State->DirectoryCount = DirectoryAccum;
 	}
-	
+
 	ChildStackCount = 0;
 	State->Completed = true;
-	
+
 	// NOTE(Evan): If the search was cancelled by a new task, signal that we're done.
 	// Otherwise, toggle the search as usual.
 	if (!SearchActive) {
@@ -571,13 +561,13 @@ PLATFORM_DIRECTORY_SIZE_TASK_BEGIN(WindowsDirectorySizeTaskBegin) {
 			WaitForSingleObject(SearchSemaphore, INFINITE);
 		} // Otherwise, it happened to finish before we could toggle the flag.
 	}
-	
+
 	*State = (plore_directory_query_state) {
 		.Path = *Path,
 	};
 	InterlockedExchange64(&SearchActive, true);
 	FullMemoryBarrier;
-	
+
 	WindowsPushTask(Taskmaster, WindowsGetDirectorySize, State);
 }
 
@@ -588,14 +578,14 @@ PLATFORM_GET_DIRECTORY_ENTRIES(WindowsGetDirectoryEntries) {
 		.Buffer = Buffer,
 		.Size = Size,
 	};
-	
+
 	char SearchableDirectoryName[PLORE_MAX_PATH] = {0};
 	if (!WindowsMakePathSearchable(DirectoryName, SearchableDirectoryName, ArrayCount(SearchableDirectoryName))) {
 		return(Result);
 	}
-	
+
 	b64 IsDirectoryRoot = PathIsRoot(DirectoryName);
-	
+
 	WIN32_FIND_DATA FindData = {0};
 	HANDLE FindHandle = FindFirstFile(SearchableDirectoryName, &FindData);
 	u64 IgnoredCount = 0;
@@ -605,53 +595,53 @@ PLATFORM_GET_DIRECTORY_ENTRIES(WindowsGetDirectoryEntries) {
 				WindowsPrintLine("Directory entry capacity reached when querying %s", SearchableDirectoryName);
 				break; // @Hack
 			}
-			
+
 			char *FileName = FindData.cFileName;
 			if (FileName[0] == '.' || FileName[0] == '$') continue;
-			
+
 			plore_file *File = Buffer + Result.Count;
-			
+
 			DWORD FlagsToIgnore = FILE_ATTRIBUTE_DEVICE    |
 								  FILE_ATTRIBUTE_ENCRYPTED |
 								  FILE_ATTRIBUTE_OFFLINE   |
 								  FILE_ATTRIBUTE_TEMPORARY;
-			
+
 			if (FindData.dwFileAttributes & FlagsToIgnore) {
 				Result.IgnoredCount++;
 				continue;
 			}
-			
+
 			if (FindData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
 				File->Type = PloreFileNode_Directory;
 			} else { // NOTE(Evan): Assume a 'normal' file.
 				File->Type = PloreFileNode_File;
 				File->Extension = GetFileExtension(FindData.cFileName).Extension;
-			} 
-			
+			}
+
 			File->Bytes = (FindData.nFileSizeHigh * (MAXDWORD+1)) + FindData.nFileSizeLow;
 			File->LastModification = WindowsFiletimeToPloreTime(FindData.ftLastWriteTime);
 			File->Hidden = FindData.dwFileAttributes & FILE_ATTRIBUTE_HIDDEN;
-			
-			
+
+
 			u64 BytesWritten = StringCopy(DirectoryName, File->Path.Absolute, ArrayCount(File->Path.Absolute));
 			Assert(BytesWritten < ArrayCount(File->Path.Absolute) - 2); // NOTE(Evan): For trailing '\';
-			
+
 			if (!IsDirectoryRoot) File->Path.Absolute[BytesWritten++] = '\\';
-			
+
 			// @Cleanup, use PathFindFileName();
 			StringCopy(FindData.cFileName, File->Path.Absolute + BytesWritten, ArrayCount(File->Path.Absolute) - BytesWritten);
 			StringCopy(FindData.cFileName, File->Path.FilePart, ArrayCount(File->Path.Absolute));
-			
-			
+
+
 			Result.Count++;
-			
+
 		} while (FindNextFile(FindHandle, &FindData));
-		
+
 		FindClose(FindHandle);
 	} else {
 		WindowsPrintLine("Could not open directory %s", SearchableDirectoryName);
 	}
-	
+
 	Result.Succeeded = true;
 	return(Result);
 }
@@ -660,20 +650,20 @@ PLATFORM_CREATE_FILE(WindowsCreateFile) {
 	b64 Result = false;
 	DWORD OverwriteFlags = CREATE_NEW;
 	if (OverwriteExisting) OverwriteFlags = CREATE_ALWAYS;
-	
-	HANDLE TheFile = CreateFile(Path, 
-								GENERIC_READ | GENERIC_WRITE, 
-								FILE_SHARE_READ | FILE_SHARE_WRITE, 
+
+	HANDLE TheFile = CreateFile(Path,
+								GENERIC_READ | GENERIC_WRITE,
+								FILE_SHARE_READ | FILE_SHARE_WRITE,
 								0,
 								OverwriteFlags,
 								FILE_ATTRIBUTE_NORMAL,
 								0);
-	
+
 	Result = TheFile != INVALID_HANDLE_VALUE;
 	if (Result) {
 		Result = CloseHandle(TheFile) != 0;
 	}
-	
+
 	return(Result);
 }
 
@@ -685,32 +675,32 @@ PLATFORM_CREATE_DIRECTORY(WindowsCreateDirectory) {
 // TODO(Evan): Remove wildcards!
 PLATFORM_DELETE_FILE(WindowsDeleteFile) {
 	b64 Result = false;
-	
+
 	char PathDoubleNulled[PLORE_MAX_PATH+1] = {0};
 	u64 BytesWritten = StringCopy(Path, PathDoubleNulled, ArrayCount(PathDoubleNulled));
 	Assert(BytesWritten <= PLORE_MAX_PATH);
 	PathDoubleNulled[BytesWritten+1] = '\0';
-	
+
 	FILEOP_FLAGS Flags = FOF_SILENT;
 	if (!Desc.PermanentDelete) Flags |= FOF_ALLOWUNDO;
 	if (!Desc.Recursive)       Flags |= FOF_NORECURSION; // NOTE(Evan): Recursive by default.
-	
+
 	SHFILEOPSTRUCT ShellOptions = {
 		.hwnd = GlobalWindowsContext->Window,
 		.wFunc = FO_DELETE,
 		.pFrom = PathDoubleNulled,
 		.fFlags = Flags,
 	};
-	
+
 	Result = SHFileOperation(&ShellOptions) == 0;
-	
+
 	return(Result);
 }
 
 PLATFORM_MOVE_FILE(WindowsMoveFile) {
 	b64 Result = false;
 	Assert(dAbsolutePath);
-	
+
 	char sPathDoubleNulled[PLORE_MAX_PATH+1] = {0};
 	{
 		u64 BytesWritten = StringCopy(sAbsolutePath, sPathDoubleNulled, ArrayCount(sPathDoubleNulled));
@@ -723,7 +713,7 @@ PLATFORM_MOVE_FILE(WindowsMoveFile) {
 		Assert(BytesWritten <= PLORE_MAX_PATH);
 		dPathDoubleNulled[BytesWritten+1] = '\0';
 	}
-	
+
 	FILEOP_FLAGS Flags = FOF_SIMPLEPROGRESS;//FOF_SILENT;
 	SHFILEOPSTRUCT ShellOptions = {
 		.hwnd = GlobalWindowsContext->Window,
@@ -732,7 +722,7 @@ PLATFORM_MOVE_FILE(WindowsMoveFile) {
 		.pTo = dPathDoubleNulled,
 		.fFlags = Flags,
 	};
-	
+
 	Result = SHFileOperation(&ShellOptions) == 0;
 	return(Result);
 }
@@ -758,13 +748,13 @@ global u64 ProcessHandleCursor;
 
 PLATFORM_RUN_SHELL(WindowsRunShell) {
 	b64 Result = false;
-	
+
 	local b64 Initialised = false;
 	if (!Initialised) {
 		Initialised = true;
 		InitializeCriticalSection(&ProcessHandleTableGuard);
 	}
-	
+
 	// @Cleanup
 	char Buffer[PLORE_MAX_PATH] = {0};
 	if (Desc.QuoteArgs) {
@@ -774,20 +764,20 @@ PLATFORM_RUN_SHELL(WindowsRunShell) {
 	} else {
 		StringPrintSized(Buffer, PLORE_MAX_PATH, "cmd.exe /s /k \"%s\"", Desc.Command);
 	}
-	
+
 	WindowsPrintLine("%s", Buffer);
-	
+
 	EnterCriticalSection(&ProcessHandleTableGuard);
-	
+
 	process_handle *MyProcess = ProcessHandles + ProcessHandleCursor;
 	ProcessHandleCursor = (ProcessHandleCursor + 1) % ArrayCount(ProcessHandles);
-	
+
 	// NOTE(Evan): If we have wrapped around and this process is not finished, we should clean it up first.
 	if (MyProcess->IsRunning) {
 		WindowsPrintLine("Cleaned up process prematurely.");
-		
+
 		CloseHandle(MyProcess->ProcessInfo.hThread);
-		
+
 		DWORD MaybeExitCode = 0;
 		if (GetExitCodeProcess(MyProcess->ProcessInfo.hProcess, &MaybeExitCode)) {
 			if (MaybeExitCode == STILL_ACTIVE) {
@@ -795,19 +785,19 @@ PLATFORM_RUN_SHELL(WindowsRunShell) {
 			}
 		}
 		CloseHandle(MyProcess->ProcessInfo.hProcess);
-		
+
 		MyProcess->NeedsCallbackCleanup = true;
 		MyProcess->IsRunning = false;
 	}
-	
+
 	// NOTE(Evan): We cleanup the callback here because we aren't allowed to call UnregisterWaitEx() inside the
 	// callback itself.
-	// NOTE(Evan): Param indicates we want to wait for pending callbacks.	
+	// NOTE(Evan): Param indicates we want to wait for pending callbacks.
 	if (MyProcess->NeedsCallbackCleanup) {
-		UnregisterWaitEx(MyProcess->WaitHandle, INVALID_HANDLE_VALUE); 
+		UnregisterWaitEx(MyProcess->WaitHandle, INVALID_HANDLE_VALUE);
 	}
-	
-	
+
+
 	Result = CreateProcessA(NULL,
 							Buffer,
 							NULL,
@@ -818,28 +808,28 @@ PLATFORM_RUN_SHELL(WindowsRunShell) {
 							NULL,
 							&(STARTUPINFOA) { .cb = sizeof(STARTUPINFOA) },
 							&MyProcess->ProcessInfo);
-	
+
 	if (!Result) {
 		DWORD Error = GetLastError();
 		int BreakHere = 5;
 	}
-	
-	b64 DidRegisterCleanup = RegisterWaitForSingleObject(&MyProcess->WaitHandle, 
-														 MyProcess->ProcessInfo.hProcess, 
+
+	b64 DidRegisterCleanup = RegisterWaitForSingleObject(&MyProcess->WaitHandle,
+														 MyProcess->ProcessInfo.hProcess,
 														 CleanupProcessHandle,
 														 MyProcess,
 														 INFINITE,
 														 WT_EXECUTEONLYONCE);
-														 
+
 	if (!DidRegisterCleanup) {
 		WindowsPrintLine("Couldn't register %s for cleanup.", Desc.Args);
 	}
-	
+
 	MyProcess->IsRunning = true;
 	WindowsPrintLine("%s running command %s", Result ? "succeeded " : "failed ", Buffer);
-	
+
 	LeaveCriticalSection(&ProcessHandleTableGuard);
-	
+
 	return(Result);
 }
 
@@ -847,11 +837,11 @@ PLATFORM_RUN_SHELL(WindowsRunShell) {
 internal void CALLBACK
 CleanupProcessHandle(void *Context, BOOLEAN WasTimedOut) {
 	EnterCriticalSection(&ProcessHandleTableGuard);
-	
+
 	process_handle *MyProcess = Context;
 	if (MyProcess->IsRunning) {
 		CloseHandle(MyProcess->ProcessInfo.hThread);
-		
+
 		DWORD MaybeExitCode = 0;
 		if (GetExitCodeProcess(MyProcess->ProcessInfo.hProcess, &MaybeExitCode)) {
 			if (MaybeExitCode == STILL_ACTIVE) {
@@ -860,17 +850,17 @@ CleanupProcessHandle(void *Context, BOOLEAN WasTimedOut) {
 		}
 		CloseHandle(MyProcess->ProcessInfo.hProcess);
 		WindowsPrintLine("Cleaned up process successfully.");
-		
+
 		MyProcess->NeedsCallbackCleanup = true;
 		MyProcess->IsRunning = false;
 	}
-	
+
 	LeaveCriticalSection(&ProcessHandleTableGuard);
 }
 
 
 
-// 
+//
 // NOTE(Evan): Internal API definitions.
 //
 OPENGL_DEBUG_CALLBACK(WindowsGLDebugMessageCallback)
@@ -898,38 +888,38 @@ WindowsGetDrives() {
 	for (u64 Bit = 1; Bit <= 32; Bit++) {
 		if (DriveMask & (1 << Bit)) Result.Drives[Bit-1] = 'A' + Bit;
 	}
-	
+
 	char Buffer[PLORE_MAX_PATH] = {0};
 	GetCurrentDirectory(ArrayCount(Buffer), Buffer);
 	char CurrentDriveLetter = Buffer[0];
-	Assert((CurrentDriveLetter >= 'A' && CurrentDriveLetter <= 'Z') || 
+	Assert((CurrentDriveLetter >= 'A' && CurrentDriveLetter <= 'Z') ||
 		   (CurrentDriveLetter >= 'a' && CurrentDriveLetter <= 'z'));
-	
+
 	if (CurrentDriveLetter >= 'a' && CurrentDriveLetter <= 'z') {
 		CurrentDriveLetter -= 32;
 	}
-	
+
 	Result.CurrentDriveIndex = CurrentDriveLetter - 'A';
-	
+
 	return(Result);
 }
 
 
-internal void 
+internal void
 DebugConsoleSetup() {
-    // Log setup 
+    // Log setup
 	int ConsoleHandle = 0;
 	intptr_t StreamHandle = 0;
 	CONSOLE_SCREEN_BUFFER_INFO ConsoleScreenInfo = {0};
 	FILE *Stream = 0;
-	
+
 	AllocConsole();
-	
+
 	// Set the screen buffer to be big enough to let us scroll text
 	GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &ConsoleScreenInfo);
 	ConsoleScreenInfo.dwSize.Y = 500;
 	SetConsoleScreenBufferSize(GetStdHandle(STD_OUTPUT_HANDLE), ConsoleScreenInfo.dwSize);
-	
+
 	// Redirect unbuffered STDOUT, STDIN, STDERR to the console
     {
         StreamHandle = (intptr_t)GetStdHandle(STD_OUTPUT_HANDLE);
@@ -938,7 +928,7 @@ DebugConsoleSetup() {
         *stdout = *Stream;
         setvbuf(stdout, NULL, _IONBF, 0);
     }
-	
+
     {
         StreamHandle = (intptr_t)GetStdHandle(STD_INPUT_HANDLE);
         ConsoleHandle = _open_osfhandle(StreamHandle, _O_TEXT);
@@ -946,7 +936,7 @@ DebugConsoleSetup() {
         *stdin = *Stream;
         setvbuf(stdin, NULL, _IONBF, 0);
     }
-	
+
     {
         StreamHandle = (intptr_t)GetStdHandle(STD_ERROR_HANDLE);
         ConsoleHandle = _open_osfhandle(StreamHandle, _O_TEXT);
@@ -954,8 +944,8 @@ DebugConsoleSetup() {
         *stderr = *Stream;
         setvbuf(stderr, NULL, _IONBF, 0);
     }
-	
-	
+
+
 	// Reopen streams required for console output by stdio
 	freopen("CONOUT$", "w", stdout);
 	freopen("CONOUT$", "w", stderr);
@@ -969,13 +959,13 @@ WindowsGetTime() {
 		Assert(QueryPerformanceFrequency(&_Frequency));
 		Frequency = _Frequency.QuadPart;
 	}
-	
+
 	windows_timer CurrentTime = {0};
 	CurrentTime.Frequency = Frequency;
 	LARGE_INTEGER CurrentTicks;
 	Assert(QueryPerformanceCounter(&CurrentTicks));
 	CurrentTime.TicksNow = CurrentTicks.QuadPart;
-	
+
 	return(CurrentTime);
 }
 
@@ -987,7 +977,7 @@ WindowsCreateAndShowOpenGLWindow(HINSTANCE Instance) {
         .Width = DEFAULT_WINDOW_WIDTH,
         .Height = DEFAULT_WINDOW_HEIGHT,
     };
-	
+
     // Create a dummy window, pixel format, device context and rendering context,
     // just so we can get function pointers to wgl_ARB stuff!
     {
@@ -997,23 +987,23 @@ WindowsCreateAndShowOpenGLWindow(HINSTANCE Instance) {
             .hInstance = GetModuleHandle(0),
             .lpszClassName = "Dummy Winclass",
         };
-		
+
         RegisterClassA(&dummy_winclass);
         WindowsContext.Window = CreateWindowExA(
 												0,
 												"Dummy Winclass",  // Arbitrary WinClass descriptor
-												"Dummy Winclass", 
+												"Dummy Winclass",
 												0,
 												CW_USEDEFAULT,
 												CW_USEDEFAULT,
 												CW_USEDEFAULT,
 												CW_USEDEFAULT,
-												NULL, 
-												NULL,   
-												Instance, 
+												NULL,
+												NULL,
+												Instance,
 												NULL);
-        
-		
+
+
         PIXELFORMATDESCRIPTOR DesiredPixelFormat = {
             .nSize = sizeof(DesiredPixelFormat),
             .nVersion = 1,
@@ -1024,36 +1014,36 @@ WindowsCreateAndShowOpenGLWindow(HINSTANCE Instance) {
             .cDepthBits = 24,
             .iLayerType = PFD_MAIN_PLANE,
         };
-        
+
         WindowsContext.DeviceContext = GetDC(WindowsContext.Window);
-		
+
         int32 PixelFormatID = ChoosePixelFormat(WindowsContext.DeviceContext, &DesiredPixelFormat);
         PIXELFORMATDESCRIPTOR SuggestedPixelFormat = {0};
         DescribePixelFormat(WindowsContext.DeviceContext, PixelFormatID, sizeof(PIXELFORMATDESCRIPTOR), &SuggestedPixelFormat);
         SetPixelFormat(WindowsContext.DeviceContext, PixelFormatID, &SuggestedPixelFormat);
         WindowsContext.OpenGLContext = wglCreateContext(WindowsContext.DeviceContext);
-		
+
         if (!wglMakeCurrent(WindowsContext.DeviceContext, WindowsContext.OpenGLContext)) {
             WindowsPrintLine("Could not make context current!!!");
         }
-		
+
         HMODULE opengl32_dll = LoadLibraryA("opengl32.dll");
-		
+
 		#define PLORE_X(Name, Return, Args) \
 		Name = (PFN_ ## Name) wglGetProcAddress(#Name);\
 		if (!Name) { \
 		Name = (PFN_ ## Name) GetProcAddress(opengl32_dll, #Name);\
 		}\
-				
+
 		        PLORE_GL_FUNCS
 		#undef PLORE_X
-		
+
         wglMakeCurrent(WindowsContext.DeviceContext, 0);
         wglDeleteContext(WindowsContext.OpenGLContext);
         ReleaseDC(WindowsContext.Window, WindowsContext.DeviceContext);
         DestroyWindow(WindowsContext.Window);
     }
-    
+
     // Create our _actual_ window, a real (ARB) pixel format, device context, and rendering context.
     // The window is made current here.
     {
@@ -1065,23 +1055,23 @@ WindowsCreateAndShowOpenGLWindow(HINSTANCE Instance) {
             .lpszClassName = "Plore Winclass",
             .hCursor = LoadCursor(NULL, IDC_ARROW),
         };
-		
+
         RegisterClassEx(&WinClass);
         WindowsContext.Window = CreateWindowEx(
 											   WS_EX_APPWINDOW | WS_EX_WINDOWEDGE,
 											   "Plore Winclass",  // Arbitrary WinClass descriptor
-											   "Plore", 
+											   "Plore",
 											   WS_CAPTION | WS_SYSMENU | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_SIZEBOX | WS_MAXIMIZEBOX | WS_MINIMIZEBOX,
 											   0,       // posx
 											   0,       // posy
 											   DEFAULT_WINDOW_WIDTH,    // width
 											   DEFAULT_WINDOW_WIDTH,    // height
-											   NULL, 
-											   NULL,   
-											   Instance, 
+											   NULL,
+											   NULL,
+											   Instance,
 											   NULL);
-		
-		
+
+
         int DesiredPixelFormatAttributesARB[] = {
             WGL_DRAW_TO_WINDOW_ARB,     GL_TRUE,
             WGL_SUPPORT_OPENGL_ARB,     GL_TRUE,
@@ -1094,24 +1084,24 @@ WindowsCreateAndShowOpenGLWindow(HINSTANCE Instance) {
             0
         };
         WindowsContext.DeviceContext = GetDC(WindowsContext.Window);
-		
+
         UINT CountOfMatchingFormatsWindowsCanFind = 0;
         int32 PixelFormatIDARB;
-        if (!wglChoosePixelFormatARB(WindowsContext.DeviceContext, 
-									 DesiredPixelFormatAttributesARB, 
-									 0, 
-									 1, 
-									 &PixelFormatIDARB, 
+        if (!wglChoosePixelFormatARB(WindowsContext.DeviceContext,
+									 DesiredPixelFormatAttributesARB,
+									 0,
+									 1,
+									 &PixelFormatIDARB,
 									 &CountOfMatchingFormatsWindowsCanFind) || CountOfMatchingFormatsWindowsCanFind == 0) {
             WindowsPrintLine("oh no");
         };
-		
+
         PIXELFORMATDESCRIPTOR SuggestedPixelFormatARB = {0};
         DescribePixelFormat(WindowsContext.DeviceContext, PixelFormatIDARB, sizeof(PIXELFORMATDESCRIPTOR), &SuggestedPixelFormatARB);
         if (!SetPixelFormat(WindowsContext.DeviceContext, PixelFormatIDARB, &SuggestedPixelFormatARB)) {
             WindowsPrintLine("Could not set pixel format!!");
         }
-		
+
         int OpenGLAttributes[] =  {
             WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
             WGL_CONTEXT_MINOR_VERSION_ARB, 3,
@@ -1123,19 +1113,19 @@ WindowsCreateAndShowOpenGLWindow(HINSTANCE Instance) {
 #endif
             0,
         };
-		
+
         WindowsContext.OpenGLContext = wglCreateContextAttribsARB(WindowsContext.DeviceContext, 0, OpenGLAttributes);
-		
+
         if (!wglMakeCurrent(WindowsContext.DeviceContext, WindowsContext.OpenGLContext)) {
         }
-		
+
 #if PLORE_INTERNAL
 		// enable debug callback
 		glDebugMessageCallback(&WindowsGLDebugMessageCallback, NULL);
 		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
 #endif
     }
-    
+
     // Make sure the window is visible and has the correct size!
     ShowWindow(WindowsContext.Window, SW_NORMAL);
     SetWindowPos(
@@ -1147,31 +1137,31 @@ WindowsCreateAndShowOpenGLWindow(HINSTANCE Instance) {
 				 WindowsContext.Height,
 				 0
 				 );
-	
+
 	// NOTE(Evan): "Window Size" throughout the codebase really means "client rectangle", as in, the drawable area.
 	DWORD Style = GetWindowLongPtr(WindowsContext.Window, GWL_STYLE );
 	DWORD ExStyle = GetWindowLongPtr(WindowsContext.Window, GWL_EXSTYLE);
 	HMENU Menu = GetMenu(WindowsContext.Window);
-	
+
 	RECT Rect = { 0, 0, WindowsContext.Width, WindowsContext.Height };
-	
+
 	AdjustWindowRectEx(&Rect, Style, Menu ? TRUE : FALSE, ExStyle);
-	
+
 	SetWindowPos(WindowsContext.Window, NULL, 0, 0, Rect.right - Rect.left, Rect.bottom - Rect.top, SWP_NOZORDER | SWP_NOMOVE );
-    
+
 	ShowCursor(TRUE);
-	
+
     // 1/0 = Enable/disable vsync, -1 = adaptive sync.
     wglSwapIntervalEXT(1);
-	
+
     return WindowsContext;
 }
 
 internal void
 WindowsPushTextInput(keyboard_and_mouse *ThisFrame, MSG Message) {
 	char C = Message.wParam;
-	
-	CheckedPush(ThisFrame->TextInput, ThisFrame->TextInputCount, C); 
+
+	CheckedPush(ThisFrame->TextInput, ThisFrame->TextInputCount, C);
 	StaticAssert(PloreKey_A == 1, "Assuming PloreKey_A-Z|0-9 follow contiguously.");
 	plore_key Key = 0;
 	if (C >= 'A' && C <= 'Z') {
@@ -1183,24 +1173,24 @@ WindowsPushTextInput(keyboard_and_mouse *ThisFrame, MSG Message) {
 		case Character: {                              \
 			Key = PloreKey_##Name;                     \
 		} break;
-				
+
 		switch (C) {
 			PLORE_KEYBOARD_AND_MOUSE
-				
+
 			case VK_ESCAPE: {
 				Key = PloreKey_Escape;
 				ThisFrame->TextInputCount--; // @HACK(Evan): Escape has no representation, but Windows "translates" it still. UGH.
 			} break;
 		}
-		
+
 		#undef PLORE_X
 	}
 	Assert(Key < PloreKey_Count);
-	
+
 	if (Key) {
 		BYTE VKeys[256] = {0};
 		GetKeyboardState(VKeys);
-		
+
 		b64 IsPressed = !(Message.lParam & (1 << 30)); // NOTE(Evan): 0 is pressed, 1 is released
 		b64 IsDown = (Message.lParam & (1 << 29));
 		ThisFrame->dKeys[Key] = IsDown;
@@ -1216,48 +1206,48 @@ WindowsProcessMessages(windows_context *Context, keyboard_and_mouse *ThisFrame) 
 	// NOTE(Evan): This is awful, but numeric input + ctrl is "translated" into garbage.
 	ThisFrame->dKeys[PloreKey_Ctrl] = GetAsyncKeyState(VK_CONTROL);
 	ThisFrame->pKeys[PloreKey_Ctrl] = ThisFrame->dKeys[PloreKey_Ctrl] && !GlobalPloreInput.LastFrame.dKeys[PloreKey_Ctrl];
-	
+
 	while (PeekMessageA(&Message, 0, 0, 0, PM_REMOVE)) {
 	    switch (Message.message) {
-	        case WM_KEYDOWN: 
+	        case WM_KEYDOWN:
 	        case WM_KEYUP:
 	        {
 	            bool32 IsDown = Message.message == WM_KEYDOWN;
-				
+
 				if (IsDown && (u32) Message.wParam == VK_F1) {
 					WindowsToggleFullscreen();
 				} else {
 					// NOTE(Evan): We intercept numeric VK codes here because Windows is a PITA.
-					if (IsDown && ThisFrame->dKeys[PloreKey_Ctrl]) {// && (Message.wParam >= 0x30 && Message.wParam <= 0x39)) {				
+					if (IsDown && ThisFrame->dKeys[PloreKey_Ctrl]) {// && (Message.wParam >= 0x30 && Message.wParam <= 0x39)) {
 						WindowsPushTextInput(ThisFrame, Message);
 					} else {
 						WPARAM C = Message.wParam;
 						TranslateMessage(&Message);
 						DispatchMessage(&Message);
 					}
-				} 
+				}
 	        } break;
-	        
+
 	        // TODO(Evan): Mouse wheel!
 	        case WM_MOUSEMOVE: {
 	            ThisFrame->MouseP = (v2) {
 					.X = GET_X_LPARAM(Message.lParam),
 					.Y = GET_Y_LPARAM(Message.lParam),
 				};
-	            
+
 	        } break;
-			
+
 			case WM_MOUSEWHEEL: {
 				ThisFrame->ScrollDirection = SignOf(GET_WHEEL_DELTA_WPARAM(Message.wParam));
 			} break;
-			
+
 			case WM_CHAR: {
 				WindowsPushTextInput(ThisFrame, Message);
 			} break;
 			default: {
 				TranslateMessage(&Message);
 				DispatchMessage(&Message);
-			} break;	
+			} break;
 		}
 	}
 }
@@ -1270,30 +1260,30 @@ LRESULT CALLBACK WindowsMessagePumpCallback(HWND hwnd, UINT uMsg, WPARAM wParam,
 			DWORD Style = GetWindowLongPtr(hwnd, GWL_STYLE );
 			DWORD ExStyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
 			HMENU Menu = GetMenu(hwnd);
-			
+
 			DWORD NewWidth = LOWORD(lParam);
 			DWORD NewHeight = HIWORD(lParam);
 			RECT Rect = { 0, 0, NewWidth, NewHeight };
-			
+
 			AdjustWindowRectEx(&Rect, Style, Menu ? TRUE : FALSE, ExStyle);
-			
+
 			SetWindowPos(hwnd, NULL, 0, 0, Rect.right - Rect.left, Rect.bottom - Rect.top, SWP_NOZORDER | SWP_NOMOVE );
-			
+
 			if (GlobalWindowsContext) {
 				GlobalWindowsContext->Width = NewWidth;
 				GlobalWindowsContext->Height = NewHeight;
 			}
 		} break;
-		
+
 		case WM_CLOSE: {
 			WindowsPrintLine("WM_CLOSE");
 			GlobalRunning = false;
 		}
-        default:  
+        default:
         {
             return DefWindowProc(hwnd, uMsg, wParam, lParam);
         }
-            
+
     }
 
     return 0;
@@ -1306,7 +1296,7 @@ WindowsGetFileLastWriteTime(char *Name) {
 	if (GetFileAttributesExA(Name, GetFileExInfoStandard, &Data)) {
 		Result = Data.ftLastWriteTime;
 	}
-	
+
 	return(Result);
 }
 
@@ -1321,25 +1311,25 @@ internal plore_code
 WindowsLoadPloreCode(char *DLLPath, char *TempDLLPath, char *LockPath) {
 	plore_code Result = {0};
 	WIN32_FILE_ATTRIBUTE_DATA Ignored;
-	
+
 	b32 BuildLockFileExists = GetFileAttributesExA(LockPath, GetFileExInfoStandard, &Ignored);
-	
+
 	if (!BuildLockFileExists) {
 		WindowsPrintLine("Trying to copy build lock file...");
 		Result.DLLLastWriteTime = WindowsGetFileLastWriteTime(DLLPath);
-		
+
 		u32 CopyCount = 0;
 		while(CopyCount++ <= 10) {
 			if (CopyFile(DLLPath, TempDLLPath, false))  break;
 			if (GetLastError() == ERROR_FILE_NOT_FOUND) break;
 		}
-		
+
 		if (CopyCount > 10) WindowsPrintLine("Copy attempts exceeded 10!");
 	} else {
 		WindowsPrintLine("Build lock file found.");
 	}
-	
-	
+
+
 	Result.DLL = LoadLibraryA(TempDLLPath);
 	if (Result.DLL) {
 		WindowsPrintLine("Loaded DLL found at path :: %s", TempDLLPath);
@@ -1349,7 +1339,7 @@ WindowsLoadPloreCode(char *DLLPath, char *TempDLLPath, char *LockPath) {
 	} else {
 		WindowsPrintLine("Could not load DLL found at temporary path :: %s", TempDLLPath);
 	}
-	
+
 	return(Result);
 }
 
@@ -1359,7 +1349,7 @@ WindowsUnloadPloreCode(plore_code PloreCode) {
 		FreeLibrary(PloreCode.DLL);
 		PloreCode.DLL = NULL;
 	}
-	
+
 	PloreCode.DoOneFrame = NULL;
 }
 
@@ -1369,10 +1359,10 @@ _WindowsPathPush(char *Buffer, u64 BufferSize, char *Piece, u64 PieceSize, b64 T
 	if (PieceSize + TrailingParts > BufferSize) {
 		return(false);
 	}
-	
+
 	u64 EndOfBuffer = StringLength(Buffer);
 	u64 BytesWritten = StringCopy(Piece, Buffer + EndOfBuffer, BufferSize);
-	
+
 	return(true);
 }
 
@@ -1381,7 +1371,7 @@ DWORD WINAPI
 WindowsThreadStart(void *Param) {
 	plore_thread_context *Context = (plore_thread_context *)Param;
 	platform_taskmaster *Taskmaster = Context->Taskmaster;
-	
+
 	for (;;) {
 		DWORD WaitResult = WaitForSingleObject(TaskAvailableSemaphore,
 											   INFINITE);
@@ -1390,7 +1380,7 @@ WindowsThreadStart(void *Param) {
 		if ((u64)Taskmaster->TaskCursor != Initial) {
 			platform_task *Task = Taskmaster->Tasks + Initial;
 			Assert(!Task->Running);
-			
+
 			platform_task_info TaskInfo = {
 				.TaskArena = &Task->Arena,
 				.ThreadID = Context->LogicalID,
@@ -1407,47 +1397,47 @@ int WinMain (
     LPSTR CmdLine,
     int ShowCommand)
 {
-#if PLORE_INTERNAL 
+#if PLORE_INTERNAL
 	DebugConsoleSetup();
 #endif
-    
+
 	// NOTE(Evan): Find absolute runtime paths used to load Plore DLL and reload it on re-compilation.
 	DWORD BytesRequired = PLORE_MAX_PATH - 30;
 	// TODO(Evan): GetModuleDirectory(?)
-	plore_path_buffer ExePath = {0}; 
+	plore_path_buffer ExePath = {0};
 	DWORD BytesWritten = GetModuleFileName(NULL, ExePath, ArrayCount(ExePath));
 	Assert(BytesWritten < BytesRequired); // NOTE(Evan): Requires our .exe to near the top of a root directory.
-	
+
 	char *PloreDLLPathString = "plore.dll";
 	char *TempDLLPathString = "data\\plore_temp.dll";
 	char *LockPathString = "lock.tmp";
-	
+
 	plore_path_buffer PloreDLLPath = {0}; // "build/plore.dll";
 	plore_path_buffer TempDLLPath = {0};  //  = "data/plore_temp.dll";
 	plore_path_buffer LockPath = {0};     //  = "build/lock.tmp";
-	
-	
+
+
 	StringCopy(ExePath, PloreDLLPath, ArrayCount(PloreDLLPath));
 	StringCopy(ExePath, TempDLLPath, ArrayCount(TempDLLPath));
 	StringCopy(ExePath, LockPath, ArrayCount(LockPath));
-	
+
 	WindowsPathPop(PloreDLLPath, ArrayCount(PloreDLLPath), true);
 	WindowsPathPop(TempDLLPath, ArrayCount(TempDLLPath), false);
 	WindowsPathPop(LockPath, ArrayCount(LockPath), true);
-	
+
 	WindowsPathPop(TempDLLPath, ArrayCount(TempDLLPath), true);
-	
+
 	_WindowsPathPush(PloreDLLPath, ArrayCount(PloreDLLPath), PloreDLLPathString, StringLength(PloreDLLPathString), false);
 	_WindowsPathPush(TempDLLPath, ArrayCount(TempDLLPath), TempDLLPathString, StringLength(TempDLLPathString), false);
 	_WindowsPathPush(LockPath, ArrayCount(LockPath), LockPathString, StringLength(LockPathString), false);
-	
-	
+
+
     plore_code PloreCode = WindowsLoadPloreCode(PloreDLLPath, TempDLLPath, LockPath);
-	
+
 	SYSTEM_INFO SystemInfo = {0};
 	GetSystemInfo(&SystemInfo);
-	
-	
+
+
     plore_memory PloreMemory = {
         .PermanentStorage = {
            .Size = Megabytes(512),
@@ -1456,13 +1446,13 @@ int WinMain (
 			.Size = Taskmaster_MaxTasks*Taskmaster_TaskArenaSize+(Taskmaster_MaxTasks*64),
 		},
     };
-    
+
 	// NOTE(Evan): Reserve, commit, and zero memory used for all dynamic allocation.
 	{
 	    PloreMemory.PermanentStorage.Memory = VirtualAlloc(0, PloreMemory.PermanentStorage.Size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 		MemoryClear(PloreMemory.PermanentStorage.Memory, PloreMemory.PermanentStorage.Size);
 	    Assert(PloreMemory.PermanentStorage.Memory);
-		
+
 		// NOTE(Evan): Right now we check if the base pointer is 16-byte aligned, instead of memory_arenas aligning on initialization,
 		// as there is no formal initialization for arenas, other then SubArena()
 		Assert(((u64)PloreMemory.PermanentStorage.Memory % 16) == 0);
@@ -1471,50 +1461,49 @@ int WinMain (
 	    PloreMemory.TaskStorage.Memory = VirtualAlloc(0, PloreMemory.TaskStorage.Size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 		MemoryClear(PloreMemory.TaskStorage.Memory, PloreMemory.TaskStorage.Size);
 	    Assert(PloreMemory.TaskStorage.Memory);
-		
+
 		Assert(((u64)PloreMemory.TaskStorage.Memory % 16) == 0);
 	}
-	
+
 	// NOTE(Evan): Thread creation.
-	
-	
+
+
 	platform_taskmaster Taskmaster = {0};
 	InitTaskmaster(&PloreMemory.TaskStorage, &Taskmaster);
     platform_api WindowsPlatformAPI = {
 		.Taskmaster = &Taskmaster,
-		
+
         // TODO(Evan): Update these on resize!
         .WindowWidth = DEFAULT_WINDOW_WIDTH,
         .WindowHeight = DEFAULT_WINDOW_HEIGHT,
-		
+
 #if PLORE_INTERNAL
 		.DebugAssertHandler  = WindowsDebugAssertHandler,
         .DebugOpenFile       = WindowsDebugOpenFile,
         .DebugReadEntireFile = WindowsDebugReadEntireFile,
         .DebugReadFileSize   = WindowsDebugReadFileSize,
 		.DebugCloseFile      = WindowsDebugCloseFile,
-		
+
         .DebugPrintLine = WindowsPrintLine,
         .DebugPrint     = WindowsDebugPrint,
 #endif
-		
+
 		.CreateTextureHandle = WindowsGLCreateTextureHandle,
 		.DestroyTextureHandle = WindowsGLDestroyTextureHandle,
-		
+
 		.ShowCursor = WindowsShowCursor,
 		.ToggleFullscreen = WindowsToggleFullscreen,
-		
+
 #undef GetCurrentDirectory
 #undef SetCurrentDirectory
-#undef MoveFile           
-#undef CreateFile         
-#undef CreateDirectory    
-#undef DeleteFile         
-#undef PathIsDirectory    
+#undef MoveFile
+#undef CreateFile
+#undef CreateDirectory
+#undef DeleteFile
+#undef PathIsDirectory
 		.DirectorySizeTaskBegin  = WindowsDirectorySizeTaskBegin,
-		
+
 		.GetDirectoryEntries     = WindowsGetDirectoryEntries,
-		.GetCurrentDirectory     = WindowsGetCurrentDirectory,
 		.GetCurrentDirectoryPath = WindowsGetCurrentDirectoryPath,
 		.SetCurrentDirectory     = WindowsSetCurrentDirectory,
 		.PathPush                = WindowsPathPush,
@@ -1522,37 +1511,37 @@ int WinMain (
 		.PathIsDirectory         = WindowsPathIsDirectory,
 		.PathIsTopLevel          = WindowsPathIsTopLevel,
 		.PathJoin                = WindowsPathJoin,
-		
+
 		.CreateFile              = WindowsCreateFile,
 		.CreateDirectory         = WindowsCreateDirectory,
 		.DeleteFile              = WindowsDeleteFile,
 		.MoveFile                = WindowsMoveFile,
 		.RenameFile              = WindowsRenameFile,
 		.RunShell                = WindowsRunShell,
-		
+
 		.CreateTaskWithMemory   = WindowsCreateTaskWithMemory,
 		.StartTaskWithMemory    = WindowsStartTaskWithMemory,
 		.PushTask               = WindowsPushTask,
     };
-	
+
     windows_context WindowsContext = WindowsCreateAndShowOpenGLWindow(Instance);
 	GlobalWindowsContext = &WindowsContext;
-	
+
 	windows_timer PreviousTimer = WindowsGetTime();
 	f64 TimePreviousInSeconds = 0;
-	
+
 	windows_get_drives_result Drives = WindowsGetDrives();
 	Drives;
-	
+
     while (GlobalRunning) {
 		WindowsPlatformAPI.WindowWidth = GlobalWindowsContext->Width;
 		WindowsPlatformAPI.WindowHeight = GlobalWindowsContext->Height;
-		
+
         // Grab any new keyboard / mouse / window events from message queue.
         MSG WindowMessage = {0};
-		
+
 		WindowsProcessMessages(GlobalWindowsContext, &GlobalPloreInput.ThisFrame);
-		
+
 		// Mouse input!
 		// TODO(Evan): A more systematic way of handling our window messages vs input?
 		{
@@ -1565,17 +1554,17 @@ int WinMain (
 			//};
 			GlobalPloreInput.ThisFrame.dKeys[PloreKey_MouseLeft] = GetKeyState(VK_LBUTTON) & (1 << 15);
 			GlobalPloreInput.ThisFrame.pKeys[PloreKey_MouseLeft] = (GetKeyState(VK_LBUTTON) & (1 << 15)) && !(GlobalPloreInput.LastFrame.dKeys[PloreKey_MouseLeft]);
-		}		
-		
+		}
+
 		windows_timer CurrentTimer = WindowsGetTime();
         f64 TimeNowInSeconds = ((f64) (CurrentTimer.TicksNow - PreviousTimer.TicksNow) / CurrentTimer.Frequency);
 		f64 DT = TimeNowInSeconds - TimePreviousInSeconds;
 		DT = Clamp(DT, 0, 1.0f / 100.0f); // TODO(Evan): Get desired frame rate!
 		GlobalPloreInput.DT = DT;
 		GlobalPloreInput.Time = TimeNowInSeconds;
-		
+
 		// TODO(Evan): PloreMemory is a good place to store a DLL reloading flag,
-		//             but we may want to store additional transient state that doesn't 
+		//             but we may want to store additional transient state that doesn't
 		//             make sense there.
 		GlobalPloreInput.DLLWasReloaded = false;
 		FILETIME DLLCurrentWriteTime = WindowsGetFileLastWriteTime(PloreDLLPath);
@@ -1586,15 +1575,15 @@ int WinMain (
 			GlobalPloreInput.DLLWasReloaded = true;
 		    PloreCode = WindowsLoadPloreCode(PloreDLLPath, TempDLLPath, LockPath);
 		}
-		
+
         if (PloreCode.DoOneFrame) {
 			windows_timer FileCopyBeginTimer = WindowsGetTime();
-			
+
 			plore_frame_result FrameResult = PloreCode.DoOneFrame(&PloreMemory, &GlobalPloreInput, &WindowsPlatformAPI);
-			
+
 			windows_timer FileCopyEndTimer = WindowsGetTime();
 			f64 FileCopyTimeInSeconds = ((f64) ((f64)FileCopyEndTimer.TicksNow - (f64)FileCopyBeginTimer.TicksNow) / (f64)FileCopyBeginTimer.Frequency);
-			
+
 			ImmediateBegin(WindowsContext.Width, WindowsContext.Height);
 			for (u64 I = 0; I < FrameResult.RenderList->CommandCount; I++) {
 				render_command *C = FrameResult.RenderList->Commands + I;
@@ -1602,47 +1591,47 @@ int WinMain (
 					case RenderCommandType_PrimitiveQuad: {
 						DrawSquare(C->Quad);
 					} break;
-					
+
 					case RenderCommandType_PrimitiveLine: {
 						DrawLine(C->Line);
 					} break;
-					
+
 					case RenderCommandType_PrimitiveQuarterCircle: {
 						DrawQuarterCircle(C->QuarterCircle);
 					} break;
-					
+
 					case RenderCommandType_Text: {
 						WriteText(FrameResult.RenderList->Font, C->Text);
 					} break;
-					
+
 					case RenderCommandType_Scissor: {
 						rectangle R = C->Scissor.Rect;
 						glScissor(R.P.X-0, R.P.Y-0, R.Span.W+0, R.Span.H+0);
 					} break;
-					
+
 					InvalidDefaultCase;
 				}
 			}
-			
-			
+
+
 			SwapBuffers(WindowsContext.DeviceContext);
-			
+
 			if (FrameResult.ShouldQuit) GlobalRunning = false;
 		}
-		
+
 		GlobalPloreInput.LastFrame = GlobalPloreInput.ThisFrame;
 		GlobalPloreInput.ThisFrame.TextInputCount = 0;
 		GlobalPloreInput.ThisFrame.ScrollDirection = 0;
 		MemoryClear(GlobalPloreInput.ThisFrame.pKeys, sizeof(GlobalPloreInput.ThisFrame.pKeys));
 		MemoryClear(GlobalPloreInput.ThisFrame.TextInput, sizeof(GlobalPloreInput.ThisFrame.TextInput));
 		MemoryClear(GlobalPloreInput.ThisFrame.cKeys, sizeof(GlobalPloreInput.ThisFrame.cKeys));
-		
-		
+
+
 		fflush(stdout);
 		fflush(stderr);
-		
+
     }
-	
+
 	WindowsPrintLine("EXITED MAIN LOOP.");
 
 	WindowsUnloadPloreCode(PloreCode);
