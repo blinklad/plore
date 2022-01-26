@@ -79,7 +79,7 @@ PLATFORM_DEBUG_READ_FILE_SIZE(LinuxDebugReadFileSize) {
 PLATFORM_CREATE_FILE(LinuxCreateFile) {
 	b64 Result = false;
 
-	int Flags = O_WRONLY | O_CREATE;
+	int Flags = O_WRONLY | O_CREAT;
 	if (OverwriteExisting) Flags |= O_TRUNC;
 
 	int FD = open(Path, Flags, S_IRUSR);
@@ -95,37 +95,193 @@ PLATFORM_CREATE_DIRECTORY(LinuxCreateDirectory) {
 	return(Result);
 }
 
+// NOTE(Evan): NFTW is _not_ thread safe... ffs.
+// So, we will have to use the fts_open family of functions because POSIX is garbage and doesn't have a nnftw.
+#define __USE_XOPEN_EXTENDED
+#include <ftw.h>
+struct FTW;
+#define FILE_TREE_WALK_CALLBACK(name) int (name)(const char *Path, const struct stat *Stat, int Info, struct FTW *Context)
+
+global b64 RecursiveDelete = false;
+global b64 PermanentDelete = false;
+FILE_TREE_WALK_CALLBACK(LinuxDeleteFileCallback) {
+	b64 Error = false;
+	if (Info != FTW_NS) {
+		// Do delete.
+	} else {
+		Error = true;
+	}
+	return(Error);
+}
+
 PLATFORM_DELETE_FILE(LinuxDeleteFile) {
+	Assert(Path);
+	b64 Result = false;
+	if (Path) {
+		RecursiveDelete = Desc.Recursive;
+		PermanentDelete = Desc.PermanentDelete;
+
+		Result = ntfw(Path,
+				      LinuxDeleteFileCallback,
+					  4096, // Some large number of file descriptors. The documentation is not clear on how ntfw reuses these.
+					  FTW_DEPTH | FTW_PHYS);
+	}
+
+	return(Result);
 }
 
 PLATFORM_DEBUG_PRINT_LINE(LinuxDebugPrintLine) {
+    va_list Args;
+    va_start(Args, Format);
+    local char Buffer[256];
+    stbsp_vsnprintf(Buffer, 256, Format, Args);
+    fprintf(stdout, Buffer);
+    va_end(Args);
 }
 
 PLATFORM_DEBUG_PRINT(LinuxDebugPrint) {
+    va_list Args;
+    va_start(Args, Format);
+    local char Buffer[256];
+    stbsp_vsnprintf(Buffer, 256, Format, Args);
+    fprintf(stdout, Buffer);
+    fprintf(stdout, "\n");
+    va_end(Args);
 }
 
+// CLEANUP(Evan): Renderer bits.
 PLATFORM_CREATE_TEXTURE_HANDLE(LinuxCreateTextureHandle) {
+	platform_texture_handle Result = {
+		.Width = Desc.Width,
+		.Height = Desc.Height,
+	};
+
+	glEnable(GL_TEXTURE_2D);
+
+	GLenum GLProvidedPixelFormat = 0;
+	GLenum GLTargetPixelFormat = 0;
+	GLenum GLFilterMode = 0;
+	switch (Desc.TargetPixelFormat) {
+		case PixelFormat_RGBA8: {
+			GLTargetPixelFormat = GL_RGBA8;
+		} break;
+
+		case PixelFormat_ALPHA: {
+			GLTargetPixelFormat = GL_ALPHA;
+		} break;
+
+		case PixelFormat_BGRA8: {
+			GLTargetPixelFormat = GL_BGRA;
+		} break;
+
+		InvalidDefaultCase;
+	}
+	switch (Desc.ProvidedPixelFormat) {
+
+		case PixelFormat_RGBA8: {
+			GLProvidedPixelFormat = GL_RGBA;
+		} break;
+
+		case PixelFormat_RGB8: {
+			GLProvidedPixelFormat = GL_RGB;
+		} break;
+
+		case PixelFormat_ALPHA: {
+			GLProvidedPixelFormat = GL_ALPHA;
+		} break;
+
+		case PixelFormat_BGRA8: {
+			GLProvidedPixelFormat = GL_BGRA;
+		} break;
+
+		InvalidDefaultCase;
+	}
+
+	switch (Desc.FilterMode) {
+		case FilterMode_Linear: {
+			GLFilterMode = GL_LINEAR;
+		} break;
+
+		case FilterMode_Nearest: {
+			GLFilterMode = GL_NEAREST;
+		} break;
+
+		InvalidDefaultCase;
+	}
+
+	GLuint Handle;
+	glGenTextures(1, &Handle);
+	Result.Opaque = Handle;
+	glBindTexture(GL_TEXTURE_2D, Result.Opaque);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GLTargetPixelFormat, Result.Width, Result.Height, 0, GLProvidedPixelFormat, GL_UNSIGNED_BYTE, Desc.Pixels);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GLFilterMode);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GLFilterMode);
+
+
+	return(Result);
+
 }
 
 PLATFORM_DESTROY_TEXTURE_HANDLE(LinuxDestroyTextureHandle) {
+	GLuint Opaque = (GLuint) Texture.Opaque;
+	glDeleteTextures(1, &Opaque);
 }
 
 PLATFORM_SHOW_CURSOR(LinuxShowCursor) {
+	Debugger;
 }
 
 PLATFORM_TOGGLE_FULLSCREEN(LinuxToggleFullscreen) {
+	Debugger;
 }
 
-PLATFORM_GET_CURRENT_DIRECTORY(LinuxGetCurrentDirectory) {
-}
+#define _POSIX_SOURCE
+#include <unistd.h>
+#include <libgen.h>
 
-PLATFORM_GET_CURRENT_DIRECTORY_PATH(LinuxGetCurrentDirectoryPath) {
+PLATFORM_GET_CURRENT_DIRECTORY(LinuxGetCurrentDirectoryPath) {
+	// NOTE(Evan): basename modifies the path you provide it in-place, instead of providing a byte offset
+	// within the path. UGH.
+	plore_path Result = {0};
+
+	getcwd(Result.Path.Absolute, ArrayCount(Result.Path.Absolute));
+	PathCopy(Result.Path.Absolute, Result.Path.FilePart);
+	basename(Result.Path.FilePart, ArrayCount(Result.Path.FilePart));
+
+	return(Result);
 }
 
 PLATFORM_SET_CURRENT_DIRECTORY(LinuxSetCurrentDirectory) {
+	b64 Result = chdir(Path);
+	return(Result);
 }
 
 PLATFORM_PATH_POP(LinuxPathPop) {
+	platform_path_pop_result Result = {
+		.AbsolutePath = Buffer,
+	};
+	u64 Length = StringLength(Buffer);
+	if (Buffer[Length] != '/') {
+		Result.DidRemoveSomething = false;
+	} else {
+		u64 L = Length;
+		char *C = Buffer+Length;
+		while (L--) {
+			if (*--C == '/') break;
+		}
+		Buffer[Length-L] = '\0';
+	}
+
+	plore_path_buffer Temp = {0};
+	StringCopy(Buffer, Temp, ArrayCount(Temp));
+	basename(Temp, ArrayCount(Temp));
+	Result.FilePart = Buffer + Substring(Buffer, Temp).Index;
+
+	return(Result);
 }
 
 PLATFORM_PATH_PUSH(LinuxPathPush) {
@@ -165,18 +321,23 @@ PLATFORM_PUSH_TASK(LinuxPushTask) {
 }
 
 PLATFORM_DEBUG_ASSERT_HANDLER(LinuxDebugAssertHandler) {
+	Debugger;
 }
+
+#define GOTO_ERROR_IF_FAILED(Predicate, Message) if (!Predicate) { ErrorMessage = Message; goto Error; }
 
 int
 main(int ArgCount, char **Args) {
+	char *ErrorMessage = 0;
+
 	LinuxContext.xDisplay = XOpenDisplay(NULL);
-	if (!LinuxContext.xDisplay) goto Error;
+	GOTO_ERROR_IF_FAILED(LinuxContext.xDisplay, "XOpenDisplay")
 
 	LinuxContext.xRoot = DefaultRootWindow(LinuxContext.xDisplay);
 
 	GLint GlAttributes[] = { GLX_RGBA, GLX_DEPTH_SIZE, 24, GLX_DOUBLEBUFFER, None };
 	XVisualInfo *xVisualInfo = glXChooseVisual(LinuxContext.xDisplay, 0, GlAttributes);
-	if (!xVisualInfo) goto Error;
+	GOTO_ERROR_IF_FAILED(xVisualInfo, "glXChooseVisual");
 
 	Colormap xColorMap = XCreateColormap(LinuxContext.xDisplay, LinuxContext.xRoot, xVisualInfo->visual, AllocNone);
 	XSetWindowAttributes xWindowAttributeDesc = {
@@ -204,6 +365,7 @@ main(int ArgCount, char **Args) {
 
 	platform_api LinuxPlatformAPI = {
 		0,
+		// TODO(Evan): Function pointers.
 	};
 
 	XEvent xEvent = {0};
@@ -230,6 +392,10 @@ main(int ArgCount, char **Args) {
 	glXDestroyContext(LinuxContext.xDisplay, LinuxContext.xGLContext);
 	XDestroyWindow(LinuxContext.xDisplay, LinuxContext.xWindow);
 	XCloseDisplay(LinuxContext.xDisplay);
+
 Error:
+	if (ErrorMessage) {
+		LinuxDebugPrintLine(ErrorMessage);
+	}
 	return(-1);
 }
