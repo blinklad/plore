@@ -98,7 +98,14 @@ plore_handler PloreFileExtensionHandlers[][PLORE_FILE_EXTENSION_HANDLER_MAX] = {
 #undef PLORE_X
 
 // TODO(Evan): Size improvements.
-#define PLORE_MAX_PATH 260
+#if defined(PLORE_LINUX)
+#define PLORE_MAX_PATH 512
+#elif defined(PLORE_WINDOWS)
+#else
+#error Platform not supported.
+#define PLORE_MAX_PATH PATH_MAX
+#endif
+
 typedef char plore_path_buffer[PLORE_MAX_PATH];
 
 
