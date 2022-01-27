@@ -121,7 +121,7 @@ PLATFORM_DELETE_FILE(LinuxDeleteFile) {
 		RecursiveDelete = Desc.Recursive;
 		PermanentDelete = Desc.PermanentDelete;
 
-		Result = ntfw(Path,
+		Result = nftw(Path,
 				      LinuxDeleteFileCallback,
 					  4096, // Some large number of file descriptors. The documentation is not clear on how ntfw reuses these.
 					  FTW_DEPTH | FTW_PHYS);
@@ -239,18 +239,17 @@ PLATFORM_TOGGLE_FULLSCREEN(LinuxToggleFullscreen) {
 	Debugger;
 }
 
-#define _POSIX_SOURCE
 #include <unistd.h>
 #include <libgen.h>
 
-PLATFORM_GET_CURRENT_DIRECTORY(LinuxGetCurrentDirectoryPath) {
+PLATFORM_GET_CURRENT_DIRECTORY_PATH(LinuxGetCurrentDirectoryPath) {
 	// NOTE(Evan): basename modifies the path you provide it in-place, instead of providing a byte offset
 	// within the path. UGH.
 	plore_path Result = {0};
 
-	getcwd(Result.Path.Absolute, ArrayCount(Result.Path.Absolute));
-	PathCopy(Result.Path.Absolute, Result.Path.FilePart);
-	basename(Result.Path.FilePart, ArrayCount(Result.Path.FilePart));
+	getcwd(Result.Absolute, ArrayCount(Result.Absolute));
+	PathCopy(Result.Absolute, Result.FilePart);
+	basename(Result.FilePart);
 
 	return(Result);
 }
@@ -260,58 +259,133 @@ PLATFORM_SET_CURRENT_DIRECTORY(LinuxSetCurrentDirectory) {
 	return(Result);
 }
 
+typedef struct find_trailing_slash_result {
+	char *Base;
+	char *Slash;
+	u64 Offset;
+	b64 Found;
+} find_trailing_slash_result;
+
+internal find_trailing_slash_result
+FindTrailingSlash(char *S, u64 Length) {
+	b64 Found = false;
+	u64 Offset = Length;
+	char *C = S + --Offset;
+
+	while (*C) {
+		if (C[Offset--] == '/') {
+			Found = true;
+			break;
+		}
+		if (!Offset) break;
+	}
+
+	return((find_trailing_slash_result) {
+			.Base = S,
+			.Slash = C,
+			.Offset = Offset,
+			.Found = Found,
+			});
+}
+
+internal b64
+HasTrailingSlash(char *String, u64 Length) {
+	b64 Result = String[Length-1] == '/';
+	return(Result);
+}
+
 PLATFORM_PATH_POP(LinuxPathPop) {
 	platform_path_pop_result Result = {
 		.AbsolutePath = Buffer,
 	};
-	u64 Length = StringLength(Buffer);
-	if (Buffer[Length] != '/') {
-		Result.DidRemoveSomething = false;
-	} else {
-		u64 L = Length;
-		char *C = Buffer+Length;
-		while (L--) {
-			if (*--C == '/') break;
-		}
-		Buffer[Length-L] = '\0';
-	}
 
-	plore_path_buffer Temp = {0};
-	StringCopy(Buffer, Temp, ArrayCount(Temp));
-	basename(Temp, ArrayCount(Temp));
-	Result.FilePart = Buffer + Substring(Buffer, Temp).Index;
+	u64 Length = StringLength(Buffer);
+	if (HasTrailingSlash(Buffer, Length)) Length -= 1;
+
+	find_trailing_slash_result Slash = FindTrailingSlash(Buffer, Length);
+	if (Slash.Found) {
+		Result.DidRemoveSomething = true;
+
+		if (AddTrailingSlash) {
+			Slash.Base[Slash.Offset+1] = '\0';
+		} else {
+			Slash.Base[Slash.Offset] = '\0';
+		}
+
+		Length = StringLength(Buffer);
+		if (HasTrailingSlash(Buffer, Length)) Length -= 1;
+
+		find_trailing_slash_result Slash = FindTrailingSlash(Buffer, Length);
+		if (Slash.Found) {
+			Result.FilePart = Slash.Slash+1;
+		}
+	}
 
 	return(Result);
 }
 
-PLATFORM_PATH_PUSH(LinuxPathPush) {
-}
-
 PLATFORM_PATH_IS_DIRECTORY(LinuxPathIsDirectory) {
+	b64 Result = false;
+	struct stat Stat = {0};
+	stat(Buffer, &Stat);
+
+	Result = Stat.st_mode & S_IFDIR;
+	return(Result);
 }
 
 PLATFORM_PATH_IS_TOP_LEVEL(LinuxPathIsTopLevel) {
+	b64 Result = Buffer[0] == '/' && !Buffer[1];
+	return(Result);
 }
 
 PLATFORM_PATH_JOIN(LinuxPathJoin) {
+	b64 DidJoin = false;
+
+	u64 LengthA = StringLength(First);
+	u64 LengthB = StringLength(Second);
+
+	u64 TotalLength = LengthA + LengthB + 1;
+	Assert(TotalLength < PLORE_MAX_PATH);
+	if (TotalLength < PLORE_MAX_PATH) {
+		u64 BytesWritten = StringCopy(Buffer, First, PLORE_MAX_PATH);
+		Buffer[BytesWritten++] = '/';
+		StringCopy(Buffer+BytesWritten, Second, PLORE_MAX_PATH-BytesWritten);
+		DidJoin = true;
+	}
+
+	return(DidJoin);
 }
 
 PLATFORM_GET_DIRECTORY_ENTRIES(LinuxGetDirectoryEntries) {
+	directory_entry_result Result = {0};
+	return(Result);
 }
 
 PLATFORM_DIRECTORY_SIZE_TASK_BEGIN(LinuxDirectorySizeTaskBegin) {
 }
 
 PLATFORM_MOVE_FILE(LinuxMoveFile) {
+	b64 Result = false;
+	Debugger;
+	return(Result);
 }
 
 PLATFORM_RENAME_FILE(LinuxRenameFile) {
+	b64 Result = false;
+	Debugger;
+	return(Result);
 }
 
 PLATFORM_RUN_SHELL(LinuxRunShell) {
+	b64 Result = false;
+	Debugger;
+	return(Result);
 }
 
 PLATFORM_CREATE_TASK_WITH_MEMORY(LinuxCreateTaskWithMemory) {
+	task_with_memory_handle Result = {0};
+	Debugger;
+	return(Result);
 }
 
 PLATFORM_START_TASK_WITH_MEMORY(LinuxStartTaskWithMemory) {
@@ -322,6 +396,7 @@ PLATFORM_PUSH_TASK(LinuxPushTask) {
 
 PLATFORM_DEBUG_ASSERT_HANDLER(LinuxDebugAssertHandler) {
 	Debugger;
+	return(0);
 }
 
 #define GOTO_ERROR_IF_FAILED(Predicate, Message) if (!Predicate) { ErrorMessage = Message; goto Error; }
