@@ -329,7 +329,7 @@ PLATFORM_PATH_IS_DIRECTORY(LinuxPathIsDirectory) {
 	struct stat Stat = {0};
 	stat(Buffer, &Stat);
 
-	Result = Stat.st_mode & S_IFDIR;
+	Result = ((Stat.st_mode & S_IFMT) == S_IFDIR);
 	return(Result);
 }
 
@@ -356,8 +356,44 @@ PLATFORM_PATH_JOIN(LinuxPathJoin) {
 	return(DidJoin);
 }
 
+#include <sys/types.h>
+#include <dirent.h>
 PLATFORM_GET_DIRECTORY_ENTRIES(LinuxGetDirectoryEntries) {
-	directory_entry_result Result = {0};
+	directory_entry_result Result = {
+		.Name = DirectoryName,
+		.Buffer = Buffer,
+		.Size = Size,
+	};
+
+	DIR *Directory = opendir(DirectoryName);
+	if (Directory) {
+		struct dirent *Entry = readdir(Directory);
+		while (Entry) {
+			Entry = readdir(Directory);
+			if (Entry) {
+				plore_file *F = Result.Buffer + Result.Count++;
+
+				PathCopy(Entry->d_name, F->Path.FilePart);
+				b64 JoinedOkay = LinuxPathJoin(F->Path.Absolute, DirectoryName, Entry->d_name);
+				Assert(JoinedOkay);
+
+				if (Entry->d_type == DT_REG) {
+					F->Type = PloreFileNode_File;
+				} else if (Entry->d_type == DT_DIR) {
+					F->Type = PloreFileNode_Directory;
+				} else {
+					LinuxDebugPrintLine("Unhandled file type!");
+				}
+
+			}
+
+		}
+
+		if (closedir(Directory) == 0) {
+			Result.Succeeded = true;
+		}
+	}
+
 	return(Result);
 }
 
@@ -382,6 +418,10 @@ PLATFORM_RUN_SHELL(LinuxRunShell) {
 	return(Result);
 }
 
+typedef struct platform_taskmaster {
+	u64 __Dummy;
+} platform_taskmaster;
+
 PLATFORM_CREATE_TASK_WITH_MEMORY(LinuxCreateTaskWithMemory) {
 	task_with_memory_handle Result = {0};
 	Debugger;
@@ -400,7 +440,6 @@ PLATFORM_DEBUG_ASSERT_HANDLER(LinuxDebugAssertHandler) {
 }
 
 #define GOTO_ERROR_IF_FAILED(Predicate, Message) if (!Predicate) { ErrorMessage = Message; goto Error; }
-
 int
 main(int ArgCount, char **Args) {
 	char *ErrorMessage = 0;
@@ -438,9 +477,40 @@ main(int ArgCount, char **Args) {
 	LinuxContext.xGLContext = glXCreateContext(LinuxContext.xDisplay, xVisualInfo, NULL, GL_TRUE);
 	glXMakeCurrent(LinuxContext.xDisplay, LinuxContext.xWindow, LinuxContext.xGLContext);
 
+	platform_taskmaster LinuxTaskmaster = {0};
+
+#define LINUX_PLATFORM_PREFIX(Function) .Function = Linux##Function,
 	platform_api LinuxPlatformAPI = {
-		0,
-		// TODO(Evan): Function pointers.
+		.Taskmaster = &LinuxTaskmaster,
+		.WindowDimensions = V2(1920, 1080),
+		LINUX_PLATFORM_PREFIX(DebugAssertHandler)
+		LINUX_PLATFORM_PREFIX(CreateTextureHandle)
+		LINUX_PLATFORM_PREFIX(DestroyTextureHandle)
+		LINUX_PLATFORM_PREFIX(ShowCursor)
+		LINUX_PLATFORM_PREFIX(ToggleFullscreen)
+		LINUX_PLATFORM_PREFIX(DebugOpenFile)
+		LINUX_PLATFORM_PREFIX(DebugReadEntireFile)
+		LINUX_PLATFORM_PREFIX(DebugReadFileSize)
+		LINUX_PLATFORM_PREFIX(DebugCloseFile)
+		LINUX_PLATFORM_PREFIX(DebugPrintLine)
+		LINUX_PLATFORM_PREFIX(DebugPrint)
+		LINUX_PLATFORM_PREFIX(DirectorySizeTaskBegin)
+		LINUX_PLATFORM_PREFIX(GetDirectoryEntries)
+		LINUX_PLATFORM_PREFIX(GetCurrentDirectoryPath)
+		LINUX_PLATFORM_PREFIX(SetCurrentDirectory)
+		LINUX_PLATFORM_PREFIX(PathPop)
+		LINUX_PLATFORM_PREFIX(PathJoin)
+		LINUX_PLATFORM_PREFIX(PathIsDirectory)
+		LINUX_PLATFORM_PREFIX(PathIsTopLevel)
+		LINUX_PLATFORM_PREFIX(CreateFile)
+		LINUX_PLATFORM_PREFIX(CreateDirectory)
+		LINUX_PLATFORM_PREFIX(MoveFile)
+		LINUX_PLATFORM_PREFIX(RenameFile)
+		LINUX_PLATFORM_PREFIX(DeleteFile)
+		LINUX_PLATFORM_PREFIX(RunShell)
+		LINUX_PLATFORM_PREFIX(CreateTaskWithMemory)
+		LINUX_PLATFORM_PREFIX(StartTaskWithMemory)
+		LINUX_PLATFORM_PREFIX(PushTask)
 	};
 
 	XEvent xEvent = {0};
