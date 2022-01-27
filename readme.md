@@ -47,13 +47,8 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
 - Basic global font scaling.
 
 ### TODOS
-* Linux porting.
-  For file extensions and shell handlers, this will probably involve a small metaprogram to generate the correct commands.
-* Windows layer work - better key/mouse handling, for starters.
-* Asynchronous file management, for e.g., `mv`s.
-* File change notifications, for name changes, time of last edit, photo preview, etc.
 * Commands:
-   - ~~Basic vim movement (hjkl) for directory traversal.
+   - ~~Basic vim movement (hjkl) for directory traversal~~
    - ~~Moving 'into' a file opens the default extension handler.~~
    - ~~Scalar vim movement~~
    - ~~Interactive change directory~~
@@ -80,6 +75,26 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
    - Fullscreen listing views.
    - ~~Toggle file metadata (date, size, etc).~~ Possible expanded forms of these in fullscreen listing?
    - Open executable. Could choose between forking a shell or not.
+
+
+### Platform Support
+#### Linux
+  - ~~Platform layer implementation~~
+  - ~~Task creation~~
+  - Hot code-reloading (development only)
+  - Timing
+  - Asynchronous I/O
+  - File change notifications
+  - Metaprogram extension generation
+
+#### Windows
+  - ~~Platform layer implementation~~
+  - ~~Task creation~~
+  - ~~Hot code-reloading (development only)~~
+  - ~~Timing~~
+  - Asynchronous I/O
+  - File change notifications.
+  - ~~Metaprogram extension generation.~~ Currently reads from the registry, it's a bit of a mess to interpret the handlers honestly.
 
 
 ### File Management TODOs:
