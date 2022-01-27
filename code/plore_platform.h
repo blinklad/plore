@@ -49,6 +49,10 @@ typedef PLATFORM_DEBUG_PRINT_LINE(platform_debug_print_line);
 typedef PLATFORM_DEBUG_PRINT(platform_debug_print);
 
 
+//
+// CLEANUP(Evan): Move implementation of renderer bits, texture implementation, etc, once we implement 3.x core profile.
+//
+
 typedef struct platform_texture_handle {
 	u64 Opaque;
 	f32 Width;
@@ -89,6 +93,13 @@ typedef PLATFORM_GET_CURRENT_DIRECTORY_PATH(platform_get_current_directory_path)
 #define PLATFORM_SET_CURRENT_DIRECTORY(name) b64 name(char *Path)
 typedef PLATFORM_SET_CURRENT_DIRECTORY(platform_set_current_directory);
 
+
+// TODO(Evan): plore_path_buffer/plore_path should be used throughout the API.
+// We do not want the flexibility of arbitrarily-sized path buffers, degenerate paths are not worth supporting.
+//
+// However, the platform_debug_* functions can use arbitrarily null-terminated paths.
+// That way, quick-and-dirty debugging with string literals works as expected.
+
 typedef struct platform_path_pop_result {
 	b64 DidRemoveSomething;
 	char *AbsolutePath;
@@ -98,21 +109,18 @@ typedef struct platform_path_pop_result {
 #define PLATFORM_PATH_POP(name) platform_path_pop_result name(char *Buffer, u64 BufferSize, b64 AddTrailingSlash)
 typedef PLATFORM_PATH_POP(platform_path_pop);
 
-#define PLATFORM_PATH_PUSH(name) void name(char *Buffer, char *Other, u64 BufferSize, b64 AddTrailingSlash)
-typedef PLATFORM_PATH_PUSH(platform_path_push);
-
 #define PLATFORM_PATH_IS_DIRECTORY(name) b64 name(char *Buffer)
 typedef PLATFORM_PATH_IS_DIRECTORY(platform_path_is_directory);
 
 #define PLATFORM_PATH_IS_TOP_LEVEL(name) b64 name(char *Buffer)
 typedef PLATFORM_PATH_IS_TOP_LEVEL(platform_path_is_top_level);
 
-#define PLATFORM_PATH_JOIN(name) void name(char *Buffer, char *First, char *Second)
+#define PLATFORM_PATH_JOIN(name) b64 name(char *Buffer, char *First, char *Second)
 typedef PLATFORM_PATH_JOIN(platform_path_join);
 
 typedef struct directory_entry_result {
-	char *Name;         // NOTE(Evan): Alias to the string passed in.
-	plore_file *Buffer; // NOTE(Evan): Alias of the buffer passed in.
+	char *Name;         // NOTE(Evan): Aliases parameter.
+	plore_file *Buffer; // NOTE(Evan): Aliases parameter.
 	u64 Size;
 	u64 Count;
 
@@ -215,10 +223,9 @@ typedef struct platform_api {
 	platform_set_current_directory       *SetCurrentDirectory;
 
 	platform_path_pop                    *PathPop;
-	platform_path_push                   *PathPush;
+	platform_path_join                   *PathJoin;
 	platform_path_is_directory           *PathIsDirectory;
 	platform_path_is_top_level           *PathIsTopLevel;
-	platform_path_join                   *PathJoin;
 
 	platform_create_file                 *CreateFile;
 	platform_create_directory            *CreateDirectory;
