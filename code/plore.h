@@ -224,7 +224,6 @@ typedef struct plore_render_list {
 	plore_font *Font;
 } plore_render_list;
 
-// TODO(Evan): Asynchronous commands could be input/ouput here.
 typedef struct plore_frame_result {
 	plore_render_list *RenderList;
 	b64 ShouldQuit;

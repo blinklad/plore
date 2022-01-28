@@ -8,11 +8,14 @@
 
 #include "plore.h"
 #include "plore_platform.h"
-#include "plore_gl.h"
-#include "plore_gl.c"
 
 #include "plore_memory.h"
 #include "plore_memory.c"
+
+#include "plore_gl.h"
+#include "plore_gl.c"
+#define LinuxCreateTextureHandle  GLCreateTextureHandle
+#define LinuxDestroyTextureHandle GLDestroyTextureHandle
 
 
 typedef struct linux_context {
@@ -147,88 +150,6 @@ PLATFORM_DEBUG_PRINT(LinuxDebugPrint) {
     fprintf(stdout, Buffer);
     fprintf(stdout, "\n");
     va_end(Args);
-}
-
-// CLEANUP(Evan): Renderer bits.
-PLATFORM_CREATE_TEXTURE_HANDLE(LinuxCreateTextureHandle) {
-	platform_texture_handle Result = {
-		.Width = Desc.Width,
-		.Height = Desc.Height,
-	};
-
-	glEnable(GL_TEXTURE_2D);
-
-	GLenum GLProvidedPixelFormat = 0;
-	GLenum GLTargetPixelFormat = 0;
-	GLenum GLFilterMode = 0;
-	switch (Desc.TargetPixelFormat) {
-		case PixelFormat_RGBA8: {
-			GLTargetPixelFormat = GL_RGBA8;
-		} break;
-
-		case PixelFormat_ALPHA: {
-			GLTargetPixelFormat = GL_ALPHA;
-		} break;
-
-		case PixelFormat_BGRA8: {
-			GLTargetPixelFormat = GL_BGRA;
-		} break;
-
-		InvalidDefaultCase;
-	}
-	switch (Desc.ProvidedPixelFormat) {
-
-		case PixelFormat_RGBA8: {
-			GLProvidedPixelFormat = GL_RGBA;
-		} break;
-
-		case PixelFormat_RGB8: {
-			GLProvidedPixelFormat = GL_RGB;
-		} break;
-
-		case PixelFormat_ALPHA: {
-			GLProvidedPixelFormat = GL_ALPHA;
-		} break;
-
-		case PixelFormat_BGRA8: {
-			GLProvidedPixelFormat = GL_BGRA;
-		} break;
-
-		InvalidDefaultCase;
-	}
-
-	switch (Desc.FilterMode) {
-		case FilterMode_Linear: {
-			GLFilterMode = GL_LINEAR;
-		} break;
-
-		case FilterMode_Nearest: {
-			GLFilterMode = GL_NEAREST;
-		} break;
-
-		InvalidDefaultCase;
-	}
-
-	GLuint Handle;
-	glGenTextures(1, &Handle);
-	Result.Opaque = Handle;
-	glBindTexture(GL_TEXTURE_2D, Result.Opaque);
-
-	glTexImage2D(GL_TEXTURE_2D, 0, GLTargetPixelFormat, Result.Width, Result.Height, 0, GLProvidedPixelFormat, GL_UNSIGNED_BYTE, Desc.Pixels);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GLFilterMode);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GLFilterMode);
-
-
-	return(Result);
-
-}
-
-PLATFORM_DESTROY_TEXTURE_HANDLE(LinuxDestroyTextureHandle) {
-	GLuint Opaque = (GLuint) Texture.Opaque;
-	glDeleteTextures(1, &Opaque);
 }
 
 PLATFORM_SHOW_CURSOR(LinuxShowCursor) {
@@ -576,13 +497,10 @@ main(int ArgCount, char **Args) {
 		if (XPending(LinuxContext.xDisplay)) {
 			XNextEvent(LinuxContext.xDisplay, &xEvent);
 			switch (xEvent.type) {
-				case Expose: {
-				} break;
 				case ConfigureNotify: {
-					LinuxDebugPrint("Configure Notify");
 					XConfigureEvent Configure = xEvent.xconfigure;
 
-					if (Configure.width != LinuxPlatformAPI.WindowWidth ||
+					if (Configure.width  != LinuxPlatformAPI.WindowWidth ||
 						Configure.height != LinuxPlatformAPI.WindowHeight) {
 						LinuxPlatformAPI.WindowWidth = Configure.width;
 						LinuxPlatformAPI.WindowHeight = Configure.height;
@@ -590,44 +508,22 @@ main(int ArgCount, char **Args) {
 					}
 				} break;
 				// TODO(Evan): Keyboard/mouse input
+				case KeyRelease:
 				case KeyPress: {
+					int Foo = 5;
+					b64 IsPressed = xEvent.type == KeyPress;
+					b64 IsUnpressed = xEvent.type == KeyRelease;
+					KeySym Keycode = XkbKeycodeToKeysym(LinuxContext.xDisplay, xEvent.xkey.keycode, 0, xEvent.xkey.state);
 				} break;
 			}
 		}
 
 		plore_frame_result FrameResult = PloreDoOneFrame(&PloreMemory, &PloreInput, &LinuxPlatformAPI);
 
-		// @Cutnpaste from win32_plore
 		ImmediateBegin(LinuxContext.xWindowAttributes.width, LinuxContext.xWindowAttributes.height);
-		for (u64 I = 0; I < FrameResult.RenderList->CommandCount; I++) {
-			render_command *C = FrameResult.RenderList->Commands + I;
-			switch (C->Type) {
-				case RenderCommandType_PrimitiveQuad: {
-					DrawSquare(C->Quad);
-				} break;
-
-				case RenderCommandType_PrimitiveLine: {
-					DrawLine(C->Line);
-				} break;
-
-				case RenderCommandType_PrimitiveQuarterCircle: {
-					DrawQuarterCircle(C->QuarterCircle);
-				} break;
-
-				case RenderCommandType_Text: {
-					WriteText(FrameResult.RenderList->Font, C->Text);
-				} break;
-
-				case RenderCommandType_Scissor: {
-					rectangle R = C->Scissor.Rect;
-					glScissor(R.P.X-0, R.P.Y-0, R.Span.W+0, R.Span.H+0);
-				} break;
-
-				InvalidDefaultCase;
-			}
-		}
-
+		DoRender(FrameResult.RenderList);
 		glXSwapBuffers(LinuxContext.xDisplay, LinuxContext.xWindow);
+
 		PloreInput.LastFrame = PloreInput.ThisFrame;
 		TicksPrev = TicksNow;
 	}
@@ -637,9 +533,12 @@ main(int ArgCount, char **Args) {
 	XDestroyWindow(LinuxContext.xDisplay, LinuxContext.xWindow);
 	XCloseDisplay(LinuxContext.xDisplay);
 
+	i64 ExitCode = 0;
+
 Error:
 	if (ErrorMessage) {
 		LinuxDebugPrintLine(ErrorMessage);
+		ExitCode = -1;
 	}
-	return(-1);
+	return(ExitCode);
 }
