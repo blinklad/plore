@@ -272,12 +272,9 @@ FindTrailingSlash(char *S, u64 Length) {
 	u64 Offset = Length;
 	char *C = S + --Offset;
 
-	while (*C) {
-		if (C[Offset--] == '/') {
-			Found = true;
-			break;
-		}
-		if (!Offset) break;
+	while (Offset && !Found) {
+		if (*C == '/') Found = true;
+		else C -= 1, Offset -= 1;
 	}
 
 	return((find_trailing_slash_result) {
@@ -347,9 +344,9 @@ PLATFORM_PATH_JOIN(LinuxPathJoin) {
 	u64 TotalLength = LengthA + LengthB + 1;
 	Assert(TotalLength < PLORE_MAX_PATH);
 	if (TotalLength < PLORE_MAX_PATH) {
-		u64 BytesWritten = StringCopy(Buffer, First, PLORE_MAX_PATH);
+		u64 BytesWritten = StringCopy(First, Buffer, PLORE_MAX_PATH);
 		Buffer[BytesWritten++] = '/';
-		StringCopy(Buffer+BytesWritten, Second, PLORE_MAX_PATH-BytesWritten);
+		StringCopy(Second, Buffer+BytesWritten, PLORE_MAX_PATH-BytesWritten);
 		DidJoin = true;
 	}
 
@@ -371,6 +368,8 @@ PLATFORM_GET_DIRECTORY_ENTRIES(LinuxGetDirectoryEntries) {
 		while (Entry) {
 			Entry = readdir(Directory);
 			if (Entry) {
+				if (Result.Count == Result.Size) break;
+
 				plore_file *F = Result.Buffer + Result.Count++;
 
 				PathCopy(Entry->d_name, F->Path.FilePart);
@@ -389,9 +388,16 @@ PLATFORM_GET_DIRECTORY_ENTRIES(LinuxGetDirectoryEntries) {
 
 		}
 
-		if (closedir(Directory) == 0) {
-			Result.Succeeded = true;
+		Result.Succeeded = closedir(Directory) == 0;
+
+		for (u64 E = 0; E < Result.Count; E++) {
+			plore_file *F = Result.Buffer + E;
+			struct stat Stat = {0};
+			stat(F->Path.Absolute, &Stat);
+			F->LastModification.T = Stat.st_mtime;
+			F->Bytes = Stat.st_size;
 		}
+
 	}
 
 	return(Result);
@@ -439,9 +445,26 @@ PLATFORM_DEBUG_ASSERT_HANDLER(LinuxDebugAssertHandler) {
 	return(0);
 }
 
+internal u64
+LinuxGetTimeInMS()
+{
+	struct timespec Time;
+	clock_gettime(CLOCK_MONOTONIC, &Time);
+
+	time_t SecondsToMS = Time.tv_sec * 1000;
+	long NanoSecondsToMS = Time.tv_nsec / 1000000;
+
+	return(SecondsToMS + NanoSecondsToMS);
+}
+
+#include <dlfcn.h>
+#include <sys/mman.h>
+
 #define GOTO_ERROR_IF_FAILED(Predicate, Message) if (!Predicate) { ErrorMessage = Message; goto Error; }
 int
 main(int ArgCount, char **Args) {
+	plore_path MyPath = LinuxGetCurrentDirectoryPath();
+
 	char *ErrorMessage = 0;
 
 	LinuxContext.xDisplay = XOpenDisplay(NULL);
@@ -456,7 +479,7 @@ main(int ArgCount, char **Args) {
 	Colormap xColorMap = XCreateColormap(LinuxContext.xDisplay, LinuxContext.xRoot, xVisualInfo->visual, AllocNone);
 	XSetWindowAttributes xWindowAttributeDesc = {
 		.colormap = xColorMap,
-		.event_mask = ExposureMask | KeyPressMask,
+		.event_mask = ExposureMask | KeyPressMask | StructureNotifyMask,
 	};
 	LinuxContext.xWindow = XCreateWindow(LinuxContext.xDisplay,
 			LinuxContext.xRoot,
@@ -479,58 +502,134 @@ main(int ArgCount, char **Args) {
 
 	platform_taskmaster LinuxTaskmaster = {0};
 
-#define LINUX_PLATFORM_PREFIX(Function) .Function = Linux##Function,
+#define PREFIX(Function) .Function = Linux##Function,
 	platform_api LinuxPlatformAPI = {
 		.Taskmaster = &LinuxTaskmaster,
 		.WindowDimensions = V2(1920, 1080),
-		LINUX_PLATFORM_PREFIX(DebugAssertHandler)
-		LINUX_PLATFORM_PREFIX(CreateTextureHandle)
-		LINUX_PLATFORM_PREFIX(DestroyTextureHandle)
-		LINUX_PLATFORM_PREFIX(ShowCursor)
-		LINUX_PLATFORM_PREFIX(ToggleFullscreen)
-		LINUX_PLATFORM_PREFIX(DebugOpenFile)
-		LINUX_PLATFORM_PREFIX(DebugReadEntireFile)
-		LINUX_PLATFORM_PREFIX(DebugReadFileSize)
-		LINUX_PLATFORM_PREFIX(DebugCloseFile)
-		LINUX_PLATFORM_PREFIX(DebugPrintLine)
-		LINUX_PLATFORM_PREFIX(DebugPrint)
-		LINUX_PLATFORM_PREFIX(DirectorySizeTaskBegin)
-		LINUX_PLATFORM_PREFIX(GetDirectoryEntries)
-		LINUX_PLATFORM_PREFIX(GetCurrentDirectoryPath)
-		LINUX_PLATFORM_PREFIX(SetCurrentDirectory)
-		LINUX_PLATFORM_PREFIX(PathPop)
-		LINUX_PLATFORM_PREFIX(PathJoin)
-		LINUX_PLATFORM_PREFIX(PathIsDirectory)
-		LINUX_PLATFORM_PREFIX(PathIsTopLevel)
-		LINUX_PLATFORM_PREFIX(CreateFile)
-		LINUX_PLATFORM_PREFIX(CreateDirectory)
-		LINUX_PLATFORM_PREFIX(MoveFile)
-		LINUX_PLATFORM_PREFIX(RenameFile)
-		LINUX_PLATFORM_PREFIX(DeleteFile)
-		LINUX_PLATFORM_PREFIX(RunShell)
-		LINUX_PLATFORM_PREFIX(CreateTaskWithMemory)
-		LINUX_PLATFORM_PREFIX(StartTaskWithMemory)
-		LINUX_PLATFORM_PREFIX(PushTask)
+		PREFIX(DebugAssertHandler)
+		PREFIX(CreateTextureHandle)
+		PREFIX(DestroyTextureHandle)
+		PREFIX(ShowCursor)
+		PREFIX(ToggleFullscreen)
+		PREFIX(DebugOpenFile)
+		PREFIX(DebugReadEntireFile)
+		PREFIX(DebugReadFileSize)
+		PREFIX(DebugCloseFile)
+		PREFIX(DebugPrintLine)
+		PREFIX(DebugPrint)
+		PREFIX(DirectorySizeTaskBegin)
+		PREFIX(GetDirectoryEntries)
+		PREFIX(GetCurrentDirectoryPath)
+		PREFIX(SetCurrentDirectory)
+		PREFIX(PathPop)
+		PREFIX(PathJoin)
+		PREFIX(PathIsDirectory)
+		PREFIX(PathIsTopLevel)
+		PREFIX(CreateFile)
+		PREFIX(CreateDirectory)
+		PREFIX(MoveFile)
+		PREFIX(RenameFile)
+		PREFIX(DeleteFile)
+		PREFIX(RunShell)
+		PREFIX(CreateTaskWithMemory)
+		PREFIX(StartTaskWithMemory)
+		PREFIX(PushTask)
 	};
 
+#define StoreSize Megabytes(512)
+
+	// Summary notes on MAP_ANONYMOUS, initialization and args:
+	// "The mapping is not backed by any file; its contents are initialized to zero.
+    //  ...some implementations require fd to be -1 if MAP_ANONYMOUS (or MAP_ANON) is specified.
+    //  ...The offset argument should be zero."
+	// https://man7.org/linux/man-pages/man2/mmap.2.html
+	//
+	// TODO(Evan): Should we use MAP_POPULATE to pre-fault the allocated pages?
+	//
+	plore_memory PloreMemory = {
+        .PermanentStorage = {
+           .Size = StoreSize,
+		   .Memory = mmap(0, StoreSize, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0),
+        },
+		// TODO(Evan): TaskStorage.
+	};
+	Assert(PloreMemory.PermanentStorage.Memory != MAP_FAILED);
+
+	plore_path_buffer LibraryPath = {0};
+	MemoryCopy(MyPath.Absolute, LibraryPath, PLORE_MAX_PATH);
+	char *Library = StringConcatenate(LibraryPath, PLORE_MAX_PATH, "/build/plore.so");
+	void *LibraryHandle = dlopen(Library, RTLD_NOW);
+	Assert(LibraryHandle);
+	plore_do_one_frame *PloreDoOneFrame = dlsym(LibraryHandle, "PloreDoOneFrame");
+	Assert(PloreDoOneFrame);
+
+
+	u64 TicksPrev = LinuxGetTimeInMS();
+	plore_input PloreInput = {0};
 	XEvent xEvent = {0};
+
 	for (;;) {
-		XNextEvent(LinuxContext.xDisplay, &xEvent);
-		if (xEvent.type == Expose) {
-			XGetWindowAttributes(LinuxContext.xDisplay, LinuxContext.xWindow, &LinuxContext.xWindowAttributes);
-			ImmediateBegin(LinuxContext.xWindowAttributes.width, LinuxContext.xWindowAttributes.height);
+		u64 TicksNow = LinuxGetTimeInMS();
+		u64 TicksDT = TicksNow - TicksPrev;
+		f32 DT = (f32)TicksDT / 1000.0f;
 
-			DrawSquare((render_quad) {
-					.Rect = {
-						.P = V2(1920/2, 1080/2),
-						.Span = V2(512, 512),
-					},
-					.Colour = WHITE_V4,
-					});
+		if (XPending(LinuxContext.xDisplay)) {
+			XNextEvent(LinuxContext.xDisplay, &xEvent);
+			switch (xEvent.type) {
+				case Expose: {
+				} break;
+				case ConfigureNotify: {
+					LinuxDebugPrint("Configure Notify");
+					XConfigureEvent Configure = xEvent.xconfigure;
 
-			glXSwapBuffers(LinuxContext.xDisplay, LinuxContext.xWindow);
-		} else if (xEvent.type == KeyPress) {
+					if (Configure.width != LinuxPlatformAPI.WindowWidth ||
+						Configure.height != LinuxPlatformAPI.WindowHeight) {
+						LinuxPlatformAPI.WindowWidth = Configure.width;
+						LinuxPlatformAPI.WindowHeight = Configure.height;
+						XGetWindowAttributes(LinuxContext.xDisplay, LinuxContext.xWindow, &LinuxContext.xWindowAttributes);
+					}
+				} break;
+				// TODO(Evan): Keyboard/mouse input
+				case KeyPress: {
+				} break;
+			}
 		}
+
+		plore_frame_result FrameResult = PloreDoOneFrame(&PloreMemory, &PloreInput, &LinuxPlatformAPI);
+
+		// @Cutnpaste from win32_plore
+		ImmediateBegin(LinuxContext.xWindowAttributes.width, LinuxContext.xWindowAttributes.height);
+		for (u64 I = 0; I < FrameResult.RenderList->CommandCount; I++) {
+			render_command *C = FrameResult.RenderList->Commands + I;
+			switch (C->Type) {
+				case RenderCommandType_PrimitiveQuad: {
+					DrawSquare(C->Quad);
+				} break;
+
+				case RenderCommandType_PrimitiveLine: {
+					DrawLine(C->Line);
+				} break;
+
+				case RenderCommandType_PrimitiveQuarterCircle: {
+					DrawQuarterCircle(C->QuarterCircle);
+				} break;
+
+				case RenderCommandType_Text: {
+					WriteText(FrameResult.RenderList->Font, C->Text);
+				} break;
+
+				case RenderCommandType_Scissor: {
+					rectangle R = C->Scissor.Rect;
+					glScissor(R.P.X-0, R.P.Y-0, R.Span.W+0, R.Span.H+0);
+				} break;
+
+				InvalidDefaultCase;
+			}
+		}
+
+		glXSwapBuffers(LinuxContext.xDisplay, LinuxContext.xWindow);
+		PloreInput.LastFrame = PloreInput.ThisFrame;
+		TicksPrev = TicksNow;
 	}
 
 	glXMakeCurrent(LinuxContext.xDisplay, None, NULL);
