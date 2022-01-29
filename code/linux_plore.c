@@ -191,7 +191,7 @@ internal find_trailing_slash_result
 FindTrailingSlash(char *S, u64 Length) {
 	b64 Found = false;
 	u64 Offset = Length;
-	char *C = S + --Offset;
+	char *C = S + (Offset-1);
 
 	while (Offset && !Found) {
 		if (*C == '/') Found = true;
@@ -218,7 +218,7 @@ PLATFORM_PATH_POP(LinuxPathPop) {
 	};
 
 	u64 Length = StringLength(Buffer);
-	if (HasTrailingSlash(Buffer, Length)) Length -= 1;
+	if (HasTrailingSlash(Buffer, Length) && Length > 1) Length -= 1;
 
 	find_trailing_slash_result Slash = FindTrailingSlash(Buffer, Length);
 	if (Slash.Found) {
@@ -231,12 +231,16 @@ PLATFORM_PATH_POP(LinuxPathPop) {
 		}
 
 		Length = StringLength(Buffer);
-		if (HasTrailingSlash(Buffer, Length)) Length -= 1;
+		if (HasTrailingSlash(Buffer, Length) && Length > 1) Length -= 1;
 
 		find_trailing_slash_result Slash = FindTrailingSlash(Buffer, Length);
 		if (Slash.Found) {
 			Result.FilePart = Slash.Slash+1;
+		} else {
+			Debugger;
 		}
+
+		Assert(Result.FilePart);
 	}
 
 	return(Result);
@@ -302,7 +306,7 @@ PLATFORM_GET_DIRECTORY_ENTRIES(LinuxGetDirectoryEntries) {
 				} else if (Entry->d_type == DT_DIR) {
 					F->Type = PloreFileNode_Directory;
 				} else {
-					LinuxDebugPrintLine("Unhandled file type!");
+					//LinuxDebugPrintLine("Unhandled file type!");
 				}
 
 			}
@@ -510,10 +514,58 @@ main(int ArgCount, char **Args) {
 				// TODO(Evan): Keyboard/mouse input
 				case KeyRelease:
 				case KeyPress: {
-					int Foo = 5;
+					LinuxDebugPrint("KEY EVENT");
 					b64 IsPressed = xEvent.type == KeyPress;
-					b64 IsUnpressed = xEvent.type == KeyRelease;
-					KeySym Keycode = XkbKeycodeToKeysym(LinuxContext.xDisplay, xEvent.xkey.keycode, 0, xEvent.xkey.state);
+
+					b64 ShiftDown = xEvent.xkey.state & ShiftMask;
+					b64 CtrlDown = xEvent.xkey.state & ControlMask;
+					KeySym Sym = XkbKeycodeToKeysym(LinuxContext.xDisplay, xEvent.xkey.keycode, 0, xEvent.xkey.state);
+
+					XComposeStatus _Status = {0};
+					KeySym _Dummy = 0;
+					char Buffer[4] = {0};
+					int CharactersWritten = XLookupString(&xEvent.xkey,
+														  Buffer,
+														  ArrayCount(Buffer),
+														  &_Dummy,
+														  &_Status);
+
+#define ALPHABET_CASE(Upper, Lower)                                                                                  \
+				    case XK_##Upper:                                                                                 \
+				    case XK_##Lower: {                                                                               \
+				     	PloreInput.ThisFrame.pKeys[PloreKey_##Upper] = IsPressed;                                    \
+				     	CheckedPush(PloreInput.ThisFrame.TextInput, PloreInput.ThisFrame.TextInputCount, Buffer[0]); \
+						LinuxDebugPrintLine("%s", Buffer);                                                           \
+				    } break;
+
+					switch (Sym) {
+						ALPHABET_CASE(A, a);
+						ALPHABET_CASE(B, b);
+						ALPHABET_CASE(C, c);
+						ALPHABET_CASE(D, d);
+						ALPHABET_CASE(E, e);
+						ALPHABET_CASE(F, f);
+						ALPHABET_CASE(G, g);
+						ALPHABET_CASE(H, h);
+						ALPHABET_CASE(I, i);
+						ALPHABET_CASE(J, j);
+						ALPHABET_CASE(K, k);
+						ALPHABET_CASE(L, l);
+						ALPHABET_CASE(M, m);
+						ALPHABET_CASE(N, n);
+						ALPHABET_CASE(O, o);
+						ALPHABET_CASE(P, p);
+						ALPHABET_CASE(Q, q);
+						ALPHABET_CASE(R, r);
+						ALPHABET_CASE(S, s);
+						ALPHABET_CASE(T, t);
+						ALPHABET_CASE(U, u);
+						ALPHABET_CASE(V, v);
+						ALPHABET_CASE(W, w);
+						ALPHABET_CASE(X, x);
+						ALPHABET_CASE(Y, y);
+						ALPHABET_CASE(Z, z);
+					}
 				} break;
 			}
 		}
@@ -525,6 +577,7 @@ main(int ArgCount, char **Args) {
 		glXSwapBuffers(LinuxContext.xDisplay, LinuxContext.xWindow);
 
 		PloreInput.LastFrame = PloreInput.ThisFrame;
+		PloreInput.ThisFrame = ClearStruct(keyboard_and_mouse);
 		TicksPrev = TicksNow;
 	}
 
