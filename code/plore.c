@@ -374,7 +374,7 @@ PloreInit(memory_arena *Arena) {
 	// MAINTENANCE(Evan): Don't copy the main arena by value until we've allocated the frame arena.
 	State->Arena = *Arena;
 
-	State->Yanked = MapInit(&State->Arena, plore_path, void, 256);
+	State->Yanked = SetInit(&State->Arena, plore_path, 256);
 	for (u64 T = 0; T < ArrayCount(State->Tabs); T++) {
 		plore_tab *Tab = State->Tabs + T;
 		Tab->Arena = SubArena(&State->Arena, Megabytes(2), 16);

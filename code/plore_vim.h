@@ -116,11 +116,11 @@ typedef struct vim_command {
 	vim_command_state State;
 	vim_mode Mode;
 	u64 Scalar;
-	
+
 	// NOTE(Evan): Generated from non-scalar input, such as <ctrl> + 5.
 	char Pattern[16];
 	u64 PatternCount;
-	
+
 	char *Shell;
 } vim_command;
 
@@ -150,7 +150,7 @@ typedef struct vim_lister_state {
 typedef struct plore_vim_context {
 	vim_key CommandKeys[CommandBufferSize];
 	u64 CommandKeyCount;
-	
+
 	vim_lister_state ListerState;
 	vim_mode Mode;
 	vim_command ActiveCommand;
@@ -343,7 +343,7 @@ global vim_binding VimBindings[] = {
 				.Input = PloreKey_Slash,
 			},
 		},
-		
+
 	},
 	{
 		.Type = VimCommandType_TabTextFilterHide,
@@ -608,7 +608,7 @@ global vim_binding VimBindings[] = {
 	{
 		.Type = VimCommandType_DeleteFile,
 		.Keys = {
-			
+
 			{
 				.Input = PloreKey_D,
 			},
@@ -621,7 +621,7 @@ global vim_binding VimBindings[] = {
 	{
 		.Type = VimCommandType_MoveRight,
 		.Keys = {
-			
+
 			{
 				.Input = PloreKey_Return,
 			},
@@ -630,7 +630,7 @@ global vim_binding VimBindings[] = {
 	{
 		.Type = VimCommandType_ShowCommandList,
 		.Keys = {
-			
+
 			{
 				.Input = PloreKey_QuestionMark,
 			},
@@ -701,7 +701,7 @@ AcceptsPattern(vim_binding *Binding) {
 			break;
 		}
 	}
-	
+
 	return(Result);
 }
 

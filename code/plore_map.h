@@ -28,18 +28,6 @@
 
 typedef struct plore_map plore_map;
 
-
-#if defined(PLORE_WINDOWS)
-//
-// NOTE(Evan): Allow sizeof(void), which is obviously 0.
-// Use case: MapInit(&SomeArena, key_type, void, Count), using the map as a set of key_type's.
-//
-// CLEANUP(Evan): Disabling errors like this is a bit rude.
-//
-#pragma warning(disable: 4034)
-#endif
-
-
 //
 // Interface
 //
@@ -56,6 +44,7 @@ typedef struct plore_map plore_map;
 // Every alternative to this has different tradeoffs in complexity, usability and performance, so let's just see how this goes.
 //
 #define MapInit(Arena, key_type, value_type, Count) _MapInit(Arena, sizeof(key_type), sizeof(value_type), Count)
+#define SetInit(Arena, key_type, Count)             _MapInit(Arena, sizeof(key_type), 0, Count)
 #define MapInsert(Map, K, V)                        _MapInsert(Map, K, V, sizeof(*K), sizeof(*V))
 #define SetInsert(Map, K, V)                        _MapInsert(Map, K, V, sizeof(*K), 0)
 #define MapRemove(Map, K)                           _MapRemove(Map, K, sizeof(*K))
@@ -136,6 +125,7 @@ _MapInsert(plore_map *Map, void *Key, void *Value, u64 DEBUGKeySize, u64 DEBUGVa
 
 internal plore_map
 _MapInit(memory_arena *Arena, u64 KeySize, u64 DataSize, u64 Count);
+
 
 #endif // PLORE_MAP_H
 
