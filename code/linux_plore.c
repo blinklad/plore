@@ -519,7 +519,7 @@ main(int ArgCount, char **Args) {
 						XGetWindowAttributes(LinuxContext.xDisplay, LinuxContext.xWindow, &LinuxContext.xWindowAttributes);
 					}
 				} break;
-				// TODO(Evan): Keyboard/mouse input
+
 				case KeyRelease:
 				case KeyPress: {
 					LinuxDebugPrint("KEY EVENT");
@@ -527,6 +527,8 @@ main(int ArgCount, char **Args) {
 
 					b64 ShiftDown = xEvent.xkey.state & ShiftMask;
 					b64 CtrlDown = xEvent.xkey.state & ControlMask;
+					if (CtrlDown) xEvent.xkey.state = xEvent.xkey.state & ~(ControlMask);
+
 					KeySym Sym = XkbKeycodeToKeysym(LinuxContext.xDisplay, xEvent.xkey.keycode, 0, xEvent.xkey.state);
 
 					XComposeStatus _Status = {0};
@@ -538,15 +540,90 @@ main(int ArgCount, char **Args) {
 														  &_Dummy,
 														  &_Status);
 
+					Assert(CharactersWritten == 1 || CharactersWritten == 0);
+
+					if (CtrlDown) {
+						LinuxDebugPrintLine("%s", Buffer);
+						LinuxDebugPrint("Control down...");
+					}
+
+#define TYPEABLE_CASE(xName, PloreName)                                                                              \
+				    case XK_##xName: {                                                                               \
+				     	PloreInput.ThisFrame.pKeys[PloreKey_##PloreName] = IsPressed;                                \
+				     	PloreInput.ThisFrame.dKeys[PloreKey_##PloreName] = IsPressed;                                \
+				     	PloreInput.ThisFrame.sKeys[PloreKey_##PloreName] = ShiftDown;                                \
+				     	PloreInput.ThisFrame.cKeys[PloreKey_##PloreName] = CtrlDown;                                 \
+				     	CheckedPush(PloreInput.ThisFrame.TextInput, PloreInput.ThisFrame.TextInputCount, Buffer[0]); \
+						LinuxDebugPrint(#PloreName " pressed");                                                      \
+				    } break;
+
+#define UNTYPEABLE_CASE(xName, PloreName)                                                                            \
+				    case XK_##xName: {                                                                               \
+				     	PloreInput.ThisFrame.pKeys[PloreKey_##PloreName] = IsPressed;                                \
+				     	PloreInput.ThisFrame.dKeys[PloreKey_##PloreName] = IsPressed;                                \
+						LinuxDebugPrint(#PloreName " pressed");                                                      \
+				    } break;
+
 #define ALPHABET_CASE(Upper, Lower)                                                                                  \
 				    case XK_##Upper:                                                                                 \
 				    case XK_##Lower: {                                                                               \
 				     	PloreInput.ThisFrame.pKeys[PloreKey_##Upper] = IsPressed;                                    \
+				     	PloreInput.ThisFrame.dKeys[PloreKey_##Upper] = IsPressed;                                    \
+				     	PloreInput.ThisFrame.sKeys[PloreKey_##Upper] = ShiftDown;                                    \
+				     	PloreInput.ThisFrame.cKeys[PloreKey_##Upper] = CtrlDown;                                     \
 				     	CheckedPush(PloreInput.ThisFrame.TextInput, PloreInput.ThisFrame.TextInputCount, Buffer[0]); \
-						LinuxDebugPrintLine("%s", Buffer);                                                           \
 				    } break;
 
 					switch (Sym) {
+                        TYPEABLE_CASE(0, Zero);
+                        TYPEABLE_CASE(1, One);
+                        TYPEABLE_CASE(2, Two);
+                        TYPEABLE_CASE(3, Three);
+                        TYPEABLE_CASE(4, Four);
+                        TYPEABLE_CASE(5, Five);
+                        TYPEABLE_CASE(6, Six);
+                        TYPEABLE_CASE(7, Seven);
+                        TYPEABLE_CASE(8, Eight);
+                        TYPEABLE_CASE(9, Nine);
+                        TYPEABLE_CASE(space, Space);
+                        TYPEABLE_CASE(Return, Return);
+                        TYPEABLE_CASE(colon, Colon);
+                        TYPEABLE_CASE(semicolon, Semicolon);
+                        TYPEABLE_CASE(question, QuestionMark);
+                        TYPEABLE_CASE(exclam, ExclamationMark);
+                        TYPEABLE_CASE(at, At);
+                        TYPEABLE_CASE(percent, Percent);
+                        TYPEABLE_CASE(dollar, Dollar);
+                        TYPEABLE_CASE(asciicircum, Caret);
+                        TYPEABLE_CASE(grave, Tilde);
+                        TYPEABLE_CASE(ampersand, Ampersand);
+                        TYPEABLE_CASE(asterisk, Asterisk);
+                        TYPEABLE_CASE(parenleft, ParenOpen);
+                        TYPEABLE_CASE(parenright, ParenClosed);
+                        TYPEABLE_CASE(bracketleft, BracketOpen);
+                        TYPEABLE_CASE(bracketright, BracketClosed);
+                        TYPEABLE_CASE(braceleft, BraceOpen);
+                        TYPEABLE_CASE(braceright, BraceClosed);
+                        TYPEABLE_CASE(slash, Slash);
+                        TYPEABLE_CASE(backslash, BackSlash);
+                        TYPEABLE_CASE(bar, Pipe);
+                        TYPEABLE_CASE(underscore, Underscore);
+                        TYPEABLE_CASE(quotedbl, DoubleQuote);
+                        TYPEABLE_CASE(Right, RightArrow);
+                        TYPEABLE_CASE(Left, LeftArrow);
+                        TYPEABLE_CASE(period, Period);
+                        TYPEABLE_CASE(comma, Comma);
+                        TYPEABLE_CASE(equal, Equals);
+                        TYPEABLE_CASE(plus, Plus);
+                        TYPEABLE_CASE(minus, Minus);
+                        TYPEABLE_CASE(numbersign, Pound);
+                        TYPEABLE_CASE(Tab, Tab);
+                        UNTYPEABLE_CASE(Control_L, Ctrl);
+                        UNTYPEABLE_CASE(Control_R, Ctrl);
+                        UNTYPEABLE_CASE(Shift_L, Shift);
+                        UNTYPEABLE_CASE(Shift_R, Shift);
+                        UNTYPEABLE_CASE(Escape, Escape);
+                        UNTYPEABLE_CASE(BackSpace, Backspace);
 						ALPHABET_CASE(A, a);
 						ALPHABET_CASE(B, b);
 						ALPHABET_CASE(C, c);
@@ -587,6 +664,8 @@ main(int ArgCount, char **Args) {
 		PloreInput.LastFrame = PloreInput.ThisFrame;
 		PloreInput.ThisFrame = ClearStruct(keyboard_and_mouse);
 		TicksPrev = TicksNow;
+
+		if (FrameResult.ShouldQuit) break;
 	}
 
 	glXMakeCurrent(LinuxContext.xDisplay, None, NULL);
