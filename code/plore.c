@@ -445,13 +445,35 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 	u64 BufferedKeyCount = 0;
 
 	// @Hack, fix this up once we've implemented F-keys as well.
-	if (BufferedInput.pKeys[PloreKey_Escape] && VimContext->CommandKeyCount < ArrayCount(VimContext->CommandKeys)) {
-		VimContext->CommandKeys[VimContext->CommandKeyCount++] = (vim_key) {
-			.Input = PloreKey_Escape,
-		};
-		DidInput = true;
+	if (VimContext->CommandKeyCount < ArrayCount(VimContext->CommandKeys)) {
+		if (BufferedInput.pKeys[PloreKey_Escape]) {
+			VimContext->CommandKeys[VimContext->CommandKeyCount++] = (vim_key) {
+				.Input = PloreKey_Escape,
+			};
+			DidInput = true;
+		} else if (BufferedInput.pKeys[PloreKey_Backspace]) {
+			VimContext->CommandKeys[VimContext->CommandKeyCount++] = (vim_key) {
+				.Input = PloreKey_Backspace,
+			};
+			DidInput = true;
+		}
 	}
 
+#if 0
+	for (u64 K = 0; K < BufferedInput._InputCount; K++) {
+		if (VimContext->CommandKeyCount == ArrayCount(VimContext->CommandKeys)) break;
+		plore_key_input *Input = BufferedInput._Input + K;
+
+		VimContext->CommandKeys[VimContext->CommandKeyCount++] = (vim_key) {
+			.Input = Input->Key,
+			.Modifier = Input->Modifier,
+			.Pattern = IsNumeric(Input->Key) ? VimPattern_Digit : VimPattern_None,
+		};
+
+		DidInput = true;
+
+	}
+#endif
 	for (u64 K = 0; K < BufferedInput.TextInputCount; K++) {
 		if (VimContext->CommandKeyCount == ArrayCount(VimContext->CommandKeys)) break;
 
@@ -470,6 +492,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 			}
 		}
 
+
 		if (BufferedInput.cKeys[PK]) {
 			Modifier = PloreKey_Ctrl;
 		}
@@ -486,6 +509,12 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		};
 
 		DidInput = true;
+	}
+
+
+	if (DidInput) {
+		int BreakHere = 5;
+		BreakHere;
 	}
 
 	//
@@ -720,8 +749,8 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 
 			if (!InsertPrompt) InsertPrompt = "YOU SHOULD NOT SEE THIS.";
 
-			temp_string Insert = TempString(&State->FrameArena, 128);
 			u64 Size = 128;
+			temp_string Insert = TempString(&State->FrameArena, Size);
 			TempCat(Insert, "%s ", InsertPrompt);
 			TempCat(Insert, "%s", VimKeysToString(PushBytes(&State->FrameArena, Size), Size, VimContext->CommandKeys).Buffer);
 

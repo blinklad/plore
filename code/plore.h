@@ -95,7 +95,6 @@ PLORE_X(LeftArrow,                           "<",             '<')   \
 PLORE_X(Period,                              ".",             '.')   \
 PLORE_X(Comma,                               ",",             ',')   \
 PLORE_X(Equals,                              "=",             '=')   \
-PLORE_X(Backtick,                            "`",             '`')   \
 PLORE_X(Plus,                                "+",             '+')   \
 PLORE_X(Minus,                               "-",             '-')   \
 PLORE_X(Pound,                               "#",             '#')   \
@@ -149,6 +148,19 @@ char PloreKeyCharacters[] = {
 };
 #undef PLORE_X
 
+typedef enum plore_key_modifier_mask {
+	PloreKeyModifier_Shift,
+	PloreKeyModifier_Ctrl,
+	PloreKeyModifier_Alt,
+	PloreKeyModifier_Meta,
+	PloreKeyModifier_Count,
+	_PloreKeyModifier_ForceU64 = 0xffffffffull,
+} plore_key_modifier_mask;
+
+//
+// CLEANUP(Evan):
+// - Remove ctrl/shift as plore_key's, use plore_key_modifier_mask instead.
+// - Remove redundancy in buffered/down/pressed _and_ textual input.
 typedef struct keyboard_and_mouse {
 	b64 pKeys[PloreKey_Count]; // Pressed this frame.
 	b64 sKeys[PloreKey_Count]; // Shift down while this key was pressed.
