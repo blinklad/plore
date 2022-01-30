@@ -1,5 +1,6 @@
 #include <X11/X.h>
 #include <X11/Xlib.h>
+//#include <X11/keysymdef.h>
 #include <GL/gl.h>
 #include <GL/glx.h>
 #include <GL/glu.h>
@@ -294,6 +295,10 @@ PLATFORM_GET_DIRECTORY_ENTRIES(LinuxGetDirectoryEntries) {
 			Entry = readdir(Directory);
 			if (Entry) {
 				if (Result.Count == Result.Size) break;
+				if (StringsAreEqual(Entry->d_name, "..") ||
+					StringsAreEqual(Entry->d_name, ".")) {
+					continue;
+				}
 
 				plore_file *F = Result.Buffer + Result.Count++;
 
@@ -323,6 +328,9 @@ PLATFORM_GET_DIRECTORY_ENTRIES(LinuxGetDirectoryEntries) {
 			F->Bytes = Stat.st_size;
 		}
 
+#define PloreSortPredicate(A, B) StringCompare(A.Path.FilePart, B.Path.FilePart)
+		PloreSort(Result.Buffer, Result.Count, plore_file);
+#undef PloreSortPredicate
 	}
 
 	return(Result);
