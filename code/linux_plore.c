@@ -140,6 +140,7 @@ PLATFORM_DEBUG_PRINT_LINE(LinuxDebugPrintLine) {
     local char Buffer[256];
     stbsp_vsnprintf(Buffer, 256, Format, Args);
     fprintf(stdout, Buffer);
+    fprintf(stdout, "\n");
     va_end(Args);
 }
 
@@ -149,7 +150,6 @@ PLATFORM_DEBUG_PRINT(LinuxDebugPrint) {
     local char Buffer[256];
     stbsp_vsnprintf(Buffer, 256, Format, Args);
     fprintf(stdout, Buffer);
-    fprintf(stdout, "\n");
     va_end(Args);
 }
 
@@ -492,6 +492,8 @@ main(int ArgCount, char **Args) {
 	MemoryCopy(MyPath.Absolute, LibraryPath, PLORE_MAX_PATH);
 	char *Library = StringConcatenate(LibraryPath, PLORE_MAX_PATH, "/build/plore.so");
 	void *LibraryHandle = dlopen(Library, RTLD_NOW);
+	char *DLError = dlerror();
+	if (DLError) LinuxDebugPrintLine("Error loading plore library : %s", DLError);
 	Assert(LibraryHandle);
 	plore_do_one_frame *PloreDoOneFrame = dlsym(LibraryHandle, "PloreDoOneFrame");
 	Assert(PloreDoOneFrame);
@@ -522,7 +524,6 @@ main(int ArgCount, char **Args) {
 
 				case KeyRelease:
 				case KeyPress: {
-					LinuxDebugPrint("KEY EVENT");
 					b64 IsPressed = xEvent.type == KeyPress;
 
 					b64 ShiftDown = xEvent.xkey.state & ShiftMask;
@@ -544,7 +545,6 @@ main(int ArgCount, char **Args) {
 
 					if (CtrlDown) {
 						LinuxDebugPrintLine("%s", Buffer);
-						LinuxDebugPrint("Control down...");
 					}
 
 #define TYPEABLE_CASE(xName, PloreName)                                                                              \
@@ -554,14 +554,12 @@ main(int ArgCount, char **Args) {
 				     	PloreInput.ThisFrame.sKeys[PloreKey_##PloreName] = ShiftDown;                                \
 				     	PloreInput.ThisFrame.cKeys[PloreKey_##PloreName] = CtrlDown;                                 \
 				     	CheckedPush(PloreInput.ThisFrame.TextInput, PloreInput.ThisFrame.TextInputCount, Buffer[0]); \
-						LinuxDebugPrint(#PloreName " pressed");                                                      \
 				    } break;
 
 #define UNTYPEABLE_CASE(xName, PloreName)                                                                            \
 				    case XK_##xName: {                                                                               \
 				     	PloreInput.ThisFrame.pKeys[PloreKey_##PloreName] = IsPressed;                                \
 				     	PloreInput.ThisFrame.dKeys[PloreKey_##PloreName] = IsPressed;                                \
-						LinuxDebugPrint(#PloreName " pressed");                                                      \
 				    } break;
 
 #define ALPHABET_CASE(Upper, Lower)                                                                                  \
