@@ -3,9 +3,9 @@ mkdir -p build
 mkdir -p code/generated
 cd build
 
-CommonCompilerFlags="-g -O0 -Wall -Werror -Wno-unused-value -Wno-parentheses -fno-strict-aliasing -Wno-unused-but-set-variable -Wno-unused-variable -Wno-switch -Wno-format -Wno-implicit-function-declaration -Wno-missing-braces -Wno-unused-function -DPLORE_INTERNAL=1 -DPLORE_LINUX=1"
+CommonCompilerFlags="-g -O0 -Wall -Werror -Wno-unused-value -Wno-parentheses -Wno-unused-but-set-variable -Wno-unused-variable -Wno-switch -Wno-format -Wno-implicit-function-declaration -Wno-missing-braces -Wno-unused-function -DPLORE_INTERNAL=1 -DPLORE_LINUX=1"
 PlatformLinkerFlags="-lGL -lGLU -L/usr/X11/lib -lX11 -ldl -lm"
-PloreLinkerFlags="-fPIC -shared -lm"
+PloreLinkerFlags="-fPIC -shared -lm -rdynamic"
 MetaLinkerFlags="-lm"
 
 # NOTE(Evan): Compile and run the metaprogram.
