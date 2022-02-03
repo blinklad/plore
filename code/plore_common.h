@@ -39,6 +39,8 @@ typedef double f64;
 // NOTE(Evan): Some of these are intrinsics.
 
 #define ArrayCount(Array) ((sizeof(Array) / sizeof(Array[0])))
+#define OffsetOf(struct, Field) offsetof(struct, Field)
+#define OffsetOfPtr(struct_ptr, Field) ((char *) &(struct_ptr)->Field - (char *) (struct_ptr))
 #define Kilobytes(n) (((uint64) n)  * 1024ull)
 #define Megabytes(n) (Kilobytes(n) * 1024ull)
 #define Gigabytes(n) (Megabytes(n) * 1024ull)

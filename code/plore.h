@@ -15,7 +15,7 @@
 #elif defined(PLORE_LINUX)
 #define PLORE_EXPORT
 #else
-#define PLORE_EXPORT
+#define PLORE_EXPORT __attribute__ ((visibility("default")))
 #endif
 
 typedef struct plore_state plore_state;
@@ -222,9 +222,25 @@ typedef struct plore_file_listing_info {
 	u64 Cursor;
 } plore_file_listing_info;
 
+typedef struct file_lookup {
+	union {
+		struct {
+			plore_path_buffer K;
+			plore_path_buffer FilePart;
+			b64               V; // DUMMY LVALUE.
+		};
+		plore_path Path;
+	};
+} file_lookup;
+
+typedef struct file_info_lookup {
+	plore_path_buffer K;
+	plore_file_listing_info V;
+} file_info_lookup;
+
 typedef struct plore_file_context {
-	plore_map Selected;
-	plore_map FileInfo;
+	file_lookup *Selected;
+	file_info_lookup *FileInfo;
 
 	u64 FileCount;
 	b64 InTopLevelDirectory;

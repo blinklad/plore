@@ -633,16 +633,17 @@ PLORE_VIM_COMMAND(PageUp) {
 }
 
 PLORE_VIM_COMMAND(Yank)  {
-	if (FileContext->Selected.Count) { // Yank selection if there is any.
-		for (plore_map_iterator It = MapIter(&FileContext->Selected);
-			 !It.Finished;
-			 It = MapIterNext(&FileContext->Selected, It)) {
+	if (MapCount(FileContext->Selected)) { // Yank selection if there is any.
+		for (u64 It = 0;
+			 It < MapCapacity(FileContext->Selected);
+			 It += 1) {
 
-			plore_path *K = It.Key;
-			SetInsert(&State->Yanked, K, 0);
+			if (!MapIsAllocated(FileContext->Selected, It)) continue;
+			b64 _Dummy = 0;
+			MapInsert(State->Yanked, &FileContext->Selected[It], &_Dummy);
 		}
 
-		MapReset(&FileContext->Selected);
+		MapReset(FileContext->Selected);
 	} else {
 		if (Command.Scalar > 1) {
 			plore_file_listing *CurrentDirectory = &Tab->DirectoryState->Current;
@@ -650,44 +651,45 @@ PLORE_VIM_COMMAND(Yank)  {
 				plore_file_listing_info_get_or_create_result CurrentResult = GetOrCreateFileInfo(FileContext, &Tab->DirectoryState->Current.File.Path);
 				u64 Cursor = CurrentResult.Info->Cursor;
 				while (Command.Scalar--) {
-					ToggleYanked(&State->Yanked, &CurrentDirectory->Entries[Cursor].Path);
+					ToggleYanked(State->Yanked, &CurrentDirectory->Entries[Cursor].Path);
 					Cursor = (Cursor + 1) % CurrentDirectory->Count;
 				}
 			}
 		} else {
 			plore_path *Selected = GetImpliedSelectionPath(State);
-			if (Selected) ToggleYanked(&State->Yanked, Selected);
+			if (Selected) ToggleYanked(State->Yanked, Selected);
 		}
 	}
 
 }
 
 PLORE_VIM_COMMAND(ClearYank)  {
-	if (State->Yanked.Count) MapReset(&State->Yanked);
+	if (MapCount(State->Yanked)) MapReset(State->Yanked);
 }
 
 PLORE_VIM_COMMAND(Paste)  {
-	if (State->Yanked.Count) { // @Cleanup
+	if (MapCount(State->Yanked)) { // @Cleanup
 		u64 PastedCount = 0;
 		char *NewDirectory = Tab->DirectoryState->Current.File.Path.Absolute;
 
 		task_with_memory_handle TaskHandle = Platform->CreateTaskWithMemory(State->Taskmaster);
 		plore_move_files_header *Header = PushStruct(TaskHandle.Arena, plore_move_files_header);
-		Header->sAbsolutePaths = PushBytes(TaskHandle.Arena, sizeof(char *)*State->Yanked.Count);
-		Header->dAbsolutePaths = PushBytes(TaskHandle.Arena, sizeof(char *)*State->Yanked.Count);
-		for (u64 P = 0; P < State->Yanked.Count; P++) {
+		Header->sAbsolutePaths = PushBytes(TaskHandle.Arena, sizeof(char *)*MapCount(State->Yanked));
+		Header->dAbsolutePaths = PushBytes(TaskHandle.Arena, sizeof(char *)*MapCount(State->Yanked));
+		for (u64 P = 0; P < MapCount(State->Yanked); P++) {
 			Header->sAbsolutePaths[P] = PushBytes(TaskHandle.Arena, PLORE_MAX_PATH);
 			Header->dAbsolutePaths[P] = PushBytes(TaskHandle.Arena, PLORE_MAX_PATH);
 		}
 
 		Header->Count = 0;
-		for (plore_map_iterator It = MapIter(&State->Yanked);
-			 !It.Finished;
-			 It = MapIterNext(&State->Yanked, It)) {
+		for (u64 It = 0;
+			 It < MapCapacity(State->Yanked);
+			 It += 1) {
 
-			plore_path *Movee = It.Key;
+			if (!MapIsAllocated(State->Yanked, It)) continue;
+			file_lookup *Movee = State->Yanked + It;
 
-			PathCopy(Movee->Absolute, Header->sAbsolutePaths[Header->Count]);
+			PathCopy(Movee->K, Header->sAbsolutePaths[Header->Count]);
 			char *NewPath = Header->dAbsolutePaths[Header->Count];
 			Platform->PathJoin(NewPath, NewDirectory, Movee->FilePart);
 			Header->Count += 1;
@@ -695,8 +697,8 @@ PLORE_VIM_COMMAND(Paste)  {
 
 		Platform->StartTaskWithMemory(State->Taskmaster, TaskHandle, MoveFiles, Header);
 
-		MapReset(&State->Yanked);
-		MapReset(&FileContext->Selected);
+		MapReset(State->Yanked);
+		MapReset(FileContext->Selected);
 	}
 }
 
@@ -708,7 +710,7 @@ internal void DoSelectHelper(plore_state *State, vim_command Command, i64 Direct
 	u64 ScalarCount = 0;
 	u64 StartScalar = CursorResult.Info->Cursor;
 	while (Command.Scalar--) {
-		ToggleSelected(&Tab->FileContext->Selected, &Tab->DirectoryState->Cursor.File.Path);
+		ToggleSelected(Tab->FileContext->Selected, &Tab->DirectoryState->Cursor.File.Path);
 		if (Direction == +1) {
 			CursorResult.Info->Cursor = (CursorResult.Info->Cursor + 1) % Tab->DirectoryState->Current.Count;
 		} else {
@@ -759,12 +761,12 @@ PLORE_VIM_COMMAND(ISearch)  {
 
 			if (Tab->DirectoryState->Current.Count) {
 				for (u64 F = 0; F < Tab->DirectoryState->Current.Count; F++) {
-					plore_file_listing_info *CurrentCursor = MapGet(&FileContext->FileInfo, &Tab->DirectoryState->Current.File.Path).Value;
+					plore_file_listing_info *CurrentCursor = MapGet(FileContext->FileInfo, &Tab->DirectoryState->Current.File.Path);
 					u64 Current = (CurrentCursor->Cursor + F) % Tab->DirectoryState->Current.Count;
 					plore_file *File = Tab->DirectoryState->Current.Entries + Current;
 
 					if (SubstringNoCase(File->Path.FilePart, Tab->FilterState->ISearchFilter.Text).IsContained) {
-						plore_file_listing_info *CurrentCursor = MapGet(&FileContext->FileInfo, &Tab->DirectoryState->Current.File.Path).Value;
+						plore_file_listing_info *CurrentCursor = MapGet(FileContext->FileInfo, &Tab->DirectoryState->Current.File.Path);
 						CurrentCursor->Cursor = Current;
 						break;
 					}
@@ -834,10 +836,11 @@ PLORE_VIM_COMMAND(TabTextFilterShow) {
 
 
 PLORE_VIM_COMMAND(DirectoryTextFilterClear) {
-	for (plore_map_iterator It = MapIter(&FileContext->FileInfo);
-		 !It.Finished;
-		 It = MapIterNext(&FileContext->FileInfo, It)) {
-		plore_file_listing_info *Info = It.Value;
+	for (u64 It = 0;
+		 It < MapCapacity(FileContext->FileInfo);
+		 It += 1) {
+		if (!MapIsAllocated(FileContext->FileInfo, It)) continue;
+		plore_file_listing_info *Info = &FileContext->FileInfo[It].V;
 		Info->Filter = ClearStruct(text_filter);
 	}
 	// TODO(Evan): Walk the directory listing table!
@@ -902,7 +905,7 @@ PLORE_VIM_COMMAND(RenameFile) {
 PLORE_VIM_COMMAND(Select) {
 	plore_file_listing_info_get_or_create_result CursorResult = GetOrCreateFileInfo(FileContext, &Tab->DirectoryState->Current.File.Path);
 	plore_file *Selectee = Tab->DirectoryState->Current.Entries + CursorResult.Info->Cursor;
-	ToggleSelected(&Tab->FileContext->Selected, &Tab->DirectoryState->Cursor.File.Path);
+	ToggleSelected(Tab->FileContext->Selected, &Tab->DirectoryState->Cursor.File.Path);
 }
 
 PLORE_VIM_COMMAND(NewTab) {
@@ -1011,17 +1014,18 @@ PLORE_VIM_COMMAND(DeleteFile) {
 											  .Recursive = false,
 											  .PermanentDelete = false,
 										  });
-			} else if (FileContext->Selected.Count) {
-				for (plore_map_iterator It = MapIter(&FileContext->Selected); !It.Finished; It = MapIterNext(&FileContext->Selected, It)) {
+			} else if (MapCount(FileContext->Selected)) {
+				for (u64 It = 0; It < MapCapacity(FileContext->Selected); It += 1) {
 
-					plore_path *Selectee = It.Key;
-					Platform->DeleteFile(Selectee->Absolute, (platform_delete_file_desc) {
+					if (!MapIsAllocated(FileContext->Selected, It)) continue;
+					char *Selectee = FileContext->Selected[It].K;
+					Platform->DeleteFile(Selectee, (platform_delete_file_desc) {
 											 .Recursive = false,
 											 .PermanentDelete = false,
 										 });
 				}
 
-				MapReset(&FileContext->Selected);
+				MapReset(FileContext->Selected);
 			}
 		}
 	} else {
@@ -1038,8 +1042,8 @@ PLORE_VIM_COMMAND(YankAll) {
 	plore_file_listing *CurrentDirectory = &Tab->DirectoryState->Current;
 	for (u64 F = 0; F < CurrentDirectory->Count; F++) {
 		plore_file *File = CurrentDirectory->Entries + F;
-		if (!MapGet(&State->Yanked, &File->Path).Exists) {
-			ToggleYanked(&State->Yanked, &File->Path);
+		if (!MapGet(State->Yanked, &File->Path)) {
+			ToggleYanked(State->Yanked, &File->Path);
 		}
 	}
 }
@@ -1048,7 +1052,7 @@ PLORE_VIM_COMMAND(SelectAll) {
 	plore_file_listing *CurrentDirectory = &Tab->DirectoryState->Current;
 	for (u64 F = 0; F < CurrentDirectory->Count; F++) {
 		plore_file *File = CurrentDirectory->Entries + F;
-		ToggleSelected(&Tab->FileContext->Selected, &File->Path);
+		ToggleSelected(Tab->FileContext->Selected, &File->Path);
 	}
 }
 

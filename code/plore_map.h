@@ -43,18 +43,15 @@ typedef struct plore_map plore_map;
 //
 // Every alternative to this has different tradeoffs in complexity, usability and performance, so let's just see how this goes.
 //
-#define MapInit(Arena, key_type, value_type, Count) _MapInit(Arena, sizeof(key_type), sizeof(value_type), Count)
-#define SetInit(Arena, key_type, Count)             _MapInit(Arena, sizeof(key_type), 0, Count)
-#define MapInsert(Map, K, V)                        _MapInsert(Map, K, V, sizeof(*K), sizeof(*V))
-#define SetInsert(Map, K, V)                        _MapInsert(Map, K, V, sizeof(*K), 0)
-#define MapRemove(Map, K)                           _MapRemove(Map, K, sizeof(*K))
-#define MapGet(Map, K)                              _MapGet(Map,    K, sizeof(*K))
-
-typedef struct plore_map_get_result {
-	void *Value;
-	u64 Index;
-	b64 Exists; // NOTE(Evan): Required for 0-sized values, i.e., testing set membership.
-} plore_map_get_result;
+#define MapInit(Arena, Lookup, KeyIsString, Capacity)       _MapInit(Arena, sizeof(*Lookup), sizeof(Lookup->K), sizeof(Lookup->V), (OffsetOfPtr((Lookup), K)), (OffsetOfPtr((Lookup), V)), KeyIsString, Capacity)
+#define MapInsert(Lookup, K, V)                             _MapInsert(_GetMapHeader(Lookup), K, V)
+#define MapRemove(Lookup, K)                                _MapRemove(_GetMapHeader(Lookup), K)
+#define MapGet(Lookup, K)                                   _MapGet(_GetMapHeader(Lookup), K)
+#define MapCount(Lookup)                                    _MapCount(_GetMapHeader(Lookup))
+#define MapCapacity(Lookup)                                 _MapCapacity(_GetMapHeader(Lookup))
+#define MapIsAllocated(Lookup, Index)                       _MapIsAllocated(_GetMapHeader(Lookup), Index)
+#define MapReset(Lookup)                                    _MapReset(_GetMapHeader(Lookup))
+#define MapFull(Lookup)                                     _MapFull(_GetMapHeader(Lookup))
 
 typedef struct plore_map_remove_result {
 	b64 KeyDidNotExist;
@@ -66,65 +63,51 @@ typedef struct plore_map_insert_result {
 	void *Value;
 } plore_map_insert_result;
 
-typedef struct plore_map_iterator {
-	b64 Finished;
-	u64 _Index;
-	void *Key;
-	void *Value;
-} plore_map_iterator;
-
-internal plore_map_iterator
-MapIter(plore_map *Map);
-
-internal plore_map_iterator
-MapIterNext(plore_map *Map, plore_map_iterator It);
-
 // NOTE(Evan): Marks every key+value slot as unallocated without clearing.
 internal void
-MapReset(plore_map *Map);
+_MapReset(plore_map *Map);
 
 // NOTE(Evan): Zeroes key+value memory.
 internal void
 MapClearMemory(plore_map *Map);
 
-// NOTE(Evan): Returns destination.
-internal plore_map *
-MapCopy(plore_map *Source, plore_map *Destination);
-
-
-// NOTE(Evan): If Lookup[Index].Allocated, then the contiguous arrays Keys[Index]/Values[Index] are valid.
-typedef struct plore_map_key_lookup {
-	b8 Allocated;
-} plore_map_key_lookup;
-
 typedef struct plore_map {
-	u64 KeySize;
-	u64 ValueSize;
-
-	plore_map_key_lookup *Lookup;
+	b8 *Allocated;
 	u64 Count;
 	u64 Capacity;
-
-	void *Keys;
-	void *Values;
+	u64 WrapperSize;
+	u64 KeySize;
+	u64 ValueSize;
+	u64 KeyOffset;
+	u64 ValueOffset;
+	b64 KeyIsString;
 } plore_map;
 
+#define _GetMapHeader(Base) (plore_map *)((u8 *)Base - sizeof(plore_map))
+#define _GetMapData(Header) (void *)     ((u8 *)Header + sizeof(plore_map))
 //
 // Internal functions
 //
 
 
-internal plore_map_get_result
-_MapGet(plore_map *Map, void *Key, u64 DEBUGKeySize);
+internal void *
+_MapGet(plore_map *Map, void *Key);
 
 internal plore_map_remove_result
-_MapRemove(plore_map *Map, void *Key, u64 DEBUGKeySize);
+_MapRemove(plore_map *Map, void *Key);
 
 internal plore_map_insert_result
-_MapInsert(plore_map *Map, void *Key, void *Value, u64 DEBUGKeySize, u64 DEBUGValueSize);
+_MapInsert(plore_map *Map, void *Key, void *Value);
 
-internal plore_map
-_MapInit(memory_arena *Arena, u64 KeySize, u64 DataSize, u64 Count);
+internal void *
+_MapInit(memory_arena *Arena,
+		u64 WrapperSize,
+		u64 KeySize,
+		u64 ValueSize,
+		u64 KeyOffset,
+		u64 ValueOffset,
+		b64 KeyIsString,
+		u64 Capacity);
 
 
 #endif // PLORE_MAP_H
@@ -136,112 +119,135 @@ _MapInit(memory_arena *Arena, u64 KeySize, u64 DataSize, u64 Count);
 #ifdef PLORE_MAP_IMPLEMENTATION
 
 
+plore_inline u64
+_MapCount(plore_map *Map) {
+	u64 Result = Map->Count;
+	return(Result);
+}
+
+plore_inline u64
+_MapCapacity(plore_map *Map) {
+	u64 Result = Map->Capacity;
+	return(Result);
+}
+
+plore_inline b64
+_MapIsAllocated(plore_map *Map, u64 Index) {
+	Assert(Map);
+	if (Index < Map->Capacity) return (Map->Allocated[Index]);
+	return(false);
+}
+
+plore_inline b64
+_MapFull(plore_map *Map) {
+	Assert(Map);
+	b64 Result = Map->Count == Map->Capacity;
+	return(Result);
+}
 
 plore_inline void *
 _GetKey(plore_map *Map, u64 Index) {
-	void *Result = (void *)((u8 *)Map->Keys + Index*Map->KeySize);
+	void *Result = (void *)((u8 *)_GetMapData(Map) + Index*Map->WrapperSize + Map->KeyOffset);
 
 	return(Result);
 }
-
 plore_inline void *
 _GetValue(plore_map *Map, u64 Index) {
-	Assert(Map->ValueSize);
-	void *Result = (void *)((u8 *)Map->Values + Index*Map->ValueSize);
+	void *Result = (void *)((u8 *)_GetMapData(Map) + Index*Map->WrapperSize + Map->ValueOffset);
 
 	return(Result);
 }
 
-internal plore_map
-_MapInit(memory_arena *Arena, u64 KeySize, u64 ValueSize, u64 Capacity) {
+internal void *
+_MapInit(memory_arena *Arena, u64 WrapperSize, u64 KeySize, u64 ValueSize, u64 KeyOffset, u64 ValueOffset, b64 KeyIsString, u64 Capacity) {
 	Assert(Capacity);
-
-	plore_map Result = {
-		.KeySize   = KeySize,
-		.ValueSize = ValueSize,
-		.Lookup    = PushArray(Arena, plore_map_key_lookup, Capacity),
-		.Keys      = PushBytes(Arena, Capacity*KeySize),
-		.Values    = PushBytes(Arena, Capacity*ValueSize),
-		.Capacity  = Capacity,
-	};
-
 	Assert(KeySize);
-	Assert(Result.Lookup);
-	Assert(Result.Keys);
+	Assert(ValueSize);
+	void *Result = PushBytes(Arena, WrapperSize*Capacity + sizeof(plore_map));
 
-	// NOTE(Evan): 0-sized values are legal for using maps as a set.
-	if (ValueSize) Assert(Result.Values);
+	plore_map *Header = Result;
+	*Header = (plore_map) {
+		.Allocated   = PushArray(Arena, b8, Capacity),
+		.Capacity    = Capacity,
+		.KeyIsString = KeyIsString,
+		.WrapperSize = WrapperSize,
+		.KeySize     = KeySize,
+		.ValueSize   = ValueSize,
+		.KeyOffset   = KeyOffset,
+		.ValueOffset = ValueOffset,
+	};
+	Assert(Header->Allocated);
 
+	Result = (u8 *)Result + sizeof(plore_map);
+
+	return(Result);
+}
+
+plore_inline u64
+_GetHashIndex(plore_map *Map, void *Key) {
+	u64 Result = (Map->KeyIsString ? HashString(Key) : HashBytes(Key, Map->KeySize)) % Map->Capacity;
+	return(Result);
+}
+
+plore_inline b64
+_KeysMatch(plore_map *Map, void *K1, void *K2) {
+	b64 Result = (Map->KeyIsString ? (StringsAreEqual(K1, K2)) : BytesMatch(K1, K2, Map->KeySize));
 	return(Result);
 }
 
 internal plore_map_insert_result
-_MapInsert(plore_map *Map, void *Key, void *Value, u64 DEBUGKeySize, u64 DEBUGValueSize) {
-	plore_map_insert_result Result = {0};
+_MapInsert(plore_map *Map, void *Key, void *Value) {
 	Assert(Map);
-	Assert(Map->Keys && Map->Lookup);
+	Assert(Map->Allocated);
 	Assert(Map->Count < Map->Capacity);
 
-#if defined(PLORE_INTERNAL)
-	Assert(DEBUGKeySize == Map->KeySize);
-	Assert(DEBUGValueSize == Map->ValueSize);
-#else
-	(void)DEBUGKeySize;
-	(void)DEBUGValueSize;
-#endif
+	plore_map_insert_result Result = {0};
 
-	u64 Index = HashBytes(Key, Map->KeySize) % Map->Capacity;
-	plore_map_key_lookup *Lookup = Map->Lookup+Index;
+	u64 Index = _GetHashIndex(Map, Key);
 
-	if (Lookup->Allocated && !BytesMatch(Key, _GetKey(Map, Index), Map->KeySize)) {
-		for (;;) {
-			Index = (Index + 1) % Map->Capacity;
-			Lookup = Map->Lookup + Index;
+	if (Map->Allocated[Index]) {
+		if (!_KeysMatch(Map, Key, _GetKey(Map, Index))) {
+			for (;;) {
+				Index = (Index + 1) % Map->Capacity;
 
-			if (!Lookup->Allocated) {
-				Lookup->Allocated = true;
-				break;
-			} else if (BytesMatch(Key, _GetKey(Map, Index), Map->KeySize)) {
-				Result.DidAlreadyExist = true;
-				break;
+				if (!Map->Allocated[Index]) {
+					break;
+				} else if (_KeysMatch(Map, Key, _GetKey(Map, Index))) {
+					Result.DidAlreadyExist = true;
+					break;
+				}
 			}
+		} else {
+			Result.DidAlreadyExist = true;
 		}
 	}
 
 	if (!Result.DidAlreadyExist) {
-		Lookup->Allocated = true;
+		Map->Allocated[Index] = true;
 		Map->Count++;
 
 		MemoryCopy(Key, _GetKey(Map, Index), Map->KeySize);
-		if (Map->ValueSize) MemoryCopy(Value, _GetValue(Map, Index), Map->ValueSize);
+		MemoryCopy(Value, _GetValue(Map, Index), Map->ValueSize);
 	}
 
 	Result.Key = _GetKey(Map, Index);
-	if (Map->ValueSize) Result.Value = _GetValue(Map, Index);
+	Result.Value = _GetValue(Map, Index);
 
 	return(Result);
 }
 
 internal plore_map_remove_result
-_MapRemove(plore_map *Map, void *Key, u64 DEBUGKeySize) {
+_MapRemove(plore_map *Map, void *Key) {
 	plore_map_remove_result Result = {0};
 
-#if defined(PLORE_INTERNAL)
-	Assert(Map->KeySize == DEBUGKeySize);
-#else
-	(void)DEBUGKeySize;
-#endif
-
-	u64 Index = HashBytes(Key, Map->KeySize) % Map->Capacity;
-	plore_map_key_lookup *Lookup = Map->Lookup+Index;
+	u64 Index = _GetHashIndex(Map, Key);
 	u64 KeysChecked = 1;
-	if (Lookup->Allocated && !BytesMatch(Key, _GetKey(Map, Index), Map->KeySize)) {
+	if (Map->Allocated[Index] && !_KeysMatch(Map, Key, _GetKey(Map, Index))) {
 		for (;;) {
 			Index = (Index + 1) % Map->Capacity;
-			Lookup = Map->Lookup + Index;
 			KeysChecked++;
 
-			if (Lookup->Allocated && BytesMatch(Key, _GetKey(Map, Index), Map->KeySize)) {
+			if (Map->Allocated[Index] && _KeysMatch(Map, Key, _GetKey(Map, Index))) {
 				break;
 			}
 
@@ -255,49 +261,38 @@ _MapRemove(plore_map *Map, void *Key, u64 DEBUGKeySize) {
 	if (!Result.KeyDidNotExist) {
 		Assert(Map->Count);
 		Map->Count--;
-		Map->Lookup[Index].Allocated = false;
+		Map->Allocated[Index] = false;
 		MemoryClear(_GetKey(Map, Index), Map->KeySize);
-		if (Map->ValueSize) MemoryClear(_GetValue(Map, Index), Map->ValueSize);
+		MemoryClear(_GetValue(Map, Index), Map->ValueSize);
 	}
 
 	return(Result);
 }
 
-internal plore_map_get_result
-_MapGet(plore_map *Map, void *Key, u64 DEBUGKeySize) {
-	plore_map_get_result Result = {0};
+#define _GetKV(Map, Index) (void *)(((u8 *)(_GetMapData(Map))) + Index*Map->WrapperSize)
+internal void *
+_MapGet(plore_map *Map, void *Key) {
+	void *Result = 0;
 
-#if defined(PLORE_INTERNAL)
-	Assert(Map->KeySize == DEBUGKeySize);
-#else
-	(void)DEBUGKeySize;
-#endif
-
-	u64 Index = HashBytes(Key, Map->KeySize) % Map->Capacity;
-	plore_map_key_lookup *Lookup = Map->Lookup+Index;
-
+	u64 Index = _GetHashIndex(Map, Key);
 	u64 KeysChecked = 1;
-	if (Lookup->Allocated) {
-		if (!BytesMatch(Key, _GetKey(Map, Index), Map->KeySize)) {
+
+	if (Map->Allocated[Index]) {
+		if (!_KeysMatch(Map, Key, _GetKey(Map, Index))) {
 			for (;;) {
 				Index = (Index + 1) % Map->Capacity;
-				Lookup = Map->Lookup+Index;
 				KeysChecked++;
 
-				if (!Lookup->Allocated) break;
-				else if (BytesMatch(Key, _GetKey(Map, Index), Map->KeySize)) {
-					Result.Index = Index;
-					Result.Exists = true;
-					if (Map->ValueSize) Result.Value = _GetValue(Map, Index);
+				if (!Map->Allocated[Index]) break;
+				else if (_KeysMatch(Map, Key, _GetKey(Map, Index))) {
+					Result = _GetKV(Map, Index);
 					break;
 				}
 
 				if (KeysChecked == Map->Capacity) break;
 			}
 		} else {
-			Result.Index = Index;
-			Result.Exists = true;
-			if (Map->ValueSize) Result.Value = _GetValue(Map, Index);
+			Result = _GetKV(Map, Index);
 		}
 	}
 
@@ -305,60 +300,16 @@ _MapGet(plore_map *Map, void *Key, u64 DEBUGKeySize) {
 }
 
 internal void
-MapReset(plore_map *Map) {
-	MemoryClear(Map->Lookup, Map->Capacity*sizeof(plore_map_key_lookup));
+_MapReset(plore_map *Map) {
+	MemoryClear(Map->Allocated, Map->Capacity*sizeof(b8));
 	Map->Count = 0;
-}
-
-internal plore_map_iterator
-MapIter(plore_map *Map) {
-	plore_map_iterator Result = MapIterNext(Map, (plore_map_iterator){0});
-	return(Result);
-}
-
-internal plore_map_iterator
-MapIterNext(plore_map *Map, plore_map_iterator It) {
-	plore_map_iterator Result = It;
-	if (It._Index > Map->Capacity-1) {
-		Result.Finished = true;
-		return(Result);
-	}
-
-	for (u64 L = It._Index; L < Map->Capacity; L++) {
-		if (Map->Lookup[L].Allocated) {
-			Result._Index = L;
-			Result.Key = _GetKey(Map, Result._Index);
-			if (Map->ValueSize) Result.Value = _GetValue(Map, Result._Index);
-			Result._Index++;
-
-			return (Result);
-		}
-	}
-
-	Result.Finished = true;
-	return(Result);
 }
 
 internal void
 MapClearMemory(plore_map *Map) {
-	MemoryClear(Map->Lookup, Map->Capacity*sizeof(plore_map_key_lookup));
-	MemoryClear(Map->Keys, Map->Capacity*Map->KeySize);
-	MemoryClear(Map->Values, Map->Capacity*Map->ValueSize);
+	MemoryClear(Map->Allocated, Map->Capacity*sizeof(b8));
+	MemoryClear(_GetMapData(Map), Map->Capacity*Map->WrapperSize);
 	Map->Count = 0;
 }
 
-internal plore_map *
-MapCopy(plore_map *Source, plore_map *Destination) {
-	Assert(Source && Destination);
-	Assert(Source->Capacity == Destination->Capacity);
-	Assert(Source->KeySize == Destination->KeySize);
-	Assert(Source->ValueSize == Destination->ValueSize);
-
-	MemoryCopy(Source->Lookup, Destination->Lookup, Source->Capacity*sizeof(plore_map_key_lookup));
-	MemoryCopy(Source->Keys, Destination->Keys, Source->Capacity*Source->KeySize);
-	MemoryCopy(Source->Values, Destination->Values, Source->Capacity*Source->ValueSize);
-	Destination->Count = Source->Count;
-
-	return(Destination);
-}
 #endif // PLORE_MAP_IMPLEMENTATION

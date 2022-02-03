@@ -254,39 +254,38 @@ StringCopy(char *Source, char *Destination, u64 BufferSize) {
 #define ROTATE_LEFT(val, n)   (((val) << (n)) | ((val) >> (sizeof(u64)*8 - (n))))
 #define ROTATE_RIGHT(val, n)  (((val) >> (n)) | ((val) << (sizeof(u64)*8 - (n))))
 
+#define PloreHashSeed 0x31415926
 // TODO(Evan): Better hash function.
 plore_inline u64
 HashString(char *String) {
-	u64 Seed = 0x31415926;
-	u64 Hash = Seed;
+	u64 Hash = PloreHashSeed;
 	while (*String) Hash = ROTATE_LEFT(Hash, 9) + (u8) *String++;
 
 	// Thomas Wang 64-to-32 bit mix function, hopefully also works in 32 bits
-	Hash ^= Seed;
+	Hash ^= PloreHashSeed;
 	Hash = (~Hash) + (Hash << 18);
 	Hash ^= Hash ^ ROTATE_RIGHT(Hash, 31);
 	Hash = Hash * 21;
 	Hash ^= Hash ^ ROTATE_RIGHT(Hash, 11);
 	Hash += (Hash << 6);
 	Hash ^= ROTATE_RIGHT(Hash, 22);
-	return(Hash+Seed);
+	return(Hash+PloreHashSeed);
 }
 
 plore_inline u64
 HashBytes(u8 *Bytes, u64 Count) {
-	u64 Seed = 0x31415926;
-	u64 Hash = Seed;
-	while (Count--) Hash = ROTATE_LEFT(Hash, 9) + *Bytes++;
+	u64 Hash = PloreHashSeed;
+	while (Count--) Hash = ROTATE_LEFT(Hash, 9) + (u8 ) *Bytes++;
 
 	// Thomas Wang 64-to-32 bit mix function, hopefully also works in 32 bits
-	Hash ^= Seed;
+	Hash ^= PloreHashSeed;
 	Hash = (~Hash) + (Hash << 18);
 	Hash ^= Hash ^ ROTATE_RIGHT(Hash, 31);
 	Hash = Hash * 21;
 	Hash ^= Hash ^ ROTATE_RIGHT(Hash, 11);
 	Hash += (Hash << 6);
 	Hash ^= ROTATE_RIGHT(Hash, 22);
-	return(Hash+Seed);
+	return(Hash+PloreHashSeed);
 }
 
 #include "plore_memory.h"

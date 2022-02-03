@@ -130,8 +130,8 @@ typedef struct plore_tab {
 	b64 Active;
 } plore_tab;
 
-
 enum { PloreTab_Count = 8 };
+
 typedef struct plore_state {
 	b64 Initialized;
 	b64 ShouldQuit;
@@ -143,7 +143,7 @@ typedef struct plore_state {
 	u64 TabCurrent;
 
 	// NOTE(Evan): Globally yanked files, so files can be pasted/moved between tabs.
-	plore_map Yanked;
+	file_lookup *Yanked;
 
 	// Updated asynchronously with the metadata corresponding to a recursive traversal of the focused directories' cursor entry.
 	plore_directory_query_state DirectoryQuery;
@@ -221,10 +221,10 @@ internal f32
 GetCurrentFontWidth(plore_font *Font);
 
 internal void
-ToggleSelected(plore_map *Map, plore_path *File);
+ToggleSelected(file_lookup *Map, plore_path *File);
 
 internal void
-ToggleYanked(plore_map *Map, plore_path *File);
+ToggleYanked(file_lookup *Map, plore_path *File);
 
 internal plore_key
 GetKey(char C) {
@@ -288,9 +288,14 @@ GetImpliedSelectionPath(plore_state *State) {
 	plore_tab *Tab = GetCurrentTab(State);
 	plore_file_context *FileContext = Tab->FileContext;
 
-	if (FileContext->Selected.Count == 1) {
-		Result = MapIter(&FileContext->Selected).Key;
-	} else if (!FileContext->Selected.Count) {
+	if (MapCount(FileContext->Selected) == 1) {
+		for (u64 It = 0; It < MapCapacity(FileContext->Selected); It += 1) {
+			if (MapIsAllocated(FileContext->Selected, It)) {
+				Result = &FileContext->Selected[It].Path;
+				break;
+			}
+		}
+	} else if (!MapCount(FileContext->Selected)) {
 		plore_file_listing *Cursor = &Tab->DirectoryState->Cursor;
 		if (Cursor->Valid) {
 			GetOrCreateFileInfo(FileContext, &Cursor->File.Path);
@@ -374,7 +379,7 @@ PloreInit(memory_arena *Arena) {
 	// MAINTENANCE(Evan): Don't copy the main arena by value until we've allocated the frame arena.
 	State->Arena = *Arena;
 
-	State->Yanked = SetInit(&State->Arena, plore_path, 256);
+	State->Yanked = MapInit(&State->Arena, State->Yanked, true, 256);
 	for (u64 T = 0; T < ArrayCount(State->Tabs); T++) {
 		plore_tab *Tab = State->Tabs + T;
 		Tab->Arena = SubArena(&State->Arena, Megabytes(2), 16);
@@ -509,12 +514,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 		};
 
 		DidInput = true;
-	}
-
-
-	if (DidInput) {
-		int BreakHere = 5;
-		BreakHere;
 	}
 
 	//
@@ -1024,7 +1023,7 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 				plore_viewable_directory *Directory = ViewDirectories + Col;
 				plore_file_listing *Listing = Directory->File;
 				if (!Listing) continue; /* Parent can be null, if we are currently looking at a top-level directory. */
-				plore_file_listing_info *RowCursor = MapGet(&Tab->FileContext->FileInfo, &Listing->File.Path).Value;
+				plore_file_listing_info *RowCursor = GetOrCreateFileInfo(Tab->FileContext, &Listing->File.Path).Info;
 				char *Title = Listing->File.Path.FilePart;
 
 				widget_colour_flags WindowColourFlags = WidgetColourFlags_Default;
@@ -1066,11 +1065,17 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								text_colour_flags TextColourFlags = 0;
 
 								b64 WeAreOnCursor = RowCursor && RowCursor->Cursor == Row;
-								if (WeAreOnCursor) WidgetColourFlags = WidgetColourFlags_Focus;
+								if (WeAreOnCursor) {
+									WidgetColourFlags = WidgetColourFlags_Focus;
 
-								if (MapGet(&State->Yanked, &RowEntry->Path).Exists) {
+									if (Directory->Focus) {
+										PrintLine("%s is on cursor %d", Listing->File.Path.Absolute, RowCursor->Cursor);
+									}
+								}
+
+								if (MapGet(State->Yanked, &RowEntry->Path)) {
 									BackgroundColour = WidgetColour_RowSecondary;
-								} else if (MapGet(&Tab->FileContext->Selected, &RowEntry->Path).Exists) {
+								} else if (MapGet(Tab->FileContext->Selected, &RowEntry->Path)) {
 									BackgroundColour = WidgetColour_RowTertiary;
 								}
 
@@ -1325,19 +1330,20 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 }
 
 internal void
-ToggleFileStatus(plore_map *Map, plore_path *File) {
-	plore_map_get_result Result = MapGet(Map, File);
-	if (Result.Exists) MapRemove(Map, File);
-	else               SetInsert(Map, File, 0);
+ToggleFileStatus(file_lookup *Map, plore_path *File) {
+	file_lookup *Result = MapGet(Map, File);
+	b64 Off = 0;
+	if (Result)  MapRemove(Map, File);
+	else         MapInsert(Map, File, &Off);
 }
 
 internal void
-ToggleSelected(plore_map *Map, plore_path *File) {
+ToggleSelected(file_lookup *Map, plore_path *File) {
 	ToggleFileStatus(Map, File);
 }
 
 internal void
-ToggleYanked(plore_map *Map, plore_path *File) {
+ToggleYanked(file_lookup *Map, plore_path *File) {
 	ToggleFileStatus(Map, File);
 }
 

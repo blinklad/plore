@@ -24,8 +24,8 @@ TabInit(plore_state *State, plore_tab *Tab) {
 	Tab->FilterState->MetadataDisplay = FileMetadataDisplay_Basic;
 
 	Tab->DirectoryState = PushStruct(&Tab->Arena, plore_current_directory_state);
-	Tab->FileContext->FileInfo = MapInit(&Tab->Arena, plore_path, plore_file_listing_info, 512);
-	Tab->FileContext->Selected = SetInit(&Tab->Arena, plore_path, 256);
+	Tab->FileContext->FileInfo = MapInit(&Tab->Arena, Tab->FileContext->FileInfo, true, 512);
+	Tab->FileContext->Selected = MapInit(&Tab->Arena, Tab->FileContext->Selected, true, 256);
 }
 
 internal void

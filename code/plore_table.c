@@ -18,13 +18,13 @@ typedef struct plore_file_listing_info_get_or_create_result {
 internal plore_file_listing_info_get_or_create_result
 GetOrCreateFileInfo(plore_file_context *Context, plore_path *Path) {
 	plore_file_listing_info_get_or_create_result Result = {
-		.Info = MapGet(&Context->FileInfo, Path).Value,	
+		.Info = MapGet(Context->FileInfo, Path->Absolute),
 	};
-	
+
 	if (Result.Info) {
 		Result.DidAlreadyExist = true;
 	} else {
-		plore_map_insert_result InfoResult = MapInsert(&Context->FileInfo, Path, &ClearStruct(plore_file_listing_info));
+		plore_map_insert_result InfoResult = MapInsert(Context->FileInfo, Path->Absolute, &ClearStruct(plore_file_listing_info));
 		Assert(!InfoResult.DidAlreadyExist);
 		Result.Info = InfoResult.Value;
 	}
@@ -42,7 +42,7 @@ ListingFromFile(plore_file *File) {
 		.LastModification = File->LastModification,
 		.Bytes = File->Bytes,
 	};
-	
+
 	return(Result);
 }
 
@@ -56,6 +56,6 @@ ListingFromDirectoryPath(plore_path *Path) {
 			.FilePart = Path->FilePart,
 		},
 	};
-	
+
 	return(Result);
 }
