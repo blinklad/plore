@@ -46,12 +46,15 @@ typedef struct plore_map plore_map;
 #define MapInit(Arena, Lookup, KeyIsString, Capacity)       _MapInit(Arena, sizeof(*Lookup), sizeof(Lookup->K), sizeof(Lookup->V), (OffsetOfPtr((Lookup), K)), (OffsetOfPtr((Lookup), V)), KeyIsString, Capacity)
 #define MapInsert(Lookup, K, V)                             _MapInsert(_GetMapHeader(Lookup), K, V)
 #define MapRemove(Lookup, K)                                _MapRemove(_GetMapHeader(Lookup), K)
-#define MapGet(Lookup, K)                                   _MapGet(_GetMapHeader(Lookup), K)
+#define MapGet(Lookup, K)                                   (Lookup + _MapGet(_GetMapHeader(Lookup), K))
 #define MapCount(Lookup)                                    _MapCount(_GetMapHeader(Lookup))
 #define MapCapacity(Lookup)                                 _MapCapacity(_GetMapHeader(Lookup))
 #define MapIsAllocated(Lookup, Index)                       _MapIsAllocated(_GetMapHeader(Lookup), Index)
 #define MapReset(Lookup)                                    _MapReset(_GetMapHeader(Lookup))
 #define MapFull(Lookup)                                     _MapFull(_GetMapHeader(Lookup))
+#define MapExists(Lookup, K)                                (!MapIsDefault(Lookup, MapGet(Lookup, K)))
+#define MapIsDefault(Lookup, KV)                            _MapIsDefault(_GetMapHeader(Lookup), KV)
+#define MapNext(Lookup, KV)                                 _MapNext(_GetMapHeader(Lookup), KV)
 
 typedef struct plore_map_remove_result {
 	b64 KeyDidNotExist;
@@ -83,14 +86,16 @@ typedef struct plore_map {
 	b64 KeyIsString;
 } plore_map;
 
-#define _GetMapHeader(Base) (plore_map *)((u8 *)Base - sizeof(plore_map))
-#define _GetMapData(Header) (void *)     ((u8 *)Header + sizeof(plore_map))
+#define _GetMapHeader(Base)    (plore_map *)(((u8 *)Base)   - sizeof(plore_map))
+#define _GetMapData(Header)    (void *)     (((u8 *)Header) + sizeof(plore_map))
+#define _GetMapDefault(Header) (void *)     (((u8 *)_GetMapData(Header)) + Header->WrapperSize*Header->Capacity)
+
 //
 // Internal functions
 //
 
 
-internal void *
+internal u64
 _MapGet(plore_map *Map, void *Key);
 
 internal plore_map_remove_result
@@ -163,7 +168,7 @@ _MapInit(memory_arena *Arena, u64 WrapperSize, u64 KeySize, u64 ValueSize, u64 K
 	Assert(Capacity);
 	Assert(KeySize);
 	Assert(ValueSize);
-	void *Result = PushBytes(Arena, WrapperSize*Capacity + sizeof(plore_map));
+	void *Result = PushBytes(Arena, WrapperSize*(Capacity+1) + sizeof(plore_map));
 
 	plore_map *Header = Result;
 	*Header = (plore_map) {
@@ -178,9 +183,22 @@ _MapInit(memory_arena *Arena, u64 WrapperSize, u64 KeySize, u64 ValueSize, u64 K
 	};
 	Assert(Header->Allocated);
 
-	Result = (u8 *)Result + sizeof(plore_map);
+	Result = _GetMapData(Header);
 
 	return(Result);
+}
+
+plore_inline u64
+_GetKVIndex(plore_map *Map, void *KV) {
+}
+
+internal b64
+_MapNext(plore_map *Map, void **KV) {
+	b64 Result = false;
+	if (_MapIsDefault(Map, *KV)) {
+		*KV = _GetMapData(Map);
+	}
+	u64 Index = _GetKVIndex(Map, *KV);
 }
 
 plore_inline u64
@@ -269,11 +287,15 @@ _MapRemove(plore_map *Map, void *Key) {
 	return(Result);
 }
 
-#define _GetKV(Map, Index) (void *)(((u8 *)(_GetMapData(Map))) + Index*Map->WrapperSize)
-internal void *
-_MapGet(plore_map *Map, void *Key) {
-	void *Result = 0;
+#define _MapDefaultIndex(Map) (Map->Capacity)
+plore_inline b64
+_MapIsDefault(plore_map *Map, void *KV) {
+	b64 Result = (((u8 *)_GetMapData(Map)) + (_MapDefaultIndex(Map)*Map->WrapperSize)) == KV;
+	return(Result);
+}
 
+internal u64
+_MapGet(plore_map *Map, void *Key) {
 	u64 Index = _GetHashIndex(Map, Key);
 	u64 KeysChecked = 1;
 
@@ -283,20 +305,24 @@ _MapGet(plore_map *Map, void *Key) {
 				Index = (Index + 1) % Map->Capacity;
 				KeysChecked++;
 
-				if (!Map->Allocated[Index]) break;
-				else if (_KeysMatch(Map, Key, _GetKey(Map, Index))) {
-					Result = _GetKV(Map, Index);
+				if (!Map->Allocated[Index]) {
+					Index = _MapDefaultIndex(Map);
+					break;
+				} else if (_KeysMatch(Map, Key, _GetKey(Map, Index))) {
 					break;
 				}
 
-				if (KeysChecked == Map->Capacity) break;
+				if (KeysChecked == Map->Capacity) {
+					Index = _MapDefaultIndex(Map);
+					break;
+				}
 			}
-		} else {
-			Result = _GetKV(Map, Index);
 		}
+	} else {
+		Index = _MapDefaultIndex(Map);
 	}
 
-	return(Result);
+	return(Index);
 }
 
 internal void

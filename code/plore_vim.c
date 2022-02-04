@@ -761,12 +761,12 @@ PLORE_VIM_COMMAND(ISearch)  {
 
 			if (Tab->DirectoryState->Current.Count) {
 				for (u64 F = 0; F < Tab->DirectoryState->Current.Count; F++) {
-					plore_file_listing_info *CurrentCursor = MapGet(FileContext->FileInfo, &Tab->DirectoryState->Current.File.Path);
+					plore_file_listing_info *CurrentCursor = &MapGet(FileContext->FileInfo, &Tab->DirectoryState->Current.File.Path)->V;
 					u64 Current = (CurrentCursor->Cursor + F) % Tab->DirectoryState->Current.Count;
 					plore_file *File = Tab->DirectoryState->Current.Entries + Current;
 
 					if (SubstringNoCase(File->Path.FilePart, Tab->FilterState->ISearchFilter.Text).IsContained) {
-						plore_file_listing_info *CurrentCursor = MapGet(FileContext->FileInfo, &Tab->DirectoryState->Current.File.Path);
+						plore_file_listing_info *CurrentCursor = &MapGet(FileContext->FileInfo, &Tab->DirectoryState->Current.File.Path)->V;
 						CurrentCursor->Cursor = Current;
 						break;
 					}
@@ -1042,9 +1042,7 @@ PLORE_VIM_COMMAND(YankAll) {
 	plore_file_listing *CurrentDirectory = &Tab->DirectoryState->Current;
 	for (u64 F = 0; F < CurrentDirectory->Count; F++) {
 		plore_file *File = CurrentDirectory->Entries + F;
-		if (!MapGet(State->Yanked, &File->Path)) {
-			ToggleYanked(State->Yanked, &File->Path);
-		}
+		ToggleYanked(State->Yanked, &File->Path);
 	}
 }
 

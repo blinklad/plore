@@ -1073,9 +1073,9 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 									}
 								}
 
-								if (MapGet(State->Yanked, &RowEntry->Path)) {
+								if (MapExists(State->Yanked, &RowEntry->Path)) {
 									BackgroundColour = WidgetColour_RowSecondary;
-								} else if (MapGet(Tab->FileContext->Selected, &RowEntry->Path)) {
+								} else if (MapExists(Tab->FileContext->Selected, &RowEntry->Path)) {
 									BackgroundColour = WidgetColour_RowTertiary;
 								}
 
@@ -1331,10 +1331,9 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 
 internal void
 ToggleFileStatus(file_lookup *Map, plore_path *File) {
-	file_lookup *Result = MapGet(Map, File);
-	b64 Off = 0;
-	if (Result)  MapRemove(Map, File);
-	else         MapInsert(Map, File, &Off);
+	b64 Off = 0; // Dummy lvalue.
+	if (MapExists(Map, File)) MapRemove(Map, File);
+	else                      MapInsert(Map, File, &Off);
 }
 
 internal void

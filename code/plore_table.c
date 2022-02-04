@@ -18,14 +18,14 @@ typedef struct plore_file_listing_info_get_or_create_result {
 internal plore_file_listing_info_get_or_create_result
 GetOrCreateFileInfo(plore_file_context *Context, plore_path *Path) {
 	plore_file_listing_info_get_or_create_result Result = {
-		.Info = MapGet(Context->FileInfo, Path->Absolute),
+		.Info = &MapGet(Context->FileInfo, Path->Absolute)->V,
 	};
 
-	if (Result.Info) {
+	if (MapIsDefault(Context->FileInfo, Result.Info)) {
 		Result.DidAlreadyExist = true;
 	} else {
 		plore_map_insert_result InfoResult = MapInsert(Context->FileInfo, Path->Absolute, &ClearStruct(plore_file_listing_info));
-		Assert(!InfoResult.DidAlreadyExist);
+		//Assert(!InfoResult.DidAlreadyExist);
 		Result.Info = InfoResult.Value;
 	}
 	return(Result);

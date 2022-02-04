@@ -471,27 +471,27 @@ internal vimgui_window *
 GetLayoutWindow(plore_vimgui_context *Context) {
 	window_lookup *Lookup = MapGet(Context->Windows, &Context->ThisFrame.WindowWeAreLayingOut);
 
-	return(Lookup ? &Lookup->V : 0);
+	return(MapIsDefault(Context->Windows, Lookup) ? 0 : &Lookup->V);
 }
 
 internal vimgui_window *
 GetWindow(plore_vimgui_context *Context, u64 ID) {
 	window_lookup *Lookup = MapGet(Context->Windows, &ID);
 
-	return(Lookup ? &Lookup->V : 0);
+	return(MapIsDefault(Context->Windows, Lookup) ? 0 : &Lookup->V);
 }
 
 internal vimgui_widget *
 GetWidget(plore_vimgui_context *Context, u64 ID) {
 	widget_lookup *Lookup = MapGet(Context->Widgets, &ID);
-	return(Lookup ? &Lookup->V : 0);
+	return(MapIsDefault(Context->Windows, Lookup) ? 0 : &Lookup->V);
 }
 
 internal vimgui_widget_state *
 GetOrCreateWidgetState(plore_vimgui_context *Context, u64 ID) {
 	widget_state_lookup *Lookup = MapGet(Context->WidgetState, &ID);
 
-	if (!Lookup) {
+	if (MapIsDefault(Context->WidgetState, Lookup)) {
 		if (MapFull(Context->WidgetState)) {
 			Assert(false);
 			//u64 *FirstID = MapIter(&Context->WidgetState).Key;
