@@ -634,13 +634,11 @@ PLORE_VIM_COMMAND(PageUp) {
 
 PLORE_VIM_COMMAND(Yank)  {
 	if (MapCount(FileContext->Selected)) { // Yank selection if there is any.
-		for (u64 It = 0;
-			 It < MapCapacity(FileContext->Selected);
-			 It += 1) {
 
-			if (!MapIsAllocated(FileContext->Selected, It)) continue;
+		ForMap(FileContext->Selected, file_lookup) {
+			u64 DefaultIndex = MapDefaultIndex(FileContext->Selected);
 			b64 _Dummy = 0;
-			MapInsert(State->Yanked, &FileContext->Selected[It], &_Dummy);
+			MapInsert(State->Yanked, It, &_Dummy);
 		}
 
 		MapReset(FileContext->Selected);
@@ -669,6 +667,7 @@ PLORE_VIM_COMMAND(ClearYank)  {
 
 PLORE_VIM_COMMAND(Paste)  {
 	if (MapCount(State->Yanked)) { // @Cleanup
+		InvalidCodePath;
 		u64 PastedCount = 0;
 		char *NewDirectory = Tab->DirectoryState->Current.File.Path.Absolute;
 
@@ -682,16 +681,10 @@ PLORE_VIM_COMMAND(Paste)  {
 		}
 
 		Header->Count = 0;
-		for (u64 It = 0;
-			 It < MapCapacity(State->Yanked);
-			 It += 1) {
-
-			if (!MapIsAllocated(State->Yanked, It)) continue;
-			file_lookup *Movee = State->Yanked + It;
-
-			PathCopy(Movee->K, Header->sAbsolutePaths[Header->Count]);
+		ForMap(State->Yanked, file_lookup) {
+			PathCopy(It->K, Header->sAbsolutePaths[Header->Count]);
 			char *NewPath = Header->dAbsolutePaths[Header->Count];
-			Platform->PathJoin(NewPath, NewDirectory, Movee->FilePart);
+			Platform->PathJoin(NewPath, NewDirectory, It->FilePart);
 			Header->Count += 1;
 		}
 
@@ -836,12 +829,8 @@ PLORE_VIM_COMMAND(TabTextFilterShow) {
 
 
 PLORE_VIM_COMMAND(DirectoryTextFilterClear) {
-	for (u64 It = 0;
-		 It < MapCapacity(FileContext->FileInfo);
-		 It += 1) {
-		if (!MapIsAllocated(FileContext->FileInfo, It)) continue;
-		plore_file_listing_info *Info = &FileContext->FileInfo[It].V;
-		Info->Filter = ClearStruct(text_filter);
+	ForMap(FileContext->FileInfo, file_info_lookup) {
+		It->V.Filter = ClearStruct(text_filter);
 	}
 	// TODO(Evan): Walk the directory listing table!
 }
@@ -1015,11 +1004,8 @@ PLORE_VIM_COMMAND(DeleteFile) {
 											  .PermanentDelete = false,
 										  });
 			} else if (MapCount(FileContext->Selected)) {
-				for (u64 It = 0; It < MapCapacity(FileContext->Selected); It += 1) {
-
-					if (!MapIsAllocated(FileContext->Selected, It)) continue;
-					char *Selectee = FileContext->Selected[It].K;
-					Platform->DeleteFile(Selectee, (platform_delete_file_desc) {
+				ForMap(FileContext->Selected, file_lookup) {
+					Platform->DeleteFile(It->K, (platform_delete_file_desc) {
 											 .Recursive = false,
 											 .PermanentDelete = false,
 										 });

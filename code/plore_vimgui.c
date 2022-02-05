@@ -53,11 +53,8 @@ VimguiBegin(plore_vimgui_context *Context, keyboard_and_mouse Input, v2 WindowDi
 
 	Context->WindowDimensions = WindowDimensions;
 
-	for (u64 It = 0;
-		 It < MapCapacity(Context->Windows);
-		 It += 1) {
-		if (!MapIsAllocated(Context->Windows, It)) continue;
-		vimgui_window *Window = &Context->Windows[It].V;
+	ForMap(Context->Windows, window_lookup) {
+		vimgui_window *Window = &It->V;
 		Window->HeightLeft = Window->Rect.Span.H;
 		Window->HeightTotal = Window->Rect.Span.H;
 		Window->Layer = 0;
@@ -78,11 +75,8 @@ VimguiEnd(plore_vimgui_context *Context) {
 	Assert(MapCount(Context->Widgets));
 	vimgui_widget *Widgets = PushArray(&Context->FrameArena, vimgui_widget, MapCount(Context->Widgets));
 	u64 WidgetCount = 0;
-	for (u64 It = 0;
-		 It < MapCapacity(Context->Widgets);
-		 It += 1) {
-		if (!MapIsAllocated(Context->Widgets, It)) continue;
-		Widgets[WidgetCount++] = Context->Widgets[It].V;
+	ForMap(Context->Widgets, widget_lookup) {
+		Widgets[WidgetCount++] = It->V;
 	}
 
 
