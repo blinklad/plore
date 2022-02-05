@@ -1067,10 +1067,6 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 								b64 WeAreOnCursor = RowCursor && RowCursor->Cursor == Row;
 								if (WeAreOnCursor) {
 									WidgetColourFlags = WidgetColourFlags_Focus;
-
-									if (Directory->Focus) {
-										PrintLine("%s is on cursor %d", Listing->File.Path.Absolute, RowCursor->Cursor);
-									}
 								}
 
 								if (MapExists(State->Yanked, &RowEntry->Path)) {
@@ -1334,6 +1330,8 @@ ToggleFileStatus(file_lookup *Map, plore_path *File) {
 	b64 Off = 0; // Dummy lvalue.
 	if (MapExists(Map, File)) MapRemove(Map, File);
 	else                      MapInsert(Map, File, &Off);
+
+	MapInsertTest(Map, &(file_lookup) {0});
 }
 
 internal void

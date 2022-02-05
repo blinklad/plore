@@ -45,6 +45,7 @@ typedef struct plore_map plore_map;
 //
 #define MapInit(Arena, Lookup, KeyIsString, Capacity)       _MapInit(Arena, sizeof(*Lookup), sizeof(Lookup->K), sizeof(Lookup->V), (OffsetOfPtr((Lookup), K)), (OffsetOfPtr((Lookup), V)), KeyIsString, Capacity)
 #define MapInsert(Lookup, K, V)                             _MapInsert(_GetMapHeader(Lookup), K, V)
+#define MapInsertTest(Lookup, KV)                           _MapInsertTest(_GetMapHeader(Lookup), (KV))
 #define MapRemove(Lookup, K)                                _MapRemove(_GetMapHeader(Lookup), K)
 #define MapGet(Lookup, K)                                   (Lookup + _MapGet(_GetMapHeader(Lookup), K))
 #define MapCount(Lookup)                                    _MapCount(_GetMapHeader(Lookup))
@@ -54,7 +55,25 @@ typedef struct plore_map plore_map;
 #define MapFull(Lookup)                                     _MapFull(_GetMapHeader(Lookup))
 #define MapExists(Lookup, K)                                (!MapIsDefault(Lookup, MapGet(Lookup, K)))
 #define MapIsDefault(Lookup, KV)                            _MapIsDefault(_GetMapHeader(Lookup), KV)
+#define MapDefaultIndex(Lookup)                             _MapDefaultIndex((_GetMapHeader(Lookup)))
 #define MapNext(Lookup, KV)                                 _MapNext(_GetMapHeader(Lookup), KV)
+#define MapIterBegin(Lookup)                                _MapIterBegin(_GetMapHeader(Lookup))
+#define MapIterNext(Lookup, It)                             _MapIterNext(_GetMapHeader(Lookup), It)
+
+#define ForMap(Map, type)                                        \
+		for (type *_Index = MapIterBegin(Map), *It = 0;          \
+			 It = Map + (uintptr)_Index, !MapIsDefault(Map, It); \
+			 _Index = MapIterNext(Map, _Index))                  \
+
+#define __MapInsert(Lookup, K, V)                                                                           \
+                                                            _GetMapHeader(Lookup)->TempIndex,               \
+                                                            Lookup[_GetMapHeader(Lookup)->TempIndex].K = K, \
+                                                            Lookup[_GetMapHeader(Lookup)->TempIndex].V = V, \
+                                                            Lookup + _GetMapHeader(Lookup)->TempIndex
+
+internal void
+_MapInsertTest(plore_map *Map, void *KV) {
+}
 
 typedef struct plore_map_remove_result {
 	b64 KeyDidNotExist;
@@ -89,7 +108,7 @@ typedef struct plore_map {
 #define _GetMapHeader(Base)    (plore_map *)(((u8 *)Base)   - sizeof(plore_map))
 #define _GetMapData(Header)    (void *)     (((u8 *)Header) + sizeof(plore_map))
 #define _GetMapDefault(Header) (void *)     (((u8 *)_GetMapData(Header)) + Header->WrapperSize*Header->Capacity)
-
+#define _MapDefaultIndex(Map) (Map->Capacity)
 //
 // Internal functions
 //
@@ -188,17 +207,40 @@ _MapInit(memory_arena *Arena, u64 WrapperSize, u64 KeySize, u64 ValueSize, u64 K
 	return(Result);
 }
 
-plore_inline u64
-_GetKVIndex(plore_map *Map, void *KV) {
+plore_inline void *
+_MapIterBegin(plore_map *Map) {
+	void *Result = (void *)((uintptr)_MapDefaultIndex(Map));
+	if (Map->Count) {
+		u64 Index = 0;
+		while (!Map->Allocated[Index]) {
+			Index += 1;
+			if (Index == Map->Capacity) break;
+		}
+
+		Result = (void *)Index;
+	}
+
+	return(Result);
 }
 
-internal b64
-_MapNext(plore_map *Map, void **KV) {
-	b64 Result = false;
-	if (_MapIsDefault(Map, *KV)) {
-		*KV = _GetMapData(Map);
+plore_inline void *
+_MapIterNext(plore_map *Map, void *It) {
+	void *Result = It;
+	if (Map->Count) {
+		uintptr Index = ((uintptr)Result)+1;
+		if (Index < Map->Capacity) {
+			while (!Map->Allocated[Index]) {
+				Index += 1;
+				if (Index == Map->Capacity) break;
+			}
+
+			Result = (void *)Index;
+		} else {
+			Result = (void *)(uintptr)_MapDefaultIndex(Map);
+		}
 	}
-	u64 Index = _GetKVIndex(Map, *KV);
+
+	return(Result);
 }
 
 plore_inline u64
@@ -287,7 +329,6 @@ _MapRemove(plore_map *Map, void *Key) {
 	return(Result);
 }
 
-#define _MapDefaultIndex(Map) (Map->Capacity)
 plore_inline b64
 _MapIsDefault(plore_map *Map, void *KV) {
 	b64 Result = (((u8 *)_GetMapData(Map)) + (_MapDefaultIndex(Map)*Map->WrapperSize)) == KV;
