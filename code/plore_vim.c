@@ -189,7 +189,7 @@ MakeCommand(plore_vim_context *Context) {
 						}
 						if (NonScalarEntries < CommandLength) continue;
 
-						b64 StraightMatch = StructArrayMatch(VimBindings[Candidate].Keys, C, NonScalarEntries, vim_key);
+						b64 StraightMatch = StructArrayMatch(VimBindings[Candidate].Keys, C, NonScalarEntries);
 
 						b64 PatternMatch = false;
 
@@ -581,6 +581,7 @@ MoveHelper(plore_state *State, vim_command Command, i64 Direction) {
 	plore_tab *Tab = GetCurrentTab(State);
 	plore_file_context *FileContext = Tab->FileContext;
 	if (Tab->DirectoryState->Current.Count) {
+		DrawText("Here");
 		plore_file_listing_info_get_or_create_result Current = GetOrCreateFileInfo(FileContext, &Tab->DirectoryState->Current.File.Path);
 		u64 CursorStart = Current.Info->Cursor;
 
@@ -636,9 +637,7 @@ PLORE_VIM_COMMAND(Yank)  {
 	if (MapCount(FileContext->Selected)) { // Yank selection if there is any.
 
 		ForMap(FileContext->Selected, file_lookup) {
-			u64 DefaultIndex = MapDefaultIndex(FileContext->Selected);
-			b64 _Dummy = 0;
-			MapInsert(State->Yanked, It, &_Dummy);
+			MapInsert(State->Yanked, It);
 		}
 
 		MapReset(FileContext->Selected);

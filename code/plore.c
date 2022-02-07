@@ -1327,11 +1327,10 @@ PLORE_DO_ONE_FRAME(PloreDoOneFrame) {
 
 internal void
 ToggleFileStatus(file_lookup *Map, plore_path *File) {
-	b64 Off = 0; // Dummy lvalue.
-	if (MapExists(Map, File)) MapRemove(Map, File);
-	else                      MapInsert(Map, File, &Off);
-
-	MapInsertTest(Map, &(file_lookup) {0});
+	if (MapExists(Map, File)) MapRemove(Map, File->Absolute);
+	else                      MapInsert(Map, (&(file_lookup) {
+										.Path = *File,
+										}));
 }
 
 internal void
@@ -1504,7 +1503,7 @@ FilterFileListing(memory_arena *Arena, plore_tab *Tab, plore_file_listing *Listi
 		if (!Discard) ListingsToKeep[ListingsToKeepCount++] = *File;
 	}
 
-	StructArrayCopy(ListingsToKeep, Listing->Entries, ListingsToKeepCount, plore_file);
+	StructArrayCopy(ListingsToKeep, Listing->Entries, ListingsToKeepCount);
 
 	Listing->Count = ListingsToKeepCount;
 }

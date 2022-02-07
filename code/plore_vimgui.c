@@ -491,7 +491,10 @@ GetOrCreateWidgetState(plore_vimgui_context *Context, u64 ID) {
 			//u64 *FirstID = MapIter(&Context->WidgetState).Key;
 			//MapRemove(Context->WidgetState, FirstID);
 		}
-		Lookup = MapInsert(Context->WidgetState, &ID, &ClearStruct(vimgui_widget_state)).Value;
+		Lookup = MapInsert(Context->WidgetState, (&(widget_state_lookup)
+					{
+					    .K = ID,
+					}));
 	}
 
 	return(&Lookup->V);
@@ -705,7 +708,10 @@ Window(plore_vimgui_context *Context, vimgui_window_desc Desc) {
 
 	if (!MaybeWindow) {
 		if (!MapFull(Context->Windows)) {
-			MaybeWindow = MapInsert(Context->Windows, &MyID, &ClearStruct(vimgui_window)).Value;
+			vimgui_window NewWindow = {0};
+			MaybeWindow = &MapInsert(Context->Windows, (&(window_lookup) {
+							.K = MyID,
+						}))->V;
 			MaybeWindow->ID = MyID;
 			MaybeWindow->Title = Desc.Title;
 			MaybeWindow->NeverFocus = Desc.NeverFocus;
@@ -783,7 +789,10 @@ WindowEnd(plore_vimgui_context *Context) {
 internal void
 PushWidget(plore_vimgui_context *Context, vimgui_window *Parent, vimgui_widget Widget) {
 	Assert(!MapFull(Context->Widgets));
-	MapInsert(Context->Widgets, &Widget.ID, &Widget);
+	MapInsert(Context->Widgets, (&(widget_lookup) {
+				.K = Widget.ID,
+				.V = Widget,
+				}));
 }
 
 internal void

@@ -3,25 +3,37 @@
 // For implementation, define PLORE_MAP_IMPLEMENTATION in one file.
 //
 // Limitations and features:
-// - Fixed-size backing store, key and value sized, initialized using a memory_arena: MapInit(Arena, struct key_type, struct value_type, Count)
-// - Copies keys/values given to Insert: MapInsert(Map, &Key, &Value)
-// - Zero-sized values are allowed to e.g., use a map as a set of key types.
-// - Keys and values can be rvalues, but not string literals.
+// - Fixed-size backing store, key and value sized, initialized using a memory_arena.
+//   You can specify if your keys are zero-terminated strings or binary blobs.
+//       struct { uint64_t Key, Value; } *KV = MapInit(Arena, KV, false, Count);
+//   Growing/shrinking the backing store is currently not supported, but possible.
 //
-// - Iterable by "functional" style iterators:
-//   for (plore_map_iterator It = MapIter(Map); !It.Finished; It = MapIterNext(&Map, It)) {
-//       key_type *K = It.Key;
+// - Type-safe value insertion, using keys/values copied into MapInsert.
+//   Using C90 designated initializer syntax (not required):
+//   struct *KV Result = MapInsert(&Map, (&(struct kv) {
+//                                        .K = 0xdeadbeef,
+//                                        .V = { /* arbitrary bits */ }
+//                                        }));
+// - The extra parens around the second parameter are required, unfortunately, but you gain type-safe insertions this way.
 //
-// - Open addressing and linear probing is used in conjunction with contiguous, data-oriented arrays for keys, values, and 'gravestones'.
-//   This makes for an extremely straightforward implementation, and as a result it is trivially iterable, copyable and clearable.
+// - Keys and values should be value-types, and although they can be rvalues, they cannot be string literals.
+// - It's possible to change the interface to allow this, but it's a bit error prone.
 //
-// - Hash function is optimized for ~256 bit or larger key spaces.
-//   In general, not a performance-oriented hash table by any stretch of the imagination.
+// - Iterable using a type-safe macro:
 //
-// - Basic debug checks are provided in debug mode:
-//   The size of keys/values passed into Get/Insert/Remove are compared against what the map was initialized with.
-//   This does not work for a _lot_ of cases, but it better then nothing at all.
-//   A strongly typed approach is greatly preferred, however, the trade-offs of the current design are sufficient for plore's use cases.
+//   /* Creates a local variable named `It`, with a compilation error if the map and specified type do not match. */
+//   ForMap(Map, struct key_type) {
+//       printf("{ %lld, %lld }\n", It->K, It->V);
+//   }
+//
+//
+// Performance notes:
+// - In general, this is _not_ a performance-oriented hash table by any stretch of the imagination.
+// - The benefit of an AoS key+value pair structure, however, is a type-safe and intuitive API.
+// - Fixed-size hash tables tend to be small, which mitigates the cache misses from using array-of-structure key+value pairs.
+// - Implemented using open addressing and linear probing over an allocation mask.
+// - Hash function is optimized for ~256 bit or larger key spaces. Non-string keys are ideally at least 8 bytes to prevent too many collisions.
+//
 //
 #ifndef PLORE_MAP_H
 #define PLORE_MAP_H
@@ -33,19 +45,8 @@ typedef struct plore_map plore_map;
 //
 
 
-//
-// NOTE(Evan):
-// These macros are used for rudimentary *runtime* checking that pointer arguments can be of the same type, as using void * removes
-// all type information.
-// Obviously, checking pointer sizes does not work for different types of the same size, nor does it work at all in release builds.
-// However, these macros are entirely transparent for the caller, except for when they want to insert non-lvalues,
-// such as for using a map to test set membership.
-//
-// Every alternative to this has different tradeoffs in complexity, usability and performance, so let's just see how this goes.
-//
 #define MapInit(Arena, Lookup, KeyIsString, Capacity)       _MapInit(Arena, sizeof(*Lookup), sizeof(Lookup->K), sizeof(Lookup->V), (OffsetOfPtr((Lookup), K)), (OffsetOfPtr((Lookup), V)), KeyIsString, Capacity)
-#define MapInsert(Lookup, K, V)                             _MapInsert(_GetMapHeader(Lookup), K, V)
-#define MapInsertTest(Lookup, KV)                           _MapInsertTest(_GetMapHeader(Lookup), (KV))
+#define MapInsert(Lookup, KV)                               _MapInsert(Lookup, KV)
 #define MapRemove(Lookup, K)                                _MapRemove(_GetMapHeader(Lookup), K)
 #define MapGet(Lookup, K)                                   (Lookup + _MapGet(_GetMapHeader(Lookup), K))
 #define MapCount(Lookup)                                    _MapCount(_GetMapHeader(Lookup))
@@ -65,36 +66,17 @@ typedef struct plore_map plore_map;
 			 It = Map + (uintptr)_Index, !MapIsDefault(Map, It); \
 			 _Index = MapIterNext(Map, _Index))                  \
 
-#define __MapInsert(Lookup, K, V)                                                                           \
-                                                            _GetMapHeader(Lookup)->TempIndex,               \
-                                                            Lookup[_GetMapHeader(Lookup)->TempIndex].K = K, \
-                                                            Lookup[_GetMapHeader(Lookup)->TempIndex].V = V, \
-                                                            Lookup + _GetMapHeader(Lookup)->TempIndex
-
-internal void
-_MapInsertTest(plore_map *Map, void *KV) {
-}
+#define _MapInsert(Lookup, KV)    (_GetMapHeader(Lookup)->TempIndex = _MapGetInsertIndex(_GetMapHeader(Lookup), &KV->K), \
+                                  Lookup[_GetMapHeader(Lookup)->TempIndex] = *KV,                                        \
+                                  (Lookup + _GetMapHeader(Lookup)->TempIndex))
 
 typedef struct plore_map_remove_result {
 	b64 KeyDidNotExist;
 } plore_map_remove_result;
 
-typedef struct plore_map_insert_result {
-	b64 DidAlreadyExist;
-	void *Key;
-	void *Value;
-} plore_map_insert_result;
-
-// NOTE(Evan): Marks every key+value slot as unallocated without clearing.
-internal void
-_MapReset(plore_map *Map);
-
-// NOTE(Evan): Zeroes key+value memory.
-internal void
-MapClearMemory(plore_map *Map);
-
 typedef struct plore_map {
 	b8 *Allocated;
+	u64 TempIndex;
 	u64 Count;
 	u64 Capacity;
 	u64 WrapperSize;
@@ -105,40 +87,25 @@ typedef struct plore_map {
 	b64 KeyIsString;
 } plore_map;
 
-#define _GetMapHeader(Base)    (plore_map *)(((u8 *)Base)   - sizeof(plore_map))
-#define _GetMapData(Header)    (void *)     (((u8 *)Header) + sizeof(plore_map))
-#define _GetMapDefault(Header) (void *)     (((u8 *)_GetMapData(Header)) + Header->WrapperSize*Header->Capacity)
-#define _MapDefaultIndex(Map) (Map->Capacity)
-//
-// Internal functions
-//
-
-
-internal u64
-_MapGet(plore_map *Map, void *Key);
-
-internal plore_map_remove_result
-_MapRemove(plore_map *Map, void *Key);
-
-internal plore_map_insert_result
-_MapInsert(plore_map *Map, void *Key, void *Value);
-
-internal void *
-_MapInit(memory_arena *Arena,
-		u64 WrapperSize,
-		u64 KeySize,
-		u64 ValueSize,
-		u64 KeyOffset,
-		u64 ValueOffset,
-		b64 KeyIsString,
-		u64 Capacity);
-
-
 #endif // PLORE_MAP_H
+
+
 
 //
 // Implementation
 //
+
+
+//
+// Internal macros
+//
+#define _GetMapHeader(Base)               ((plore_map *)(((u8 *)Base)   - sizeof(plore_map)))
+#define _GetMapData(Header)               ((void *)     (((u8 *)Header) + sizeof(plore_map)))
+#define _GetMapMetaSlot(Header, Index)    ((void *)     (((u8 *)_GetMapData(Header)) + Header->WrapperSize*(Index)))
+#define _GetMapDefault(Header)            _GetMapMetaSlot(Header, _MapDefaultIndex(Map))
+#define _GetMapLastRemoved(Header)        _GetMapMetaSlot(Header, _MapLastRemovedIndex(Map))
+#define _MapDefaultIndex(Map)             (Map->Capacity+0)
+#define _MapLastRemovedIndex(Map)         (Map->Capacity+1)
 
 #ifdef PLORE_MAP_IMPLEMENTATION
 
@@ -255,14 +222,13 @@ _KeysMatch(plore_map *Map, void *K1, void *K2) {
 	return(Result);
 }
 
-internal plore_map_insert_result
-_MapInsert(plore_map *Map, void *Key, void *Value) {
+internal u64
+_MapGetInsertIndex(plore_map *Map, void *Key) {
 	Assert(Map);
 	Assert(Map->Allocated);
 	Assert(Map->Count < Map->Capacity);
 
-	plore_map_insert_result Result = {0};
-
+	b64 DidAlreadyExist = false;
 	u64 Index = _GetHashIndex(Map, Key);
 
 	if (Map->Allocated[Index]) {
@@ -273,27 +239,21 @@ _MapInsert(plore_map *Map, void *Key, void *Value) {
 				if (!Map->Allocated[Index]) {
 					break;
 				} else if (_KeysMatch(Map, Key, _GetKey(Map, Index))) {
-					Result.DidAlreadyExist = true;
+					DidAlreadyExist = true;
 					break;
 				}
 			}
 		} else {
-			Result.DidAlreadyExist = true;
+			DidAlreadyExist = true;
 		}
 	}
 
-	if (!Result.DidAlreadyExist) {
+	if (!DidAlreadyExist) {
 		Map->Allocated[Index] = true;
 		Map->Count++;
-
-		MemoryCopy(Key, _GetKey(Map, Index), Map->KeySize);
-		MemoryCopy(Value, _GetValue(Map, Index), Map->ValueSize);
 	}
 
-	Result.Key = _GetKey(Map, Index);
-	Result.Value = _GetValue(Map, Index);
-
-	return(Result);
+	return(Index);
 }
 
 internal plore_map_remove_result
@@ -331,7 +291,8 @@ _MapRemove(plore_map *Map, void *Key) {
 
 plore_inline b64
 _MapIsDefault(plore_map *Map, void *KV) {
-	b64 Result = (((u8 *)_GetMapData(Map)) + (_MapDefaultIndex(Map)*Map->WrapperSize)) == KV;
+	void *DefaultPtr = (((u8 *)_GetMapData(Map)) + (_MapDefaultIndex(Map)*(Map->WrapperSize)));
+	b64 Result =  DefaultPtr == KV;
 	return(Result);
 }
 
