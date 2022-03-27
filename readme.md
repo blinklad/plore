@@ -6,6 +6,8 @@ Graphical, vim-binding based file manager written in C99.
 
 Inspired by ranger and lf, with a design and implementation philosophy focusing on minimizing the number of dependencies, whether they are libraries, programming languages/versions, file encodings, OS-specific logic or otherwise.
 
+This project is on hiatus at the moment(tm).
+
 ## Implementation and Design Goals
 * As simple and minimalistic of an implementation as possible. 
 * No complicated build systems - or any build system besides a trivial script - nor docker containers, OS abstraction leakage or over-engineered future-proofing.
@@ -86,6 +88,8 @@ For example, it is unlikely that I will ever support Unicode paths, as I persona
   - Asynchronous I/O
   - File change notifications
   - Metaprogram extension generation
+
+The Linux port is a proof-of-concept, as OS file IO is not completely implemented, nor is keyboard input and a bunch of other things.
 
 #### Windows
   - ~~Platform layer implementation~~
