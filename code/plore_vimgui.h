@@ -62,7 +62,7 @@ PLORE_X(PromptCursor, 0xff4c4cff, 0xff7f7f00) \
 PLORE_X(CursorInfo,   0xff6666ff, 0xff7f7f00) \
 PLORE_X(TabActive,    0xff6666ff, 0xff7f7f00) \
 PLORE_X(Tab,          0xff6666ff, 0xff7f7f00) \
-PLORE_X(Lister,       0xffffffff, 0xff7f7f00) 
+PLORE_X(Lister,       0xffffffff, 0xff7f7f00)
 
 #define PLORE_X(Name, _Ignored1, _Ignored2) TextColour_##Name,
 typedef enum text_colour {
@@ -97,17 +97,17 @@ typedef struct vimgui_window {
 	v2 Pad;
 	widget_colour BackgroundColour;
 	text_colour TextColour;
-	char *Title;
-	
+
 	// NOTE(Evan): For row layout mode, all per-frame.
 	f32 HeightLeft;
 	f32 HeightTotal;
 	u64 RowCount;
-	
+
 	u64 Layer; // NOTE(Evan): Per-frame
-	
+
 	b64 Hidden;
 	b64 NeverFocus;
+	char *Title;
 } vimgui_window;
 
 typedef enum widget_type {
@@ -146,25 +146,40 @@ typedef struct vimgui_widget {
 	rectangle Rect;
 	widget_colour BackgroundColour;
 	widget_colour_flags BackgroundColourFlags;
-	
+
 	widget_colour BorderColour;
 	widget_colour_flags BorderColourFlags;
-	
+
 	vimgui_label_desc Title;
 	vimgui_label_desc Secondary;
 	vimgui_label_desc Body;
-	
+
 	vimgui_label_alignment Alignment;
-	
+
 	platform_texture_handle Texture; // NOTE(Evan): Images only.
-	
+
 	char *Text; // NOTE(Evan): TextBoxes only.
 } vimgui_widget;
 
 typedef struct vimgui_widget_state {
-	u64 ID;
 	u64 TextBoxScroll;
+	u64 ID;
 } vimgui_widget_state;
+
+typedef struct widget_lookup {
+	u64 K;
+	vimgui_widget V;
+} widget_lookup;
+
+typedef struct widget_state_lookup {
+	u64 K;
+	vimgui_widget_state V;
+} widget_state_lookup;
+
+typedef struct window_lookup {
+	vimgui_window V;
+	u64 K;
+} window_lookup;
 
 typedef struct plore_vimgui_context {
 	struct plore_vimgui_context_this_frame {
@@ -176,21 +191,21 @@ typedef struct plore_vimgui_context {
 		u64 WindowWeAreLayingOut;
 		keyboard_and_mouse Input;
 	} ThisFrame;
-	plore_map Widgets;
-	plore_map WidgetState;
-	
+	widget_lookup *Widgets;
+	widget_state_lookup *WidgetState;
+
 	b64 GUIPassActive;
 	b64 LayoutPassActive;
 	u64 HotWidgetID;
-	
-	plore_map Windows;
+
+	window_lookup *Windows;
 	u64 ActiveWindow;
 	u64 HotWindow;
-	
+
 	plore_render_list *RenderList;
 	plore_font *Font;
 	memory_arena FrameArena;
-	
+
 	v2 WindowDimensions;
 } plore_vimgui_context;
 
@@ -209,8 +224,8 @@ PushWidget(plore_vimgui_context *Context, vimgui_window *Parent, vimgui_widget W
 //
 
 typedef struct vimgui_render_text_desc {
-	rectangle Rect; 
-	v4 _TextColour; 
+	rectangle Rect;
+	v4 _TextColour;
 	u64 TextCount; // @Cleanup
 	vimgui_label_desc Text;
 	u64 FontID;
@@ -249,7 +264,7 @@ typedef struct vimgui_render_scissor_desc {
 } vimgui_render_scissor_desc;
 internal void
 PushRenderScissor(plore_render_list *RenderList, vimgui_render_scissor_desc Desc);
-	
+
 typedef struct vimgui_window_search_result {
 	u64 ID;
 	vimgui_window *Window;
@@ -262,5 +277,5 @@ GetWidget(plore_vimgui_context *Context, u64 ID);
 
 internal vimgui_window *
 GetActiveWindow(plore_vimgui_context *Context);
-	
+
 #endif //PLORE_VIMGUI_H

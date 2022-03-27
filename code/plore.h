@@ -13,9 +13,9 @@
 #define PLORE_EXPORT __declspec(dllexport)
 
 #elif defined(PLORE_LINUX)
-#define PLORE_EXPORT __attribute__ ((dllexport))
-#else 
-#define PLORE_EXPORT 
+#define PLORE_EXPORT
+#else
+#define PLORE_EXPORT __attribute__ ((visibility("default")))
 #endif
 
 typedef struct plore_state plore_state;
@@ -23,7 +23,7 @@ typedef struct plore_font plore_font;
 
 typedef enum interact_state {
 	InteractState_FileExplorer,
-	
+
 	_InteractState_ForceU64 = 0xFFFFFFFF,
 } interact_state;
 
@@ -95,7 +95,6 @@ PLORE_X(LeftArrow,                           "<",             '<')   \
 PLORE_X(Period,                              ".",             '.')   \
 PLORE_X(Comma,                               ",",             ',')   \
 PLORE_X(Equals,                              "=",             '=')   \
-PLORE_X(Backtick,                            "`",             '`')   \
 PLORE_X(Plus,                                "+",             '+')   \
 PLORE_X(Minus,                               "-",             '-')   \
 PLORE_X(Pound,                               "#",             '#')   \
@@ -105,14 +104,18 @@ PLORE_X(Escape,                              "<esc>",         131)   \
 PLORE_X(MouseLeft,                           "<mouse-left>",  132)   \
 PLORE_X(MouseRight,                          "<mouse-right>", 133)   \
 PLORE_X(Backspace,                           "<backspace>",   0x8)   \
-PLORE_X(Tab,                                 "<tab>",         0x9)   
+PLORE_X(Tab,                                 "<tab>",         0x9)
 
-// MAINTENANCE(Evan): None of the symbolic strings should be larger then 32 bytes, including the null terminator.
 #define PLORE_KEY_STRING_SIZE 32
+// MAINTENANCE(Evan): None of the symbolic strings should be larger then 32 bytes, including the null terminator.
+// CLEANUP(Evan): Get GCC to accept this static check.
+
+#if defined(PLORE_WINDOWS)
 #define PLORE_X(_Ignored1, String, _Ignored2) \
 StaticAssert(sizeof(String) < PLORE_KEY_STRING_SIZE, String " plore key string greater than allowed size");
 PLORE_KEYBOARD_AND_MOUSE
 #undef PLORE_X
+#endif
 
 #define PLORE_X(Name, _Ignored1, _Ignored2) \
 PloreKey_##Name,
@@ -145,6 +148,19 @@ char PloreKeyCharacters[] = {
 };
 #undef PLORE_X
 
+typedef enum plore_key_modifier_mask {
+	PloreKeyModifier_Shift,
+	PloreKeyModifier_Ctrl,
+	PloreKeyModifier_Alt,
+	PloreKeyModifier_Meta,
+	PloreKeyModifier_Count,
+	_PloreKeyModifier_ForceU64 = 0xffffffffull,
+} plore_key_modifier_mask;
+
+//
+// CLEANUP(Evan):
+// - Remove ctrl/shift as plore_key's, use plore_key_modifier_mask instead.
+// - Remove redundancy in buffered/down/pressed _and_ textual input.
 typedef struct keyboard_and_mouse {
 	b64 pKeys[PloreKey_Count]; // Pressed this frame.
 	b64 sKeys[PloreKey_Count]; // Shift down while this key was pressed.
@@ -206,10 +222,26 @@ typedef struct plore_file_listing_info {
 	u64 Cursor;
 } plore_file_listing_info;
 
+typedef struct file_lookup {
+	union {
+		struct {
+			plore_path_buffer K;
+			plore_path_buffer FilePart;
+			b64               V; // DUMMY LVALUE.
+		};
+		plore_path Path;
+	};
+} file_lookup;
+
+typedef struct file_info_lookup {
+	plore_path_buffer K;
+	plore_file_listing_info V;
+} file_info_lookup;
+
 typedef struct plore_file_context {
-	plore_map Selected;
-	plore_map FileInfo;
-	
+	file_lookup *Selected;
+	file_info_lookup *FileInfo;
+
 	u64 FileCount;
 	b64 InTopLevelDirectory;
 } plore_file_context;
@@ -220,7 +252,6 @@ typedef struct plore_render_list {
 	plore_font *Font;
 } plore_render_list;
 
-// TODO(Evan): Asynchronous commands could be input/ouput here.
 typedef struct plore_frame_result {
 	plore_render_list *RenderList;
 	b64 ShouldQuit;
@@ -231,7 +262,7 @@ typedef PLORE_DO_ONE_FRAME(plore_do_one_frame);
 
 
 // TODO(Evan): Development constants file
-enum { 
+enum {
     DEFAULT_WINDOW_WIDTH = 1920,
     DEFAULT_WINDOW_HEIGHT = 1080,
 };
