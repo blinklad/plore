@@ -49,17 +49,21 @@ typedef PLATFORM_DEBUG_PRINT_LINE(platform_debug_print_line);
 typedef PLATFORM_DEBUG_PRINT(platform_debug_print);
 
 
+//
+// CLEANUP(Evan): Move implementation of renderer bits, texture implementation, etc, once we implement 3.x core profile.
+//
+
 typedef struct platform_texture_handle {
 	u64 Opaque;
 	f32 Width;
 	f32 Height;
 } platform_texture_handle;
 
-typedef enum pixel_format { 
-	PixelFormat_RGBA8, 
-	PixelFormat_RGB8, 
-	PixelFormat_BGRA8, 
-	PixelFormat_ALPHA 
+typedef enum pixel_format {
+	PixelFormat_RGBA8,
+	PixelFormat_RGB8,
+	PixelFormat_BGRA8,
+	PixelFormat_ALPHA
 } pixel_format;
 
 typedef struct platform_texture_handle_desc {
@@ -83,19 +87,18 @@ typedef PLATFORM_SHOW_CURSOR(platform_show_cursor);
 #define PLATFORM_TOGGLE_FULLSCREEN(name) void name()
 typedef PLATFORM_TOGGLE_FULLSCREEN(platform_toggle_fullscreen);
 
-typedef struct plore_get_current_directory_result {
-	char *Absolute;
-	char *FilePart;
-} plore_get_current_directory_result;
-
-#define PLATFORM_GET_CURRENT_DIRECTORY(name) plore_get_current_directory_result name(char *Buffer, u64 BufferSize)
-typedef PLATFORM_GET_CURRENT_DIRECTORY(platform_get_current_directory);
-
 #define PLATFORM_GET_CURRENT_DIRECTORY_PATH(name) plore_path name()
 typedef PLATFORM_GET_CURRENT_DIRECTORY_PATH(platform_get_current_directory_path);
 
-#define PLATFORM_SET_CURRENT_DIRECTORY(name) b64 name(char *Name)
+#define PLATFORM_SET_CURRENT_DIRECTORY(name) b64 name(char *Path)
 typedef PLATFORM_SET_CURRENT_DIRECTORY(platform_set_current_directory);
+
+
+// TODO(Evan): plore_path_buffer/plore_path should be used throughout the API.
+// We do not want the flexibility of arbitrarily-sized path buffers, degenerate paths are not worth supporting.
+//
+// However, the platform_debug_* functions can use arbitrarily null-terminated paths.
+// That way, quick-and-dirty debugging with string literals works as expected.
 
 typedef struct platform_path_pop_result {
 	b64 DidRemoveSomething;
@@ -106,24 +109,21 @@ typedef struct platform_path_pop_result {
 #define PLATFORM_PATH_POP(name) platform_path_pop_result name(char *Buffer, u64 BufferSize, b64 AddTrailingSlash)
 typedef PLATFORM_PATH_POP(platform_path_pop);
 
-#define PLATFORM_PATH_PUSH(name) void name(char *Buffer, char *Other, u64 BufferSize, b64 AddTrailingSlash)
-typedef PLATFORM_PATH_PUSH(platform_path_push);
-
 #define PLATFORM_PATH_IS_DIRECTORY(name) b64 name(char *Buffer)
 typedef PLATFORM_PATH_IS_DIRECTORY(platform_path_is_directory);
 
 #define PLATFORM_PATH_IS_TOP_LEVEL(name) b64 name(char *Buffer)
 typedef PLATFORM_PATH_IS_TOP_LEVEL(platform_path_is_top_level);
 
-#define PLATFORM_PATH_JOIN(name) void name(char *Buffer, char *First, char *Second)
+#define PLATFORM_PATH_JOIN(name) b64 name(char *Buffer, char *First, char *Second)
 typedef PLATFORM_PATH_JOIN(platform_path_join);
 
 typedef struct directory_entry_result {
-	char *Name;         // NOTE(Evan): Alias to the string passed in.
-	plore_file *Buffer; // NOTE(Evan): Alias of the buffer passed in.
-	u64 Size; 
+	char *Name;         // NOTE(Evan): Aliases parameter.
+	plore_file *Buffer; // NOTE(Evan): Aliases parameter.
+	u64 Size;
 	u64 Count;
-	
+
 	u64 IgnoredCount;
 	b64 Succeeded;
 } directory_entry_result;
@@ -153,7 +153,7 @@ typedef PLATFORM_RUN_SHELL(platform_run_shell);
 // NOTE(Evan): Task bits.
 
 typedef struct memory_arena memory_arena;
-typedef struct platform_taskmaster platform_taskmaster; 
+typedef struct platform_taskmaster platform_taskmaster;
 
 typedef struct platform_task_info {
 	u64 ThreadID;
@@ -193,7 +193,7 @@ typedef PLATFORM_DEBUG_ASSERT_HANDLER(platform_debug_assert_handler);
 // NOTE(Evan): Platform API
 typedef struct platform_api {
 	platform_taskmaster *Taskmaster;
-	
+
 	union {
 		v2 WindowDimensions;
 		struct {
@@ -205,37 +205,35 @@ typedef struct platform_api {
 	platform_debug_assert_handler        *DebugAssertHandler;
 	platform_create_texture_handle       *CreateTextureHandle;
 	platform_destroy_texture_handle      *DestroyTextureHandle;
-	    
+
 	platform_show_cursor                 *ShowCursor;
 	platform_toggle_fullscreen           *ToggleFullscreen;
-	    
+
     platform_debug_open_file             *DebugOpenFile;
     platform_debug_read_entire_file      *DebugReadEntireFile;
     platform_debug_read_file_size        *DebugReadFileSize;
 	platform_debug_close_file            *DebugCloseFile;
     platform_debug_print_line            *DebugPrintLine;
     platform_debug_print                 *DebugPrint;
-	
+
 	platform_directory_size_task_begin   *DirectorySizeTaskBegin;
-	
+
 	platform_get_directory_entries       *GetDirectoryEntries;
-	platform_get_current_directory       *GetCurrentDirectory;
 	platform_get_current_directory_path  *GetCurrentDirectoryPath;
 	platform_set_current_directory       *SetCurrentDirectory;
-	
+
 	platform_path_pop                    *PathPop;
-	platform_path_push                   *PathPush;
+	platform_path_join                   *PathJoin;
 	platform_path_is_directory           *PathIsDirectory;
 	platform_path_is_top_level           *PathIsTopLevel;
-	platform_path_join                   *PathJoin;
-	
+
 	platform_create_file                 *CreateFile;
 	platform_create_directory            *CreateDirectory;
 	platform_move_file                   *MoveFile;
 	platform_rename_file                 *RenameFile;
 	platform_delete_file                 *DeleteFile;
 	platform_run_shell                   *RunShell;
-	
+
 	platform_create_task_with_memory     *CreateTaskWithMemory;
 	platform_start_task_with_memory      *StartTaskWithMemory;
 	platform_push_task                   *PushTask;

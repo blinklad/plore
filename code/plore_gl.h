@@ -75,9 +75,10 @@ typedef struct render_command {
 } render_command;
 
 internal void
-DrawSquare(render_quad Quad);
+ImmediateBegin(u64 WindowWidth, u64 WindowHeight);
 
+typedef struct plore_render_list plore_render_list;
 internal void
-DrawCircle(render_circle Circle);
+DoRender(plore_render_list *RenderList);
 
 #endif //PLORE_GL_H

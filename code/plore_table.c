@@ -17,18 +17,20 @@ typedef struct plore_file_listing_info_get_or_create_result {
 
 internal plore_file_listing_info_get_or_create_result
 GetOrCreateFileInfo(plore_file_context *Context, plore_path *Path) {
-	plore_file_listing_info_get_or_create_result Result = {
-		.Info = MapGet(&Context->FileInfo, Path).Value,	
-	};
-	
-	if (Result.Info) {
-		Result.DidAlreadyExist = true;
+	b64 DidAlreadyExist = false;
+	file_info_lookup *Lookup = MapGet(Context->FileInfo, Path->Absolute);
+
+	if (!MapIsDefault(Context->FileInfo, Lookup)) {
+		DidAlreadyExist = true;
 	} else {
-		plore_map_insert_result InfoResult = MapInsert(&Context->FileInfo, Path, &ClearStruct(plore_file_listing_info));
-		Assert(!InfoResult.DidAlreadyExist);
-		Result.Info = InfoResult.Value;
+		file_info_lookup Temp = {0};
+		PathCopy(Path->Absolute, Temp.K);
+		Lookup = MapInsert(Context->FileInfo, (&Temp));
 	}
-	return(Result);
+	return((plore_file_listing_info_get_or_create_result) {
+			.Info = &Lookup->V,
+			.DidAlreadyExist = DidAlreadyExist,
+			});
 }
 
 internal plore_file_listing_desc
@@ -42,7 +44,7 @@ ListingFromFile(plore_file *File) {
 		.LastModification = File->LastModification,
 		.Bytes = File->Bytes,
 	};
-	
+
 	return(Result);
 }
 
@@ -56,6 +58,6 @@ ListingFromDirectoryPath(plore_path *Path) {
 			.FilePart = Path->FilePart,
 		},
 	};
-	
+
 	return(Result);
 }
