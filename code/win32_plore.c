@@ -1401,6 +1401,42 @@ WindowsThreadStart(void *Param) {
 	}
 }
 
+#if 0
+typedef struct overlapped_job {
+	OVERLAPPED Overlapped;
+	HANDLE File;
+	b64 Complete;
+	plore_path_buffer Path;
+	u8 *Buffer;
+} overlapped_job;
+
+typedef struct overlapped_job_guy {
+	overlapped_job Jobs[64];
+	u64 JobCount;
+} overlapped_job_guy;
+
+internal void
+PushOverlappedTask(overlapped_job_guy *Guy, plore_path_buffer *Path) {
+	Assert(Guy->JobCount < ArrayCount(Guy->Jobs));
+	overlapped_job *Job = Guy->Jobs + Guy->JobCount++;
+	PathCopy(Job->Path, Path);
+	Job->Complete = false;
+	
+	Job->Overlapped = (OVERLAPPED) {
+		.hEvent = CreateEventA(0, true, false, 0),
+	};
+	Job->File = CreateFileA(Path, 
+							GENERIC_READ,
+							0,
+							0,
+							OPEN_EXISTING,
+							FILE_ATTRIBUTE_OVERLAPPED,
+							0,
+							0);
+	Assert(Job->File != INVALID_HANDLE_VALUE);
+}
+#endif
+
 int WinMain (
     HINSTANCE Instance,
     HINSTANCE PrevInstance,
