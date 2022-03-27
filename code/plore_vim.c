@@ -581,7 +581,6 @@ MoveHelper(plore_state *State, vim_command Command, i64 Direction) {
 	plore_tab *Tab = GetCurrentTab(State);
 	plore_file_context *FileContext = Tab->FileContext;
 	if (Tab->DirectoryState->Current.Count) {
-		DrawText("Here");
 		plore_file_listing_info_get_or_create_result Current = GetOrCreateFileInfo(FileContext, &Tab->DirectoryState->Current.File.Path);
 		u64 CursorStart = Current.Info->Cursor;
 

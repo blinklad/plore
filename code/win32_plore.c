@@ -6,6 +6,7 @@
 
 #include "win32_plore.h"
 
+
 global plore_input GlobalPloreInput;
 global windows_timer GlobalWindowsTimer;      // TODO(Evan): Timing!
 global windows_context *GlobalWindowsContext;
@@ -310,11 +311,6 @@ PLATFORM_PATH_POP(WindowsPathPop) {
 	return(Result);
 }
 
-PLATFORM_PATH_PUSH(WindowsPathPush) {
-	Assert((StringLength(Buffer)+1) >= PLORE_MAX_PATH);
-	PathAppendA(Buffer, Other);
-}
-
 PLATFORM_PATH_IS_DIRECTORY(WindowsPathIsDirectory) {
 	b64 Result = PathIsDirectory(Buffer);
 	return(Result);
@@ -326,12 +322,14 @@ PLATFORM_PATH_IS_TOP_LEVEL(WindowsPathIsTopLevel) {
 
 
 PLATFORM_PATH_JOIN(WindowsPathJoin) {
+	b32 Result = true;
 	b64 WeAreTopLevel = WindowsPathIsTopLevel(First);
 
 	u64 BytesWritten = StringCopy(First, Buffer, PLORE_MAX_PATH);
 	if (!WeAreTopLevel) Buffer[BytesWritten++] = '\\';
 
 	BytesWritten += StringCopy(Second, Buffer + BytesWritten, PLORE_MAX_PATH-BytesWritten);
+	return(Result);
 }
 
 
@@ -1212,7 +1210,7 @@ WindowsProcessMessages(windows_context *Context, keyboard_and_mouse *ThisFrame) 
 	        case WM_KEYDOWN:
 	        case WM_KEYUP:
 	        {
-	            bool32 IsDown = Message.message == WM_KEYDOWN;
+	            b32 IsDown = Message.message == WM_KEYDOWN;
 
 				if (IsDown && (u32) Message.wParam == VK_F1) {
 					WindowsToggleFullscreen();
@@ -1542,7 +1540,6 @@ int WinMain (
 		.GetDirectoryEntries     = WindowsGetDirectoryEntries,
 		.GetCurrentDirectoryPath = WindowsGetCurrentDirectoryPath,
 		.SetCurrentDirectory     = WindowsSetCurrentDirectory,
-		.PathPush                = WindowsPathPush,
 		.PathPop                 = WindowsPathPop,
 		.PathIsDirectory         = WindowsPathIsDirectory,
 		.PathIsTopLevel          = WindowsPathIsTopLevel,
