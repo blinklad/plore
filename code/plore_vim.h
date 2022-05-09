@@ -63,7 +63,7 @@ typedef enum vim_command_type {
 	VIM_COMMANDS
 	#undef PLORE_X
 	VimCommandType_Count,
-	_VimCommandType_ForceU64 = 0xFFFFFFFF,
+	_VimCommandType_ForceU64 = UINT64_MAX,
 } vim_command_type;
 
 
